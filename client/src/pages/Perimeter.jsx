@@ -4,6 +4,7 @@ import MapboxDraw from '@mapbox/mapbox-gl-draw'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css'
 import { createShipOperationPerimeter, getShipPerimeters } from '../lib/operations/shipOperations'
+import { Button } from '@/components/ui/button';
 
 function DrawControl({ onCreate, onUpdate, onDelete }) {
     useControl(
@@ -78,13 +79,17 @@ export default function Perimeter() {
 
     async function handleCreateShipOperationPerimeter() {
         await createShipOperationPerimeter(1, feature.geometry)
+        // clear the polygons
+        setPolygons({})
+        handleGetShipPerimeters()
+
     }
 
     return (
         <>
             <div className='flex gap-4 p-10'>
-                <button className='bg-blue-500 text-white p-2 rounded-md' onClick={handleGetShipPerimeters}>Buscar Perimetros</button>
-                <button className='bg-blue-500 text-white p-2 rounded-md' disabled={!feature} onClick={handleCreateShipOperationPerimeter}>Criar Perimetro</button>
+                <Button onClick={handleGetShipPerimeters}>Buscar Perimetros</Button>
+                <Button disabled={!feature} onClick={handleCreateShipOperationPerimeter}>Criar Perimetro</Button>
             </div>
             <Map
                 mapboxAccessToken={import.meta.env.VITE_MAPBOX_ACCESS_TOKEN}
@@ -93,8 +98,7 @@ export default function Perimeter() {
                     latitude: -28.2340501,
                     zoom: 14,
                 }}
-                style={{ width: '100%', height: '100vh' }}
-                mapStyle="mapbox://styles/mapbox/standard"
+                mapStyle="mapbox://styles/mapbox/standard-satellite"
             >
                 <DrawControl
                     onCreate={onUpdate}

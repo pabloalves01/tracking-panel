@@ -76,7 +76,6 @@ export default function Home() {
 
     return (
         <div>
-            <p>{health?.status}</p>
             <p>{Object.keys(polygons).length} polígono(s)</p>
             <button disabled={!feature} onClick={() => createShipOperationPerimeter(1, feature.geometry)}>Criar Perímetro</button>
             <button onClick={() => handleGetShipPerimeters(1)}>Buscar Perimetros</button>
