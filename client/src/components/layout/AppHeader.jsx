@@ -1,3 +1,4 @@
+import { ThemeToggle } from '@/components/layout/ThemeToggle'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Separator } from '@/components/ui/separator'
 import { SidebarTrigger } from '@/components/ui/sidebar'
@@ -12,6 +13,7 @@ export function AppHeader() {
             </div>
 
             <div className="ml-auto flex items-center gap-2">
+                <ThemeToggle />
                 <Avatar>
                     <AvatarFallback>{currentUser.initials}</AvatarFallback>
                 </Avatar>

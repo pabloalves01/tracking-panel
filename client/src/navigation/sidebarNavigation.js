@@ -1,7 +1,9 @@
 import {
+    BuildingIcon,
     HouseIcon,
     LayoutDashboardIcon,
     MapIcon,
+    MonitorCog,
     ShipIcon,
 } from 'lucide-react'
 
@@ -51,4 +53,16 @@ export const modules = [
             },
         ],
     },
+    {
+        title: 'Sistema',
+        icon: MonitorCog,
+        items: [
+            {
+                title: 'Empresas',
+                path: 'sistema/empresas',
+                icon: BuildingIcon,
+            },
+        ],
+    },
+
 ]
