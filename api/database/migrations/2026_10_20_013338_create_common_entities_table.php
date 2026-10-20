@@ -18,7 +18,7 @@ return new class extends Migration
             $table->string('name');
             $table->string('trade_name')->nullable();
             $table->string('person_type'); // PF ou PJ
-            $table->string('cpf_cnpj')->unique();
+            $table->string('cpf_cnpj');
             $table->string('email')->nullable();
             $table->string('phone')->nullable();
             // todo:: adicionar campos de estado, endereço, cidade, cep, etc..

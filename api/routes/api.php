@@ -2,6 +2,15 @@
 
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Operations\ShipOperationPerimeterController;
+use App\Http\Controllers\Registry\CommonEntityController;
+use App\Http\Controllers\Registry\CustomerController;
+use App\Http\Controllers\Registry\DriverController;
+use App\Http\Controllers\Registry\EmployeeController;
+use App\Http\Controllers\Registry\FuelStationController;
+use App\Http\Controllers\Registry\SupplierController;
+use App\Http\Controllers\Registry\VehicleController;
+use App\Http\Controllers\Registry\VehicleOwnerController;
+use App\Http\Controllers\Registry\VehicleResponsibleController;
 use App\Http\Controllers\System\Company\CompanyController;
 use Illuminate\Support\Facades\Route;
 
@@ -12,12 +21,12 @@ Route::get('/health', function () {
 });
 
 
-
-
+// todo:: migrar depois para dentro do company routes
 Route::get('/ship-operation-perimeters/{shipOperationId}', [ShipOperationPerimeterController::class, 'get']);
 Route::post('/ship-operation-perimeters', [ShipOperationPerimeterController::class, 'create']);
 
 // =============================== AUTH ROUTES ===============================
+
 Route::prefix('auth')->group(function () {
     Route::post('login', [AuthController::class, 'login']);
 
@@ -28,6 +37,81 @@ Route::prefix('auth')->group(function () {
         Route::post('company', [AuthController::class, 'selectCompany']);
     });
 });
+
+// =============================== API COMPANY ROUTES ===============================
+
+Route::middleware(['auth:sanctum', 'ensure.company'])->group(function () {
+
+    Route::prefix('registry')->group(function () {
+        Route::get('entities/by-document/{document}', [CommonEntityController::class, 'byDocument']);
+
+        Route::prefix('employees')->group(function () {
+            Route::get('/', [EmployeeController::class, 'index']);
+            Route::post('/', [EmployeeController::class, 'store']);
+            Route::get('/{uuid}', [EmployeeController::class, 'show']);
+            Route::put('/{uuid}', [EmployeeController::class, 'update']);
+            Route::delete('/{uuid}', [EmployeeController::class, 'destroy']);
+        });
+
+        Route::prefix('suppliers')->group(function () {
+            Route::get('/', [SupplierController::class, 'index']);
+            Route::post('/', [SupplierController::class, 'store']);
+            Route::get('/{uuid}', [SupplierController::class, 'show']);
+            Route::put('/{uuid}', [SupplierController::class, 'update']);
+            Route::delete('/{uuid}', [SupplierController::class, 'destroy']);
+        });
+
+        Route::prefix('customers')->group(function () {
+            Route::get('/', [CustomerController::class, 'index']);
+            Route::post('/', [CustomerController::class, 'store']);
+            Route::get('/{uuid}', [CustomerController::class, 'show']);
+            Route::put('/{uuid}', [CustomerController::class, 'update']);
+            Route::delete('/{uuid}', [CustomerController::class, 'destroy']);
+        });
+
+        Route::prefix('fuel-stations')->group(function () {
+            Route::get('/', [FuelStationController::class, 'index']);
+            Route::post('/', [FuelStationController::class, 'store']);
+            Route::get('/{uuid}', [FuelStationController::class, 'show']);
+            Route::put('/{uuid}', [FuelStationController::class, 'update']);
+            Route::delete('/{uuid}', [FuelStationController::class, 'destroy']);
+        });
+
+        Route::prefix('drivers')->group(function () {
+            Route::get('/', [DriverController::class, 'index']);
+            Route::post('/', [DriverController::class, 'store']);
+            Route::get('/{uuid}', [DriverController::class, 'show']);
+            Route::put('/{uuid}', [DriverController::class, 'update']);
+            Route::delete('/{uuid}', [DriverController::class, 'destroy']);
+        });
+
+        Route::prefix('vehicle-owners')->group(function () {
+            Route::get('/', [VehicleOwnerController::class, 'index']);
+            Route::post('/', [VehicleOwnerController::class, 'store']);
+            Route::get('/{uuid}', [VehicleOwnerController::class, 'show']);
+            Route::put('/{uuid}', [VehicleOwnerController::class, 'update']);
+            Route::delete('/{uuid}', [VehicleOwnerController::class, 'destroy']);
+        });
+
+        Route::prefix('vehicle-responsibles')->group(function () {
+            Route::get('/', [VehicleResponsibleController::class, 'index']);
+            Route::post('/', [VehicleResponsibleController::class, 'store']);
+            Route::get('/{uuid}', [VehicleResponsibleController::class, 'show']);
+            Route::put('/{uuid}', [VehicleResponsibleController::class, 'update']);
+            Route::delete('/{uuid}', [VehicleResponsibleController::class, 'destroy']);
+        });
+
+        Route::prefix('vehicles')->group(function () {
+            Route::get('/', [VehicleController::class, 'index']);
+            Route::post('/', [VehicleController::class, 'store']);
+            Route::get('/{uuid}', [VehicleController::class, 'show']);
+            Route::put('/{uuid}', [VehicleController::class, 'update']);
+            Route::delete('/{uuid}', [VehicleController::class, 'destroy']);
+        });
+    });
+});
+
+// =============================== ADMIN SYSTEM ROUTES ===============================
 
 Route::middleware(['auth:sanctum', 'ensure.system'])->group(function () {
     Route::group(['prefix' => '/system'], function () {
@@ -40,5 +124,3 @@ Route::middleware(['auth:sanctum', 'ensure.system'])->group(function () {
         });
     });
 });
-
-// =============================== SYSTEM ROUTES ===============================
