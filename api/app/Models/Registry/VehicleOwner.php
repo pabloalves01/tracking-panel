@@ -20,6 +20,7 @@ class VehicleOwner extends Model
     protected $fillable = [
         'company_id',
         'entity_id',
+        'status',
     ];
 
     // ================================ BELONGS TO RELATIONS ================================

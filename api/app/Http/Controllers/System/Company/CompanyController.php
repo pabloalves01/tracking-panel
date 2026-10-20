@@ -92,12 +92,32 @@ class CompanyController extends Controller
         }
     }
 
-    public function destroy(Request $request, $uuid)
+    public function deactivate(string $uuid)
     {
         try {
-            $this->companyService->delete($uuid);
+            $this->companyService->deactivate($uuid);
             return response()->json([
-                'message' => 'Empresa excluída com sucesso',
+                'message' => 'Empresa desativada com sucesso',
+            ]);
+        } catch (DomainException $e) {
+            Log::error($e->getMessage());
+            return response()->json([
+                'message' => $e->getMessage(),
+            ], 500);
+        } catch (Exception $e) {
+            Log::error($e->getMessage());
+            return response()->json([
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function activate(string $uuid)
+    {
+        try {
+            $this->companyService->activate($uuid);
+            return response()->json([
+                'message' => 'Empresa ativada com sucesso',
             ]);
         } catch (DomainException $e) {
             Log::error($e->getMessage());

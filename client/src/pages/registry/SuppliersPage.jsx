@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
-import { PencilIcon, PlusIcon, TrashIcon, UsersIcon } from 'lucide-react'
+import { BanIcon, CircleCheckIcon, PencilIcon, PlusIcon, UsersIcon } from 'lucide-react'
 
 import { ActionButton } from '@/components/common/button/ActionButton'
 import { LayoutToolbar } from '@/components/common/LayoutToolbar'
@@ -19,7 +19,7 @@ import { Badge } from '@/components/ui/badge'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { formatCpfCnpj, formatPhone } from '@/helpers/formatters'
-import { deleteSupplier, getSuppliers } from '@/lib/registry/suppliers'
+import { activateSupplier, deactivateSupplier, getSuppliers } from '@/lib/registry/suppliers'
 import { notifyError, notifySuccess } from '@/lib/notify'
 
 const listPath = '/app/cadastros/entidades/fornecedores'
@@ -33,7 +33,7 @@ export default function SuppliersPage() {
     const navigate = useNavigate()
     const [suppliers, setSuppliers] = useState([])
     const [loading, setLoading] = useState(false)
-    const [supplierToDelete, setSupplierToDelete] = useState(null)
+    const [supplierToToggle, setSupplierToToggle] = useState(null)
 
     useEffect(() => {
         loadSuppliers()
@@ -47,18 +47,22 @@ export default function SuppliersPage() {
             .finally(() => setLoading(false))
     }
 
-    async function handleDelete() {
-        if (!supplierToDelete) return
+    const supplierIsActive = supplierToToggle?.status !== 'inactive'
+
+    async function handleToggleStatus() {
+        if (!supplierToToggle) return
         setLoading(true)
 
         try {
-            const response = await deleteSupplier(supplierToDelete.uuid)
+            const response = supplierIsActive
+                ? await deactivateSupplier(supplierToToggle.uuid)
+                : await activateSupplier(supplierToToggle.uuid)
             notifySuccess(response)
             loadSuppliers()
         } catch (error) {
             notifyError(error)
         } finally {
-            setSupplierToDelete(null)
+            setSupplierToToggle(null)
             setLoading(false)
         }
     }
@@ -98,57 +102,71 @@ export default function SuppliersPage() {
                                 <TableHead>Documento</TableHead>
                                 <TableHead>E-mail</TableHead>
                                 <TableHead>Telefone</TableHead>
+                                <TableHead>Status</TableHead>
                                 <TableHead>Ações</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {suppliers.map((supplier) => (
-                                <TableRow key={supplier.uuid}>
-                                    <TableCell>{supplier.name}</TableCell>
-                                    <TableCell>{supplier.trade_name}</TableCell>
-                                    <TableCell>
-                                        <Badge variant="outline">
-                                            {personTypeLabel[supplier.person_type] ?? supplier.person_type}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell>{formatCpfCnpj(supplier.cpf_cnpj)}</TableCell>
+                            {suppliers.map((supplier) => {
+                                const isActive = supplier.status !== 'inactive'
 
-                                    <TableCell>{supplier.email}</TableCell>
-                                    <TableCell>{formatPhone(supplier.phone)}</TableCell>
-                                    <TableCell>
-                                        <div className="flex items-center gap-2">
-                                            <ActionButton
-                                                icon={PencilIcon}
-                                                tooltip="Editar"
-                                                onClick={() => navigate(`${listPath}/${supplier.uuid}/editar`)}
-                                            />
-                                            <ActionButton
-                                                icon={TrashIcon}
-                                                tooltip="Excluir"
-                                                variant="destructive"
-                                                onClick={() => setSupplierToDelete(supplier)}
-                                            />
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
+                                return (
+                                    <TableRow key={supplier.uuid}>
+                                        <TableCell>{supplier.name}</TableCell>
+                                        <TableCell>{supplier.trade_name}</TableCell>
+                                        <TableCell>
+                                            <Badge variant="outline">
+                                                {personTypeLabel[supplier.person_type] ?? supplier.person_type}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell>{formatCpfCnpj(supplier.cpf_cnpj)}</TableCell>
+                                        <TableCell>{supplier.email}</TableCell>
+                                        <TableCell>{formatPhone(supplier.phone)}</TableCell>
+                                        <TableCell>
+                                            <Badge variant="outline">{isActive ? 'Ativo' : 'Inativo'}</Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center gap-2">
+                                                <ActionButton
+                                                    icon={PencilIcon}
+                                                    tooltip="Editar"
+                                                    onClick={() => navigate(`${listPath}/${supplier.uuid}/editar`)}
+                                                />
+                                                <ActionButton
+                                                    icon={isActive ? BanIcon : CircleCheckIcon}
+                                                    tooltip={isActive ? 'Desativar' : 'Ativar'}
+                                                    variant={isActive ? 'destructive' : 'outline'}
+                                                    onClick={() => setSupplierToToggle(supplier)}
+                                                />
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                )
+                            })}
                         </TableBody>
                     </Table>
                 )}
             </LoadingWrapper>
 
-            <AlertDialog open={!!supplierToDelete} onOpenChange={(open) => !open && setSupplierToDelete(null)}>
+            <AlertDialog open={!!supplierToToggle} onOpenChange={(open) => !open && setSupplierToToggle(null)}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Excluir fornecedor</AlertDialogTitle>
+                        <AlertDialogTitle>
+                            {supplierIsActive ? 'Desativar fornecedor' : 'Ativar fornecedor'}
+                        </AlertDialogTitle>
                         <AlertDialogDescription>
-                            Tem certeza que deseja excluir {supplierToDelete?.name}? Essa ação não pode ser desfeita.
+                            {supplierIsActive
+                                ? `Tem certeza que deseja desativar ${supplierToToggle?.name}? O cadastro permanece e pode ser ativado de novo.`
+                                : `Tem certeza que deseja ativar ${supplierToToggle?.name}?`}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction variant="destructive" onClick={handleDelete}>
-                            Excluir
+                        <AlertDialogAction
+                            variant={supplierIsActive ? 'destructive' : 'default'}
+                            onClick={handleToggleStatus}
+                        >
+                            {supplierIsActive ? 'Desativar' : 'Ativar'}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

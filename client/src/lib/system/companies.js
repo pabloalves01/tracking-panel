@@ -16,8 +16,19 @@ export function updateCompany(uuid, company) {
     return api.put(`/system/companies/${uuid}`, company).then((response) => response.data)
 }
 
-export function deleteCompany(uuid) {
-    return api.delete(`/system/companies/${uuid}`).then((response) => response.data)
+export function deactivateCompany(uuid) {
+    return api.post(`/system/companies/${uuid}/deactivate`).then((response) => response.data)
 }
 
-export default { createCompany, getCompanies, getCompany, updateCompany, deleteCompany }
+export function activateCompany(uuid) {
+    return api.post(`/system/companies/${uuid}/activate`).then((response) => response.data)
+}
+
+export default {
+    createCompany,
+    getCompanies,
+    getCompany,
+    updateCompany,
+    deactivateCompany,
+    activateCompany
+} 

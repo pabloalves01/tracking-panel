@@ -19,12 +19,13 @@ class SupplierService
         return DB::transaction(function () use ($data) {
             $entity = $this->commonEntityService->findOrCreate($data['entity']);
 
-            $supplier = Supplier::firstOrCreate(['entity_id' => $entity->id]);
-
-            $supplier->update([
-                'pix_key_type' => $data['pix_key_type'] ?? null,
-                'pix_key' => $data['pix_key'] ?? null,
-            ]);
+            $supplier = Supplier::firstOrCreate(
+                ['entity_id' => $entity->id],
+                [
+                    'pix_key_type' => $data['pix_key_type'] ?? null,
+                    'pix_key' => $data['pix_key'] ?? null,
+                ]
+            );
 
             return $supplier->load('entity');
         });
@@ -50,11 +51,19 @@ class SupplierService
         });
     }
 
-    public function delete(string $uuid): void
+    public function deactivate(string $uuid): void
     {
         DB::transaction(function () use ($uuid) {
             $supplier = Supplier::where('uuid', $uuid)->firstOrFail();
-            $supplier->delete();
+            $supplier->update(['status' => 'inactive']);
+        });
+    }
+
+    public function activate(string $uuid): void
+    {
+        DB::transaction(function () use ($uuid) {
+            $supplier = Supplier::where('uuid', $uuid)->firstOrFail();
+            $supplier->update(['status' => 'active']);
         });
     }
 }

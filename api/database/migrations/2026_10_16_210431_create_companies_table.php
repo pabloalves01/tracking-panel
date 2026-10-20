@@ -18,6 +18,7 @@ return new class extends Migration
             $table->string('trade_name');
             $table->string('cnpj')->unique();
             $table->string('logo_path')->nullable();
+            $table->string('status', 50)->default('active');
             $table->timestamps();
             $table->softDeletes();
         });

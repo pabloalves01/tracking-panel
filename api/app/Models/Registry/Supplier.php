@@ -21,6 +21,7 @@ class Supplier extends Model
         'entity_id',
         'pix_key_type',
         'pix_key',
+        'status',
     ];
 
     // ================================ BELONGS TO RELATIONS ================================

@@ -21,6 +21,7 @@ class CompanyResource extends JsonResource
             'trade_name' => $this->trade_name,
             'cnpj' => $this->cnpj,
             'logo_path' => $this->logo_path,
+            'status' => $this->status,
             'users_count' => $this->whenCounted('users'),
             // 'created_at' => $this->created_at?->toISOString(),
             // 'updated_at' => $this->updated_at?->toISOString(),

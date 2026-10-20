@@ -22,6 +22,7 @@ class Vehicle extends Model
         'vehicle_owner_id',
         'vehicle_responsible_id',
         'plate',
+        'status',
     ];
 
     // ================================ BELONGS TO RELATIONS ================================

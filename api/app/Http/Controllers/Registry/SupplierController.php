@@ -9,7 +9,6 @@ use App\Http\Resources\Registry\Supplier\SupplierResource;
 use App\Services\Registry\SupplierService;
 use DomainException;
 use Exception;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class SupplierController extends Controller
@@ -96,13 +95,34 @@ class SupplierController extends Controller
         }
     }
 
-    public function destroy(Request $request, $uuid)
+    public function deactivate(string $uuid)
     {
         try {
-            $this->supplierService->delete($uuid);
+            $this->supplierService->deactivate($uuid);
 
             return response()->json([
-                'message' => 'Fornecedor excluído com sucesso',
+                'message' => 'Fornecedor desativado com sucesso',
+            ]);
+        } catch (DomainException $e) {
+            Log::error($e->getMessage());
+            return response()->json([
+                'message' => $e->getMessage(),
+            ], 500);
+        } catch (Exception $e) {
+            Log::error($e->getMessage());
+            return response()->json([
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function activate(string $uuid)
+    {
+        try {
+            $this->supplierService->activate($uuid);
+
+            return response()->json([
+                'message' => 'Fornecedor ativado com sucesso',
             ]);
         } catch (DomainException $e) {
             Log::error($e->getMessage());

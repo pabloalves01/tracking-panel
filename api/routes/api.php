@@ -67,7 +67,8 @@ Route::middleware(['auth:sanctum', 'ensure.company'])->group(function () {
             Route::post('/', [SupplierController::class, 'store']);
             Route::get('/{uuid}', [SupplierController::class, 'show']);
             Route::put('/{uuid}', [SupplierController::class, 'update']);
-            Route::delete('/{uuid}', [SupplierController::class, 'destroy']);
+            Route::post('/{uuid}/deactivate', [SupplierController::class, 'deactivate']);
+            Route::post('/{uuid}/activate', [SupplierController::class, 'activate']);
         });
 
         Route::prefix('customers')->group(function () {
@@ -129,7 +130,8 @@ Route::middleware(['auth:sanctum', 'ensure.system'])->group(function () {
             Route::post('/', [CompanyController::class, 'store']);
             Route::get('/{uuid}', [CompanyController::class, 'show']);
             Route::put('/{uuid}', [CompanyController::class, 'update']);
-            Route::delete('/{uuid}', [CompanyController::class, 'destroy']);
+            Route::post('/{uuid}/deactivate', [CompanyController::class, 'deactivate']);
+            Route::post('/{uuid}/activate', [CompanyController::class, 'activate']);
         });
     });
 });

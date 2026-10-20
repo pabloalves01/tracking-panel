@@ -20,6 +20,7 @@ class Employee extends Model
         'company_id',
         'entity_id',
         'name',
+        'status',
     ];
 
     // ================================ BELONGS TO RELATIONS ================================

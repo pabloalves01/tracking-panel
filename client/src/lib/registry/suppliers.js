@@ -16,8 +16,12 @@ export function updateSupplier(uuid, supplier) {
     return api.put(`/registry/suppliers/${uuid}`, supplier).then((response) => response.data)
 }
 
-export function deleteSupplier(uuid) {
-    return api.delete(`/registry/suppliers/${uuid}`).then((response) => response.data)
+export function deactivateSupplier(uuid) {
+    return api.post(`/registry/suppliers/${uuid}/deactivate`).then((response) => response.data)
 }
 
-export default { getSuppliers, createSupplier, getSupplier, updateSupplier, deleteSupplier }
+export function activateSupplier(uuid) {
+    return api.post(`/registry/suppliers/${uuid}/activate`).then((response) => response.data)
+}
+
+export default { getSuppliers, createSupplier, getSupplier, updateSupplier, deactivateSupplier, activateSupplier }

@@ -26,6 +26,7 @@ class SupplierResource extends JsonResource
             'phone' => $this->entity?->phone,
             'pix_key_type' => $this->pix_key_type,
             'pix_key' => $this->pix_key,
+            'status' => $this->status,
         ];
     }
 }

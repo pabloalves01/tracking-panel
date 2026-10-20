@@ -1,6 +1,7 @@
 import { formatWithMask, unformatWithMask } from 'use-mask-input'
 
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 /**
  * Chave PIX num único campo: o tipo fica à esquerda e o valor à direita.
@@ -59,8 +60,12 @@ export function InputPix({ id, type = 'cpf', value = '', onTypeChange, onValueCh
     const masked = usesMask && digits ? formatWithMask(digits, current.pattern, maskOptions) : ''
     const displayValue = usesMask ? masked : value
 
-    function handleTypeChange(event) {
-        onTypeChange?.(event.target.value)
+    function handleTypeChange(nextType) {
+        if (!nextType) {
+            return
+        }
+
+        onTypeChange?.(nextType)
         onValueChange?.('')
     }
 
@@ -84,19 +89,27 @@ export function InputPix({ id, type = 'cpf', value = '', onTypeChange, onValueCh
     return (
         <InputGroup>
             <InputGroupAddon align="inline-start" className="h-full border-r border-input px-0 py-0 text-foreground">
-                <select
-                    aria-label="Tipo da chave PIX"
+                <Select
+                    items={pixKeyTypes}
                     value={current.value}
-                    onChange={handleTypeChange}
-                    onClick={(event) => event.stopPropagation()}
-                    className="h-full w-28 cursor-pointer appearance-none bg-transparent px-3 text-sm text-foreground outline-none"
+                    onValueChange={handleTypeChange}
                 >
-                    {pixKeyTypes.map((item) => (
-                        <option key={item.value} value={item.value}>
-                            {item.label}
-                        </option>
-                    ))}
-                </select>
+                    <SelectTrigger
+                        aria-label="Tipo da chave PIX"
+                        className="h-full w-32 rounded-none border-0 bg-transparent shadow-none focus-visible:ring-0"
+                    >
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent align="start" alignItemWithTrigger={false}>
+                        <SelectGroup>
+                            {pixKeyTypes.map((item) => (
+                                <SelectItem key={item.value} value={item.value}>
+                                    {item.label}
+                                </SelectItem>
+                            ))}
+                        </SelectGroup>
+                    </SelectContent>
+                </Select>
             </InputGroupAddon>
             <InputGroupInput
                 id={id}

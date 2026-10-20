@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router"
-import { BuildingIcon, PencilIcon, PlusIcon, TrashIcon, User, UserIcon } from "lucide-react"
+import { BanIcon, BuildingIcon, CircleCheckIcon, PencilIcon, PlusIcon, User, UserIcon } from "lucide-react"
 
 import {
     AlertDialog,
@@ -19,7 +19,7 @@ import { ActionButton } from "@/components/common/button/ActionButton"
 import { LayoutToolbar } from "@/components/common/LayoutToolbar"
 import { LoadingWrapper } from "@/components/common/LoadingWrapper"
 import { formatCpfCnpj } from "@/helpers/formatters"
-import { deleteCompany, getCompanies } from "@/lib/system/companies"
+import { activateCompany, deactivateCompany, getCompanies } from "@/lib/system/companies"
 import { notifyError, notifySuccess } from "@/lib/notify"
 import { Badge } from "@/components/ui/badge";
 
@@ -27,8 +27,7 @@ export default function CompaniesPage() {
     const navigate = useNavigate()
     const [companies, setCompanies] = useState([])
     const [loading, setLoading] = useState(false)
-    // Empresa escolhida para excluir. Abre o diálogo de confirmação quando preenchida.
-    const [companyToDelete, setCompanyToDelete] = useState(null)
+    const [companyToToggle, setCompanyToToggle] = useState(null)
 
     useEffect(() => {
         loadCompanies()
@@ -42,18 +41,22 @@ export default function CompaniesPage() {
             .finally(() => setLoading(false))
     }
 
-    async function handleDelete() {
-        if (!companyToDelete) return
+    const companyIsActive = companyToToggle?.status !== "inactive"
+
+    async function handleToggleStatus() {
+        if (!companyToToggle) return
         setLoading(true)
 
         try {
-            const response = await deleteCompany(companyToDelete.uuid)
+            const response = companyIsActive
+                ? await deactivateCompany(companyToToggle.uuid)
+                : await activateCompany(companyToToggle.uuid)
             notifySuccess(response)
             loadCompanies()
         } catch (error) {
             notifyError(error)
         } finally {
-            setCompanyToDelete(null)
+            setCompanyToToggle(null)
             setLoading(false)
         }
     }
@@ -90,54 +93,69 @@ export default function CompaniesPage() {
                                 <TableHead>Nome fantasia</TableHead>
                                 <TableHead>CNPJ</TableHead>
                                 <TableHead>Usuários</TableHead>
+                                <TableHead>Status</TableHead>
                                 <TableHead>Ações</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {companies.map((company) => (
-                                <TableRow key={company.uuid}>
-                                    <TableCell>{company.legal_name}</TableCell>
-                                    <TableCell>{company.trade_name}</TableCell>
-                                    <TableCell>{formatCpfCnpj(company.cnpj)}</TableCell>
-                                    <TableCell>
-                                        <Badge variant="outline">
-                                            <UserIcon data-icon="inline-start" /> {company.users_count}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="flex items-center gap-2">
-                                            <ActionButton
-                                                icon={PencilIcon}
-                                                tooltip="Editar"
-                                                onClick={() => navigate(`/app/sistema/empresas/${company.uuid}/editar`)}
-                                            />
-                                            <ActionButton
-                                                icon={TrashIcon}
-                                                tooltip="Excluir"
-                                                variant="destructive"
-                                                onClick={() => setCompanyToDelete(company)}
-                                            />
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
+                            {companies.map((company) => {
+                                const isActive = company.status !== "inactive"
+
+                                return (
+                                    <TableRow key={company.uuid}>
+                                        <TableCell>{company.legal_name}</TableCell>
+                                        <TableCell>{company.trade_name}</TableCell>
+                                        <TableCell>{formatCpfCnpj(company.cnpj)}</TableCell>
+                                        <TableCell>
+                                            <Badge variant="outline">
+                                                <UserIcon data-icon="inline-start" /> {company.users_count}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge variant="outline">{isActive ? "Ativo" : "Inativo"}</Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center gap-2">
+                                                <ActionButton
+                                                    icon={PencilIcon}
+                                                    tooltip="Editar"
+                                                    onClick={() => navigate(`/app/sistema/empresas/${company.uuid}/editar`)}
+                                                />
+                                                <ActionButton
+                                                    icon={isActive ? BanIcon : CircleCheckIcon}
+                                                    tooltip={isActive ? "Desativar" : "Ativar"}
+                                                    variant={isActive ? "destructive" : "outline"}
+                                                    onClick={() => setCompanyToToggle(company)}
+                                                />
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                )
+                            })}
                         </TableBody>
                     </Table>
                 )}
             </LoadingWrapper>
 
-            <AlertDialog open={!!companyToDelete} onOpenChange={(open) => !open && setCompanyToDelete(null)}>
+            <AlertDialog open={!!companyToToggle} onOpenChange={(open) => !open && setCompanyToToggle(null)}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Excluir empresa</AlertDialogTitle>
+                        <AlertDialogTitle>
+                            {companyIsActive ? "Desativar empresa" : "Ativar empresa"}
+                        </AlertDialogTitle>
                         <AlertDialogDescription>
-                            Tem certeza que deseja excluir {companyToDelete?.legal_name}? Essa ação não pode ser desfeita.
+                            {companyIsActive
+                                ? `Tem certeza que deseja desativar ${companyToToggle?.legal_name}? O cadastro permanece e pode ser ativado de novo.`
+                                : `Tem certeza que deseja ativar ${companyToToggle?.legal_name}?`}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction variant="destructive" onClick={handleDelete}>
-                            Excluir
+                        <AlertDialogAction
+                            variant={companyIsActive ? "destructive" : "default"}
+                            onClick={handleToggleStatus}
+                        >
+                            {companyIsActive ? "Desativar" : "Ativar"}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

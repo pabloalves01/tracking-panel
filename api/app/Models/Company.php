@@ -19,6 +19,7 @@ class Company extends Model
         'trade_name',
         'cnpj',
         'logo_path',
+        'status',
     ];
 
     // ===================== HAS MANY RELATIONS =====================

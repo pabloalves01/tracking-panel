@@ -12,7 +12,15 @@ class CompanyService
 
     public function list()
     {
-        return Company::withCount('users')->orderBy('created_at', 'desc')->get();
+        // With count não considera o usuário administrador que é colocado
+        // em todas as empresas criadas.
+        return Company::withCount([
+            'users as users_count' => function ($query) {
+                $query->whereDoesntHave('user', function ($user) {
+                    $user->where('is_system_admin', true);
+                });
+            },
+        ])->orderBy('created_at', 'desc')->get();
     }
 
     public function store(array $data): Company
@@ -76,11 +84,19 @@ class CompanyService
         });
     }
 
-    public function delete(string $uuid): void
+    public function deactivate(string $uuid): void
     {
         DB::transaction(function () use ($uuid) {
             $company = Company::where('uuid', $uuid)->firstOrFail();
-            $company->delete();
+            $company->update(['status' => 'inactive']);
+        });
+    }
+
+    public function activate(string $uuid): void
+    {
+        DB::transaction(function () use ($uuid) {
+            $company = Company::where('uuid', $uuid)->firstOrFail();
+            $company->update(['status' => 'active']);
         });
     }
 }
