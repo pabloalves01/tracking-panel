@@ -29,14 +29,12 @@ class SupplierService
     public function store(array $data): Supplier
     {
         return DB::transaction(function () use ($data) {
-
-            $existSupplier = Supplier::where('entity_id', $data['entity']['id'])->first();
-            if ($existSupplier) {
-                throw new DomainException('Fornecedor já existe', );
-            }
-
-
             $entity = $this->commonEntityService->findOrCreate($data['entity']);
+
+            $existSupplier = Supplier::where('entity_id', $entity->id)->first();
+            if ($existSupplier) {
+                throw new DomainException('Fornecedor já existe');
+            }
 
             $supplier = Supplier::firstOrCreate(
                 ['entity_id' => $entity->id],
