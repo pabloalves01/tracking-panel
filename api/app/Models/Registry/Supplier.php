@@ -19,7 +19,8 @@ class Supplier extends Model
     protected $fillable = [
         'company_id',
         'entity_id',
-        'name',
+        'pix_key_type',
+        'pix_key',
     ];
 
     // ================================ BELONGS TO RELATIONS ================================

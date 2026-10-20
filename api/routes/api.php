@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Operations\ShipOperationPerimeterController;
+use App\Http\Controllers\Registry\CarrierController;
 use App\Http\Controllers\Registry\CommonEntityController;
 use App\Http\Controllers\Registry\CustomerController;
 use App\Http\Controllers\Registry\DriverController;
@@ -51,6 +52,14 @@ Route::middleware(['auth:sanctum', 'ensure.company'])->group(function () {
             Route::get('/{uuid}', [EmployeeController::class, 'show']);
             Route::put('/{uuid}', [EmployeeController::class, 'update']);
             Route::delete('/{uuid}', [EmployeeController::class, 'destroy']);
+        });
+
+        Route::prefix('carriers')->group(function () {
+            Route::get('/', [CarrierController::class, 'index']);
+            Route::post('/', [CarrierController::class, 'store']);
+            Route::get('/{uuid}', [CarrierController::class, 'show']);
+            Route::put('/{uuid}', [CarrierController::class, 'update']);
+            Route::delete('/{uuid}', [CarrierController::class, 'destroy']);
         });
 
         Route::prefix('suppliers')->group(function () {

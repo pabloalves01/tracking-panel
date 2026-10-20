@@ -39,7 +39,7 @@ class Vehicle extends Model
      */
     public function owner()
     {
-        return $this->belongsTo(VehicleOwner::class);
+        return $this->belongsTo(VehicleOwner::class, 'vehicle_owner_id');
     }
 
     /**
@@ -47,7 +47,7 @@ class Vehicle extends Model
      */
     public function responsible()
     {
-        return $this->belongsTo(VehicleResponsible::class);
+        return $this->belongsTo(VehicleResponsible::class, 'vehicle_responsible_id');
     }
     // ================================ OVERRIDE METHODS ================================
 

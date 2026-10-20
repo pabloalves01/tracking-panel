@@ -6,7 +6,7 @@ import Perimeter from '@/pages/Perimeter'
 import ProfilePage from '@/pages/ProfilePage'
 
 import authRoutes from './auth/authRoutes'
-import moduleRoutes from './moduleRoutes'
+import registryRoutes from './registry/registryRoutes'
 import { RequireCompany } from './RequireCompany'
 import systemRoutes from './system/systemRoutes'
 
@@ -23,7 +23,7 @@ export const router = createBrowserRouter([
       { index: true, element: <Home /> },
       { path: 'perfil', element: <ProfilePage /> },
       { path: 'operacoes/rastreamento', element: <Perimeter /> },
-      ...moduleRoutes,
+      ...registryRoutes,
       ...systemRoutes,
     ],
   },

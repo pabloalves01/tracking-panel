@@ -26,13 +26,10 @@ import {
 } from 'lucide-react'
 
 /**
- * Navegação da sidebar, também usada para gerar as rotas.
+ * Navegação da sidebar. As rotas ficam em `src/router`, um arquivo por módulo.
  *
  * `path` da home é `/app`. Nos demais itens, `path` é o trecho depois de `/app`.
  * Exemplo: `financeiro/transacoes` vira `/app/financeiro/transacoes`.
- *
- * Cada item pode ter `children`. O item e cada nível de filho viram uma página
- * que lista o que existe dentro dele.
  *
  * `access` controla a visibilidade do grupo conforme a sessão:
  * - 'company': só aparece quando há empresa selecionada.
@@ -127,8 +124,8 @@ export const navigation = [
                 icon: ContactIcon,
                 children: [
                     {
-                        title: 'Pessoas',
-                        path: 'pessoas',
+                        title: 'Entidades',
+                        path: 'entidades',
                         icon: UsersIcon,
                         children: [
                             { title: 'Fornecedores', path: 'fornecedores', icon: UsersIcon },
@@ -194,21 +191,4 @@ export const navigation = [
 export function joinPath(parent, child) {
     if (!parent || parent === '/app') return child
     return `${parent.replace(/\/+$/, '')}/${child.replace(/^\/+/, '')}`
-}
-
-/** Achata a árvore em uma lista com o caminho completo de cada nó. */
-export function flattenNavigation(groups = navigation) {
-    const pages = []
-
-    function walk(items, parentPath) {
-        for (const item of items) {
-            const path = parentPath ? joinPath(parentPath, item.path) : item.path
-            pages.push({ ...item, path, children: item.children ?? [] })
-            if (item.children) walk(item.children, path)
-        }
-    }
-
-    for (const group of groups) walk(group.items, null)
-
-    return pages
 }

@@ -47,7 +47,7 @@ class CommonEntity extends Model
      */
     public function supplier()
     {
-        return $this->hasOne(Supplier::class);
+        return $this->hasOne(Supplier::class, 'entity_id');
     }
 
     /**
@@ -55,7 +55,7 @@ class CommonEntity extends Model
      */
     public function employee()
     {
-        return $this->hasOne(Employee::class);
+        return $this->hasOne(Employee::class, 'entity_id');
     }
 
     /**
@@ -63,7 +63,7 @@ class CommonEntity extends Model
      */
     public function driver()
     {
-        return $this->hasOne(Driver::class);
+        return $this->hasOne(Driver::class, 'entity_id');
     }
 
     /**
@@ -71,7 +71,7 @@ class CommonEntity extends Model
      */
     public function vehicleOwner()
     {
-        return $this->hasOne(VehicleOwner::class);
+        return $this->hasOne(VehicleOwner::class, 'entity_id');
     }
 
     /**
@@ -79,7 +79,7 @@ class CommonEntity extends Model
      */
     public function vehicleResponsible()
     {
-        return $this->hasOne(VehicleResponsible::class);
+        return $this->hasOne(VehicleResponsible::class, 'entity_id');
     }
 
     // ================================ OVERRIDE METHODS ================================

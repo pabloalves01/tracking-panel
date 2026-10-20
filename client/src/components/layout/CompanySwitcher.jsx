@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Building2, ChevronsUpDown } from 'lucide-react'
+import { useNavigate } from 'react-router'
 
 import {
     DropdownMenu,
@@ -19,6 +20,7 @@ import { useSession } from '@/lib/auth/session'
 export function CompanySwitcher() {
     const { currentCompany, companies, switchCompany } = useSession()
     const [switching, setSwitching] = useState(false)
+    const navigate = useNavigate()
 
     // Admin do sistema pode não ter empresa vinculada: sem empresas, não há o que trocar.
     if (!companies.length) return null
@@ -27,6 +29,7 @@ export function CompanySwitcher() {
         setSwitching(true)
         try {
             await switchCompany(uuid)
+            navigate('/app')
         } catch {
             setSwitching(false)
         }
