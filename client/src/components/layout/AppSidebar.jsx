@@ -53,17 +53,21 @@ function isCurrentPath(path, pathname) {
     return pathname === href || pathname.startsWith(`${href}/`)
 }
 
-/** Deixa abertos os itens que contêm a rota atual. */
+/**
+ * Um item aberto por nível: a chave é o nível (0, 1, 2...) e o valor é o
+ * caminho aberto nele. Assim, abrir um item fecha o que estava aberto no
+ * mesmo nível, sem afetar os níveis de dentro.
+ */
 function openItemsForPath(pathname) {
     const open = {}
     const relative = pathname.replace(/^\/app\/?/, '')
     if (!relative) return open
 
     let current = ''
-    for (const segment of relative.split('/')) {
+    relative.split('/').forEach((segment, depth) => {
         current = current ? `${current}/${segment}` : segment
-        open[current] = true
-    }
+        open[depth] = current
+    })
 
     return open
 }
@@ -75,17 +79,28 @@ export function AppSidebar() {
     const groups = visibleGroupsFor({ currentCompany, user })
     const [openItems, setOpenItems] = useState(() => openItemsForPath(pathname))
 
-    function toggleItem(itemPath) {
+    function toggleItem(itemPath, depth) {
         if (state === 'collapsed') setOpen(true)
-        setOpenItems((current) => ({ ...current, [itemPath]: !current[itemPath] }))
+        setOpenItems((current) => {
+            const isOpen = current[depth] === itemPath
+            const next = {}
+
+            // Mantém os níveis acima e troca (ou fecha) o nível clicado.
+            for (let level = 0; level < depth; level += 1) {
+                if (current[level]) next[level] = current[level]
+            }
+            if (!isOpen) next[depth] = itemPath
+
+            return next
+        })
     }
 
     return (
         <Sidebar collapsible="icon">
             <SidebarHeader>
                 <Link to="/app" className="flex items-center justify-center px-2 py-2">
-                    {/* Colorida no light, só laranja no dark. */}
-                    <img src="/brand/logo-color.svg" alt={app.name} className="h-10 w-auto dark:hidden" />
+                    {/* Branca com laranja sobre o fundo azul; só laranja no dark. */}
+                    <img src="/brand/logo-light.svg" alt={app.name} className="h-10 w-auto dark:hidden" />
                     <img src="/brand/logo-mono.svg" alt="" className="hidden h-10 w-auto dark:block" />
                 </Link>
             </SidebarHeader>
@@ -125,7 +140,7 @@ function NavItem({ item, fullPath, depth, pathname, openItems, onToggle }) {
     const Icon = item.icon
     const hasChildren = Boolean(item.children?.length)
     const active = isCurrentPath(fullPath, pathname)
-    const open = Boolean(openItems[fullPath])
+    const open = openItems[depth] === fullPath
 
     const Item = depth === 0 ? SidebarMenuItem : SidebarMenuSubItem
     const Button = depth === 0 ? SidebarMenuButton : SidebarMenuSubButton
@@ -135,7 +150,7 @@ function NavItem({ item, fullPath, depth, pathname, openItems, onToggle }) {
             isActive={active}
             className={active ? 'font-semibold' : undefined}
             render={<Link to={sidebarHref(fullPath)} />}
-            onClick={hasChildren ? () => onToggle(fullPath) : undefined}
+            onClick={hasChildren ? () => onToggle(fullPath, depth) : undefined}
             {...(depth === 0 ? { tooltip: item.title } : {})}
         >
             {Icon ? <Icon /> : null}
@@ -156,7 +171,7 @@ function NavItem({ item, fullPath, depth, pathname, openItems, onToggle }) {
         <Item>
             <Collapsible open={open}>
                 {button}
-                <CollapsibleContent>
+                <CollapsibleContent className="h-(--collapsible-panel-height) overflow-hidden transition-[height] duration-200 data-ending-style:h-0 data-starting-style:h-0">
                     <SidebarMenuSub className="mt-1 gap-1.5">
                         {item.children.map((child) => (
                             <NavItem

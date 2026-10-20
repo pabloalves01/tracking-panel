@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react"
-import { GalleryVerticalEnd } from "lucide-react"
 import { useNavigate } from "react-router"
 
 import { ThemeToggle } from "@/components/layout/ThemeToggle"
@@ -82,16 +81,15 @@ export default function LoginPage() {
     <LoadingWrapper loading={checkingSession || loading}>
     <div className="grid min-h-svh lg:grid-cols-2">
       <div className="flex flex-col gap-4 p-6 md:p-10">
-        <div className="flex items-center gap-2">
+        <div className="flex justify-between items-center gap-2">
           <a
             href="#"
             className="flex items-center gap-2 font-medium"
             onClick={(event) => event.preventDefault()}
           >
-            <div className="flex size-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
-              <GalleryVerticalEnd className="size-4" />
-            </div>
-            Logiv
+            {/* Azul com laranja no light, só laranja no dark. */}
+            <img src="/brand/logo-dark.svg" alt="Logiv" className="h-8 w-auto dark:hidden" />
+            <img src="/brand/logo-mono.svg" alt="" className="hidden h-8 w-auto dark:block" />
           </a>
           <ThemeToggle />
         </div>
