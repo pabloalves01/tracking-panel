@@ -25,7 +25,7 @@ class SupplierController extends Controller
             Log::error($e->getMessage());
             return response()->json([
                 'message' => $e->getMessage(),
-            ], 500);
+            ], 409);
         } catch (Exception $e) {
             Log::error($e->getMessage());
             return response()->json([
@@ -46,7 +46,7 @@ class SupplierController extends Controller
             Log::error($e->getMessage());
             return response()->json([
                 'message' => $e->getMessage(),
-            ], 500);
+            ], 409);
         } catch (Exception $e) {
             Log::error($e->getMessage());
             return response()->json([
@@ -65,7 +65,7 @@ class SupplierController extends Controller
             Log::error($e->getMessage());
             return response()->json([
                 'message' => $e->getMessage(),
-            ], 500);
+            ], 409);
         } catch (Exception $e) {
             Log::error($e->getMessage());
             return response()->json([
@@ -86,7 +86,7 @@ class SupplierController extends Controller
             Log::error($e->getMessage());
             return response()->json([
                 'message' => $e->getMessage(),
-            ], 500);
+            ], 409);
         } catch (Exception $e) {
             Log::error($e->getMessage());
             return response()->json([
@@ -107,7 +107,7 @@ class SupplierController extends Controller
             Log::error($e->getMessage());
             return response()->json([
                 'message' => $e->getMessage(),
-            ], 500);
+            ], 409);
         } catch (Exception $e) {
             Log::error($e->getMessage());
             return response()->json([
@@ -128,7 +128,7 @@ class SupplierController extends Controller
             Log::error($e->getMessage());
             return response()->json([
                 'message' => $e->getMessage(),
-            ], 500);
+            ], 409);
         } catch (Exception $e) {
             Log::error($e->getMessage());
             return response()->json([

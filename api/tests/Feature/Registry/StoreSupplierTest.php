@@ -79,7 +79,7 @@ class StoreSupplierTest extends TestCase
         $this->postJson('/api/registry/suppliers', $this->payload())->assertCreated();
 
         $this->postJson('/api/registry/suppliers', $this->payload())
-            ->assertStatus(500)
+            ->assertConflict()
             ->assertJsonPath('message', 'Fornecedor já existe');
 
         $this->assertSame(1, Supplier::query()->count());
