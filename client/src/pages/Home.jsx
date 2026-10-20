@@ -86,6 +86,7 @@ export default function Home() {
                         icon: RefreshCcw,
                         variant: 'outline',
                         onClick: () => window.location.reload(),
+                        className: 'cursor-pointer',
                     },
                 ]}
             />

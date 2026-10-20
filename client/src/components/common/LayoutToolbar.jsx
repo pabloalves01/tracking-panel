@@ -47,7 +47,7 @@ export function LayoutToolbar({ breadcrumbs = [], buttons = [], slot }) {
                 <div className="ml-auto flex flex-wrap items-center gap-2">
                     {slot}
                     {buttons.map((button) => (
-                        <ToolbarButton key={button.title} button={button} />
+                        <ToolbarButton key={button.title} button={button} className={button.className} />
                     ))}
                 </div>
             ) : null}
@@ -63,7 +63,7 @@ function BreadcrumbCrumb({ item, isCurrent }) {
     return <BreadcrumbLink render={<Link to={item.to} />}>{item.text}</BreadcrumbLink>
 }
 
-function ToolbarButton({ button }) {
+function ToolbarButton({ button, className }) {
     const Icon = button.icon
     const content = (
         <>
@@ -78,6 +78,7 @@ function ToolbarButton({ button }) {
                 nativeButton={false}
                 variant={button.variant}
                 size={button.size}
+                className={className}
                 render={<Link to={button.to} />}
             >
                 {content}
@@ -86,7 +87,7 @@ function ToolbarButton({ button }) {
     }
 
     return (
-        <Button type="button" variant={button.variant} size={button.size} onClick={button.onClick}>
+        <Button type="button" variant={button.variant} size={button.size} onClick={button.onClick} className={className}>
             {content}
         </Button>
     )
