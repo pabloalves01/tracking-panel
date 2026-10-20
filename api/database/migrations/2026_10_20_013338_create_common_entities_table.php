@@ -21,7 +21,13 @@ return new class extends Migration
             $table->string('cpf_cnpj');
             $table->string('email')->nullable();
             $table->string('phone')->nullable();
-            // todo:: adicionar campos de estado, endereço, cidade, cep, etc..
+            $table->string('postal_code')->nullable();
+            $table->string('street')->nullable();
+            $table->string('street_number')->nullable();
+            $table->string('complement')->nullable();
+            $table->string('neighborhood')->nullable();
+            $table->foreignId('city_id')->nullable()->constrained('cities');
+            $table->foreignId('state_id')->nullable()->constrained('states');
             $table->timestamps();
             $table->softDeletes();
 

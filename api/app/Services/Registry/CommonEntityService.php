@@ -12,7 +12,25 @@ class CommonEntityService
         $entity = CommonEntity::where('cpf_cnpj', $data['cpf_cnpj'])->first();
 
         if ($entity) {
-            $entity->update(Arr::only($data, ['name', 'trade_name', 'email', 'phone']));
+            // Documento já existe: atualiza contato e localização junto com o cadastro.
+            $entity->update(Arr::only($data, [
+                'name',
+                'trade_name',
+                'email',
+                'phone',
+                'postal_code',
+                'street',
+                'street_number',
+                'complement',
+                'neighborhood',
+                'state_id',
+                'city_id',
+                'postal_code',
+                'street',
+                'street_number',
+                'complement',
+                'neighborhood',
+            ]));
 
             return $entity;
         }

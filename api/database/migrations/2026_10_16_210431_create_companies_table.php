@@ -19,6 +19,8 @@ return new class extends Migration
             $table->string('cnpj')->unique();
             $table->string('logo_path')->nullable();
             $table->string('status', 50)->default('active');
+            $table->foreignId('state_id')->nullable()->constrained('states');
+            $table->foreignId('city_id')->nullable()->constrained('cities');
             $table->timestamps();
             $table->softDeletes();
         });

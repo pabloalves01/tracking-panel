@@ -31,6 +31,8 @@ class CompanyService
                 'trade_name' => $data['trade_name'],
                 'cnpj' => $data['cnpj'],
                 'logo_path' => $data['logo_path'] ?? null,
+                'state_id' => $data['state_id'] ?? null,
+                'city_id' => $data['city_id'] ?? null,
             ]);
 
             $user = User::where('email', $data['user']['email'])->first();
@@ -78,6 +80,8 @@ class CompanyService
                 'trade_name' => $data['trade_name'],
                 'cnpj' => $data['cnpj'],
                 'logo_path' => $data['logo_path'] ?? $company->logo_path,
+                'state_id' => array_key_exists('state_id', $data) ? $data['state_id'] : $company->state_id,
+                'city_id' => array_key_exists('city_id', $data) ? $data['city_id'] : $company->city_id,
             ]);
 
             return $company;

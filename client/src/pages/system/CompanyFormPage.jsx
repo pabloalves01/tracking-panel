@@ -2,7 +2,9 @@ import { useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router"
 import { Field, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { InputCity } from "@/components/common/inputs/InputCity"
 import { InputCpfCnpj } from "@/components/common/inputs/InputCpfCnpj"
+import { SelectState } from "@/components/common/inputs/SelectState"
 import { LayoutToolbar } from "@/components/common/LayoutToolbar"
 import { LoadingWrapper } from "@/components/common/LoadingWrapper"
 import { createCompany, getCompany, updateCompany } from "@/lib/system/companies"
@@ -19,6 +21,8 @@ export default function CompanyFormPage() {
         legal_name: '',
         trade_name: '',
         cnpj: '',
+        state_id: null,
+        city_id: null,
         user: {
             name: '',
             email: '',
@@ -36,6 +40,8 @@ export default function CompanyFormPage() {
                     legal_name: company.legal_name,
                     trade_name: company.trade_name,
                     cnpj: company.cnpj,
+                    state_id: company.state_id ?? null,
+                    city_id: company.city_id ?? null,
                 })
             })
             .catch(notifyError)
@@ -51,6 +57,8 @@ export default function CompanyFormPage() {
                 legal_name: formData.legal_name,
                 trade_name: formData.trade_name,
                 cnpj: formData.cnpj,
+                state_id: formData.state_id,
+                city_id: formData.city_id,
             }
             const response = isEditing
                 ? await updateCompany(uuid, company)
@@ -126,6 +134,41 @@ export default function CompanyFormPage() {
                         </FieldGroup>
                     </FieldSet>
 
+                    <Separator />
+
+                    <FieldSet>
+                        <FieldLegend variant="label">Localização</FieldLegend>
+                        <FieldDescription>
+                            Estado e cidade oficiais do IBGE. A cidade abre depois do estado.
+                        </FieldDescription>
+                        <FieldGroup className="md:grid md:grid-cols-3">
+                            <Field>
+                                <FieldLabel htmlFor="company-state">Estado</FieldLabel>
+                                <SelectState
+                                    id="company-state"
+                                    value={formData.state_id}
+                                    onChange={(stateId) => {
+                                        setFormData((current) => ({
+                                            ...current,
+                                            state_id: stateId,
+                                            city_id: null,
+                                        }))
+                                    }}
+                                />
+                            </Field>
+                            <Field data-disabled={formData.state_id ? undefined : true}>
+                                <FieldLabel htmlFor="company-city">Cidade</FieldLabel>
+                                <InputCity
+                                    id="company-city"
+                                    stateId={formData.state_id}
+                                    value={formData.city_id}
+                                    onChange={(cityId) => {
+                                        setFormData((current) => ({ ...current, city_id: cityId }))
+                                    }}
+                                />
+                            </Field>
+                        </FieldGroup>
+                    </FieldSet>
 
                     {!isEditing ? (
                         <>

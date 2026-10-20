@@ -4,6 +4,8 @@ namespace App\Models\Registry;
 
 use App\Models\Company;
 use App\Models\Concerns\BelongsToCompany;
+use App\Models\Location\City;
+use App\Models\Location\State;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -24,12 +26,46 @@ class CommonEntity extends Model
         'cpf_cnpj',
         'email',
         'phone',
+        'postal_code',
+        'street',
+        'street_number',
+        'complement',
+        'neighborhood',
+        'city_id',
+        'state_id',
     ];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'state_id' => 'integer',
+            'city_id' => 'integer',
+        ];
+    }
 
     // ================================ BELONGS TO RELATIONS ================================
     public function company()
     {
         return $this->belongsTo(Company::class);
+    }
+
+    /**
+     * The city that the entity belongs to.
+     */
+    public function city()
+    {
+        return $this->belongsTo(City::class);
+    }
+
+    /**
+     * The state that the entity belongs to.
+     */
+    public function state()
+    {
+        return $this->belongsTo(State::class);
     }
 
     // ================================ HAS ONE RELATIONS ================================

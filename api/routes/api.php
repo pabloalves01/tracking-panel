@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Location\LocationController;
 use App\Http\Controllers\Operations\ShipOperationPerimeterController;
 use App\Http\Controllers\Registry\CarrierController;
 use App\Http\Controllers\Registry\CommonEntityController;
@@ -39,6 +40,13 @@ Route::prefix('auth')->group(function () {
     });
 });
 
+// =============================== LOCATION ROUTES ===============================
+
+Route::middleware('auth:sanctum')->prefix('locations')->group(function () {
+    Route::get('states', [LocationController::class, 'states']);
+    Route::get('states/{state}/cities', [LocationController::class, 'cities']);
+});
+
 // =============================== API COMPANY ROUTES ===============================
 
 Route::middleware(['auth:sanctum', 'ensure.company'])->group(function () {
@@ -62,6 +70,7 @@ Route::middleware(['auth:sanctum', 'ensure.company'])->group(function () {
             Route::delete('/{uuid}', [CarrierController::class, 'destroy']);
         });
 
+        // # 01
         Route::prefix('suppliers')->group(function () {
             Route::get('/', [SupplierController::class, 'index']);
             Route::post('/', [SupplierController::class, 'store']);

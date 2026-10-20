@@ -2,9 +2,12 @@
 
 namespace App\Models;
 
+use App\Models\Location\City;
+use App\Models\Location\State;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Company extends Model
@@ -20,7 +23,32 @@ class Company extends Model
         'cnpj',
         'logo_path',
         'status',
+        'state_id',
+        'city_id',
     ];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'state_id' => 'integer',
+            'city_id' => 'integer',
+        ];
+    }
+
+    // ===================== BELONGS TO RELATIONS =====================
+
+    public function state(): BelongsTo
+    {
+        return $this->belongsTo(State::class);
+    }
+
+    public function city(): BelongsTo
+    {
+        return $this->belongsTo(City::class);
+    }
 
     // ===================== HAS MANY RELATIONS =====================
 

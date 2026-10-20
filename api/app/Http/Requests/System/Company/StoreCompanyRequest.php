@@ -28,6 +28,8 @@ class StoreCompanyRequest extends FormRequest
             'user.password' => $userExists
                 ? ['nullable']
                 : ['required', 'string', 'min:8', 'confirmed'],
+            'state_id' => ['nullable', 'integer', 'exists:states,id'],
+            'city_id' => ['nullable', 'integer', 'exists:cities,id'],
         ];
     }
 
@@ -50,6 +52,10 @@ class StoreCompanyRequest extends FormRequest
             'user.password.required' => 'A senha é obrigatória',
             'user.password.min' => 'A senha deve ter no mínimo 8 caracteres',
             'user.password.confirmed' => 'A confirmação da senha não confere',
+            'state_id.integer' => 'O estado informado é inválido',
+            'state_id.exists' => 'Selecione um estado válido',
+            'city_id.integer' => 'A cidade informada é inválida',
+            'city_id.exists' => 'Selecione uma cidade válida',
         ];
     }
 }

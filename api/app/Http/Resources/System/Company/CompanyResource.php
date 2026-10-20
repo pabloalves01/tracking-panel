@@ -20,6 +20,8 @@ class CompanyResource extends JsonResource
             'legal_name' => $this->legal_name,
             'trade_name' => $this->trade_name,
             'cnpj' => $this->cnpj,
+            'state_id' => $this->state_id,
+            'city_id' => $this->city_id,
             'logo_path' => $this->logo_path,
             'status' => $this->status,
             'users_count' => $this->whenCounted('users'),

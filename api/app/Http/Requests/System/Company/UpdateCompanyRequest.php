@@ -24,6 +24,8 @@ class UpdateCompanyRequest extends FormRequest
                 // Ignora a própria empresa para não acusar o CNPJ como duplicado dela mesma.
                 Rule::unique('companies', 'cnpj')->ignore($this->route('uuid'), 'uuid'),
             ],
+            'state_id' => ['nullable', 'integer', 'exists:states,id'],
+            'city_id' => ['nullable', 'integer', 'exists:cities,id'],
         ];
     }
 
@@ -40,6 +42,10 @@ class UpdateCompanyRequest extends FormRequest
             'cnpj.string' => 'O CNPJ deve ser uma string',
             'cnpj.max' => 'O CNPJ deve ter no máximo 18 caracteres',
             'cnpj.unique' => 'O CNPJ já está em uso',
+            'state_id.integer' => 'O estado informado é inválido',
+            'state_id.exists' => 'Selecione um estado válido',
+            'city_id.integer' => 'A cidade informada é inválida',
+            'city_id.exists' => 'Selecione uma cidade válida',
         ];
     }
 }
