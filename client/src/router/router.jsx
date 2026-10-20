@@ -1,15 +1,14 @@
 import { createBrowserRouter, Navigate } from 'react-router'
 
-import { AppLayout } from '@/layouts/AppLayout'
 import Home from '@/pages/Home'
 import NotFound from '@/pages/NotFound'
 import Perimeter from '@/pages/Perimeter'
 
 import authRoutes from './auth/authRoutes'
+import { RequireCompany } from './RequireCompany'
 import systemRoutes from './system/systemRoutes'
 
 export const router = createBrowserRouter([
-  // Se for para a raiz, redireciona para /app (depois colocar validação para se tive rlogado)
   { path: '/', element: <Navigate to="/app" replace /> },
 
 
@@ -17,7 +16,7 @@ export const router = createBrowserRouter([
 
   {
     path: '/app',
-    element: <AppLayout />,
+    element: <RequireCompany />,
     children: [
       { index: true, element: <Home /> },
       { path: 'rastreamento', element: <Perimeter /> },

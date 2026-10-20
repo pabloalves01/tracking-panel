@@ -13,7 +13,7 @@ export default function CompanyFormPage() {
     const { uuid } = useParams()
     const navigate = useNavigate()
     const isEditing = !!uuid
-    
+
     const [loading, setLoading] = useState(isEditing)
     const [formData, setFormData] = useState({
         legal_name: '',
@@ -126,64 +126,63 @@ export default function CompanyFormPage() {
                         </FieldGroup>
                     </FieldSet>
 
-                    <Separator />
 
                     {!isEditing ? (
-                        <FieldSet>
-                            <FieldLegend variant="label">Primeiro usuário</FieldLegend>
-                            <FieldDescription>
-                                Esta pessoa entra no sistema como administradora da empresa e cria os demais acessos.
-                            </FieldDescription>
-                            <FieldGroup className="md:grid md:grid-cols-2">
-                                <Field>
-                                    <FieldLabel htmlFor="user-name">Nome</FieldLabel>
-                                    <Input
-                                        id="user-name"
-                                        value={formData.user.name}
-                                        placeholder="Ex: Pablo Alves"
-                                        onChange={(e) => setFormData({ ...formData, user: { ...formData.user, name: e.target.value } })}
-                                        autoComplete="name"
-                                        required
-                                    />
-                                </Field>
-                                <Field>
-                                    <FieldLabel htmlFor="user-email">E-mail</FieldLabel>
-                                    <Input
-                                        id="user-email"
-                                        type="email"
-                                        value={formData.user.email}
-                                        placeholder="Ex: usuario@empresa.com.br"
-                                        onChange={(e) => setFormData({ ...formData, user: { ...formData.user, email: e.target.value } })}
-                                        autoComplete="off"
-                                        required
-                                    />
-                                </Field>
-                                <Field>
-                                    <FieldLabel htmlFor="user-password">Senha</FieldLabel>
-                                    <Input
-                                        id="user-password"
-                                        type="password"
-                                        value={formData.user.password}
-                                        placeholder="**********"
-                                        onChange={(e) => setFormData({ ...formData, user: { ...formData.user, password: e.target.value } })}
-                                        autoComplete="new-password"
-                                        required
-                                    />
-                                </Field>
-                                <Field>
-                                    <FieldLabel htmlFor="user-password-confirmation">Confirmar senha</FieldLabel>
-                                    <Input
-                                        id="user-password-confirmation"
-                                        type="password"
-                                        value={formData.user.password_confirmation}
-                                        placeholder="**********"
-                                        onChange={(e) => setFormData({ ...formData, user: { ...formData.user, password_confirmation: e.target.value } })}
-                                        autoComplete="new-password"
-                                        required
-                                    />
-                                </Field>
-                            </FieldGroup>
-                        </FieldSet>
+                        <>
+                            <Separator />
+                            <FieldSet>
+                                <FieldLegend variant="label">Primeiro usuário</FieldLegend>
+                                <FieldDescription>
+                                    Esta pessoa entra como administradora. Se o e-mail já existir, ela é só vinculada e a senha atual permanece.
+                                </FieldDescription>
+                                <FieldGroup className="md:grid md:grid-cols-2">
+                                    <Field>
+                                        <FieldLabel htmlFor="user-name">Nome</FieldLabel>
+                                        <Input
+                                            id="user-name"
+                                            value={formData.user.name}
+                                            placeholder="Ex: Pablo Alves"
+                                            onChange={(e) => setFormData({ ...formData, user: { ...formData.user, name: e.target.value } })}
+                                            autoComplete="name"
+                                        />
+                                    </Field>
+                                    <Field>
+                                        <FieldLabel htmlFor="user-email">E-mail</FieldLabel>
+                                        <Input
+                                            id="user-email"
+                                            type="email"
+                                            value={formData.user.email}
+                                            placeholder="Ex: usuario@empresa.com.br"
+                                            onChange={(e) => setFormData({ ...formData, user: { ...formData.user, email: e.target.value } })}
+                                            autoComplete="off"
+                                            required
+                                        />
+                                    </Field>
+                                    <Field>
+                                        <FieldLabel htmlFor="user-password">Senha</FieldLabel>
+                                        <Input
+                                            id="user-password"
+                                            type="password"
+                                            value={formData.user.password}
+                                            placeholder="**********"
+                                            onChange={(e) => setFormData({ ...formData, user: { ...formData.user, password: e.target.value } })}
+                                            autoComplete="new-password"
+                                        />
+                                    </Field>
+                                    <Field>
+                                        <FieldLabel htmlFor="user-password-confirmation">Confirmar senha</FieldLabel>
+                                        <Input
+                                            id="user-password-confirmation"
+                                            type="password"
+                                            value={formData.user.password_confirmation}
+                                            placeholder="**********"
+                                            onChange={(e) => setFormData({ ...formData, user: { ...formData.user, password_confirmation: e.target.value } })}
+                                            autoComplete="new-password"
+                                        />
+                                    </Field>
+                                </FieldGroup>
+                            </FieldSet>
+                        </>
                     ) : null}
                 </form>
             </LoadingWrapper>

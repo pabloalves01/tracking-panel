@@ -1,28 +1,80 @@
+import { useEffect, useState } from "react"
 import { GalleryVerticalEnd } from "lucide-react"
 import { useNavigate } from "react-router"
 
+import { ThemeToggle } from "@/components/layout/ThemeToggle"
+import { LoadingWrapper } from "@/components/common/LoadingWrapper"
 import { Button } from "@/components/ui/button"
-import {
-  Field,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-  FieldSeparator,
-} from "@/components/ui/field"
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { login, me, selectCompany } from "@/lib/auth/auth"
+import { notifyError } from "@/lib/notify"
 
 export default function LoginPage() {
   const navigate = useNavigate()
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [checkingSession, setCheckingSession] = useState(() => !!localStorage.getItem("token"))
 
-  function handleSubmit(event) {
+  useEffect(() => {
+    if (!localStorage.getItem("token")) return
+
+    let active = true
+
+    me()
+      .then((user) => {
+        if (!active) return
+        navigate(user.has_company ? "/app" : "/auth/empresas", { replace: true })
+      })
+      .catch(() => {
+        localStorage.removeItem("token")
+      })
+      .finally(() => {
+        if (active) setCheckingSession(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [navigate])
+
+  async function handleSubmit(event) {
     event.preventDefault()
-    navigate("/auth/empresas")
+    setLoading(true)
+
+    try {
+      const { companies } = await login({ email, password })
+
+      if (companies.length === 1) {
+        await selectCompany(companies[0].uuid)
+        navigate("/app", { replace: true })
+        return
+      }
+
+      if (companies.length === 0) {
+        notifyError({
+          response: {
+            status: 422,
+            data: { message: "Nenhuma empresa vinculada a este usuário." },
+          },
+        })
+        return
+      }
+
+      navigate("/auth/empresas", { replace: true })
+    } catch (error) {
+      notifyError(error)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
+    <LoadingWrapper loading={checkingSession || loading}>
     <div className="grid min-h-svh lg:grid-cols-2">
       <div className="flex flex-col gap-4 p-6 md:p-10">
-        <div className="flex justify-center gap-2 md:justify-start">
+        <div className="flex items-center gap-2">
           <a
             href="#"
             className="flex items-center gap-2 font-medium"
@@ -33,6 +85,7 @@ export default function LoginPage() {
             </div>
             Logiv
           </a>
+          <ThemeToggle />
         </div>
         <div className="flex flex-1 items-center justify-center">
           <div className="w-full max-w-xs">
@@ -49,7 +102,15 @@ export default function LoginPage() {
                 </div>
                 <Field>
                   <FieldLabel htmlFor="email">E-mail</FieldLabel>
-                  <Input id="email" type="email" placeholder="usuario@empresa.com.br" required />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="usuario@empresa.com.br"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    autoComplete="email"
+                    required
+                  />
                 </Field>
                 <Field>
                   <div className="flex items-center">
@@ -62,10 +123,20 @@ export default function LoginPage() {
                       Esqueceu a senha?
                     </a>
                   </div>
-                  <Input id="password" type="password" placeholder="**********" required />
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="**********"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    autoComplete="current-password"
+                    required
+                  />
                 </Field>
                 <Field>
-                  <Button type="submit">Entrar</Button>
+                  <Button type="submit" disabled={loading}>
+                    {loading ? "Entrando..." : "Entrar"}
+                  </Button>
                 </Field>
               </FieldGroup>
             </form>
@@ -80,5 +151,6 @@ export default function LoginPage() {
         />
       </div>
     </div>
+    </LoadingWrapper>
   )
 }

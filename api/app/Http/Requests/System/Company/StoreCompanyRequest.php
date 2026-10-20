@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\System\Company;
 
+use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreCompanyRequest extends FormRequest
@@ -13,13 +14,20 @@ class StoreCompanyRequest extends FormRequest
 
     public function rules(): array
     {
+        $email = $this->input('user.email');
+        $userExists = is_string($email) && User::where('email', $email)->exists();
+
         return [
             'legal_name' => ['required', 'string', 'max:255'],
             'trade_name' => ['required', 'string', 'max:255'],
             'cnpj' => ['required', 'string', 'max:18', 'unique:companies,cnpj'],
-            'user.name' => ['required', 'string', 'max:255'],
-            'user.email' => ['required', 'email', 'max:255', 'unique:users,email'],
-            'user.password' => ['required', 'string', 'min:8', 'confirmed'],
+            'user.name' => $userExists
+                ? ['nullable', 'string', 'max:255']
+                : ['required', 'string', 'max:255'],
+            'user.email' => ['required', 'email', 'max:255'],
+            'user.password' => $userExists
+                ? ['nullable']
+                : ['required', 'string', 'min:8', 'confirmed'],
         ];
     }
 
@@ -39,7 +47,6 @@ class StoreCompanyRequest extends FormRequest
             'user.name.required' => 'O nome do usuário é obrigatório',
             'user.email.required' => 'O e-mail do usuário é obrigatório',
             'user.email.email' => 'Informe um e-mail válido',
-            'user.email.unique' => 'Este e-mail já está em uso',
             'user.password.required' => 'A senha é obrigatória',
             'user.password.min' => 'A senha deve ter no mínimo 8 caracteres',
             'user.password.confirmed' => 'A confirmação da senha não confere',

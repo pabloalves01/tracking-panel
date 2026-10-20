@@ -25,11 +25,15 @@ class CompanyService
                 'logo_path' => $data['logo_path'] ?? null,
             ]);
 
-            $user = User::create([
-                'name' => $data['user']['name'],
-                'email' => $data['user']['email'],
-                'password' => $data['user']['password'],
-            ]);
+            $user = User::where('email', $data['user']['email'])->first();
+
+            if (! $user) {
+                $user = User::create([
+                    'name' => $data['user']['name'],
+                    'email' => $data['user']['email'],
+                    'password' => $data['user']['password'],
+                ]);
+            }
 
             CompanyUser::create([
                 'company_id' => $company->id,
