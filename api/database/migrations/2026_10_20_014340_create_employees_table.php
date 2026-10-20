@@ -16,8 +16,8 @@ return new class extends Migration
             $table->uuid('uuid')->unique();
             $table->foreignId('company_id')->constrained('companies');
             $table->foreignId('entity_id')->constrained('common_entities');
-            $table->string('name');
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 

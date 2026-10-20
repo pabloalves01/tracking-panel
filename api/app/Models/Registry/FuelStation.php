@@ -3,10 +3,17 @@
 namespace App\Models\Registry;
 
 use App\Models\Company;
+use App\Models\Concerns\BelongsToCompany;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
+
+use Override;
 
 class FuelStation extends Model
 {
+    use HasUuids;
+    use BelongsToCompany;
+
     protected $table = 'fuel_stations';
 
     protected $fillable = [
@@ -25,5 +32,13 @@ class FuelStation extends Model
     public function entity()
     {
         return $this->belongsTo(CommonEntity::class);
+    }
+
+    // ================================ OVERRIDE METHODS ================================
+
+    #[Override]
+    public function uniqueIds()
+    {
+        return ['uuid'];
     }
 }

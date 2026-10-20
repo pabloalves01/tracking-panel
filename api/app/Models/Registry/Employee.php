@@ -3,10 +3,15 @@
 namespace App\Models\Registry;
 
 use App\Models\Company;
+use App\Models\Concerns\BelongsToCompany;
 use Illuminate\Database\Eloquent\Model;
-
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Override;
 class Employee extends Model
 {
+    use HasUuids;
+    use BelongsToCompany;
+
     protected $table = 'employees';
 
     protected $fillable = [
@@ -16,7 +21,7 @@ class Employee extends Model
     ];
 
     // ================================ BELONGS TO RELATIONS ================================
-    
+
     public function company()
     {
         return $this->belongsTo(Company::class);
@@ -25,5 +30,13 @@ class Employee extends Model
     public function entity()
     {
         return $this->belongsTo(CommonEntity::class);
+    }
+
+    // ================================ OVERRIDE METHODS ================================
+
+    #[Override]
+    public function uniqueIds()
+    {
+        return ['uuid'];
     }
 }
