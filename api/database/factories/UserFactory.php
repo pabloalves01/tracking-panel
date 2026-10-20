@@ -25,11 +25,12 @@ class UserFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => fake()->name(),
-            'email' => fake()->unique()->safeEmail(),
+            'name' => 'Administrador',
+            'email' => 'logiv@logiv.com.br',
             'email_verified_at' => now(),
-            'password' => static::$password ??= Hash::make('password'),
+            'password' => static::$password ??= Hash::make('mesquita2016'),
             'remember_token' => Str::random(10),
+            'is_system_admin' => false,
         ];
     }
 

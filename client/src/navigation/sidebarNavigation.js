@@ -30,10 +30,16 @@ export const currentUser = {
     initials: 'PA',
 }
 
+/**
+ * `access` controla a visibilidade do módulo conforme a sessão:
+ * - 'company': só aparece quando há empresa selecionada.
+ * - 'system': só aparece para o administrador do sistema.
+ */
 export const modules = [
     {
         title: 'Painel',
         icon: LayoutDashboardIcon,
+        access: 'company',
         items: [
             {
                 title: 'Início',
@@ -45,6 +51,7 @@ export const modules = [
     {
         title: 'Operações',
         icon: ShipIcon,
+        access: 'company',
         items: [
             {
                 title: 'Rastreamento',
@@ -56,6 +63,7 @@ export const modules = [
     {
         title: 'Sistema',
         icon: MonitorCog,
+        access: 'system',
         items: [
             {
                 title: 'Empresas',

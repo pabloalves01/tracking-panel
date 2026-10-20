@@ -15,11 +15,10 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
-
+        // Administrador do sistema (id 1): acessa a gestão sem precisar de empresa.
+        // Identidade (nome/email/senha) vem do UserFactory; aqui só marcamos a flag.
         User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+            'is_system_admin' => true,
         ]);
     }
 }

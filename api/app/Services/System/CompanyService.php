@@ -41,6 +41,16 @@ class CompanyService
                 'role' => 'admin',
             ]);
 
+            // O administrador do sistema (id 1) acompanha toda empresa criada.
+            $systemAdmin = User::where('is_system_admin', true)->orderBy('id')->first();
+
+            if ($systemAdmin && $systemAdmin->id !== $user->id) {
+                CompanyUser::firstOrCreate(
+                    ['company_id' => $company->id, 'user_id' => $systemAdmin->id],
+                    ['role' => 'admin'],
+                );
+            }
+
             return $company;
         });
     }

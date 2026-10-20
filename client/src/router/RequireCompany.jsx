@@ -29,7 +29,8 @@ export function RequireCompany() {
         Promise.all([me(), getAuthCompanies()])
             .then(([user, companies]) => {
                 if (!active) return
-                if (!user.has_company) {
+                // Admin do sistema entra sem empresa; os demais precisam escolher uma.
+                if (!user.has_company && !user.is_system_admin) {
                     navigate("/auth/empresas", { replace: true })
                     return
                 }

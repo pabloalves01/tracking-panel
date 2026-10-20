@@ -22,7 +22,16 @@ import {
     SidebarRail,
     useSidebar,
 } from '@/components/ui/sidebar'
+import { useSession } from '@/lib/auth/session'
 import { app, modules } from '@/navigation/sidebarNavigation'
+
+function visibleModulesFor({ currentCompany, user }) {
+    return modules.filter((module) => {
+        if (module.access === 'company') return Boolean(currentCompany)
+        if (module.access === 'system') return Boolean(user?.is_system_admin)
+        return true
+    })
+}
 
 function sidebarHref(path) {
     const clean = path.replace(/\/+$/, '')
@@ -51,8 +60,10 @@ function isCurrentPath(path, pathname) {
 export function AppSidebar() {
     const { pathname } = useLocation()
     const { state, setOpen } = useSidebar()
+    const { user, currentCompany } = useSession()
+    const visibleModules = visibleModulesFor({ currentCompany, user })
     const [openModule, setOpenModule] = useState(() =>
-        modules.find((module) => module.items.some((item) => isCurrentPath(item.path, pathname)))?.title ?? null,
+        visibleModules.find((module) => module.items.some((item) => isCurrentPath(item.path, pathname)))?.title ?? null,
     )
 
     function expandSidebar() {
@@ -90,7 +101,7 @@ export function AppSidebar() {
                 <SidebarGroup>
                     <SidebarGroupLabel>Módulos</SidebarGroupLabel>
                     <SidebarMenu>
-                        {modules.map((module) => {
+                        {visibleModules.map((module) => {
                             const ModuleIcon = module.icon
                             const moduleIsActive = module.items.some((item) =>
                                 isCurrentPath(item.path, pathname),

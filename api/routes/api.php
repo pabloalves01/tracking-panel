@@ -29,7 +29,7 @@ Route::prefix('auth')->group(function () {
     });
 });
 
-Route::middleware(['auth:sanctum', 'ensure.company'])->group(function () {
+Route::middleware(['auth:sanctum', 'ensure.system'])->group(function () {
     Route::group(['prefix' => '/system'], function () {
         Route::group(['prefix' => '/companies'], function () {
             Route::get('/', [CompanyController::class, 'index']);

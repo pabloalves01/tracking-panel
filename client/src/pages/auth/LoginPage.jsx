@@ -25,7 +25,9 @@ export default function LoginPage() {
     me()
       .then((user) => {
         if (!active) return
-        navigate(user.has_company ? "/app" : "/auth/empresas", { replace: true })
+        // Admin do sistema entra sem empresa; os demais vão escolher uma.
+        const target = user.has_company || user.is_system_admin ? "/app" : "/auth/empresas"
+        navigate(target, { replace: true })
       })
       .catch(() => {
         localStorage.removeItem("token")
@@ -44,7 +46,7 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      const { companies } = await login({ email, password })
+      const { user, companies } = await login({ email, password })
 
       if (companies.length === 1) {
         await selectCompany(companies[0].uuid)
@@ -53,6 +55,12 @@ export default function LoginPage() {
       }
 
       if (companies.length === 0) {
+        // Admin do sistema não precisa de empresa; segue direto para o painel.
+        if (user.is_system_admin) {
+          navigate("/app", { replace: true })
+          return
+        }
+
         notifyError({
           response: {
             status: 422,

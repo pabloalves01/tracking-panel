@@ -20,6 +20,9 @@ export function CompanySwitcher() {
     const { currentCompany, companies, switchCompany } = useSession()
     const [switching, setSwitching] = useState(false)
 
+    // Admin do sistema pode não ter empresa vinculada: sem empresas, não há o que trocar.
+    if (!companies.length) return null
+
     async function handleSelect(uuid) {
         setSwitching(true)
         try {

@@ -23,6 +23,7 @@ class UserResource extends JsonResource
         return [
             'name' => $this->name,
             'email' => $this->email,
+            'is_system_admin' => (bool) $this->is_system_admin,
             'has_company' => (bool) $company,
             'current_company' => $company ? CompanyResource::make($company) : null,
         ];

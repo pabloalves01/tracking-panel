@@ -3,6 +3,7 @@ import { createBrowserRouter, Navigate } from 'react-router'
 import Home from '@/pages/Home'
 import NotFound from '@/pages/NotFound'
 import Perimeter from '@/pages/Perimeter'
+import ProfilePage from '@/pages/ProfilePage'
 
 import authRoutes from './auth/authRoutes'
 import { RequireCompany } from './RequireCompany'
@@ -19,6 +20,7 @@ export const router = createBrowserRouter([
     element: <RequireCompany />,
     children: [
       { index: true, element: <Home /> },
+      { path: 'perfil', element: <ProfilePage /> },
       { path: 'rastreamento', element: <Perimeter /> },
       ...systemRoutes,
     ],

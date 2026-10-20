@@ -12,6 +12,5 @@ export function useSession() {
     if (!context) {
         throw new Error('useSession precisa estar dentro de RequireCompany')
     }
-
     return context
 }
