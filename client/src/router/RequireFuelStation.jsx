@@ -6,6 +6,7 @@ import { StationLayout } from "@/layouts/StationLayout"
 import { me } from "@/lib/auth/auth"
 import { SessionContext } from "@/lib/auth/session"
 import { StationSessionContext } from "@/lib/auth/stationSession"
+import { notifyError } from "@/lib/notify"
 
 /**
  * /posto só abre com token e posto gravado nesse token.
@@ -13,6 +14,7 @@ import { StationSessionContext } from "@/lib/auth/stationSession"
 export function RequireFuelStation() {
     const navigate = useNavigate()
     const [session, setSession] = useState(null)
+    const [failed, setFailed] = useState(false)
 
     useEffect(() => {
         let active = true
@@ -33,10 +35,16 @@ export function RequireFuelStation() {
                 }
                 setSession({ user, station: user.current_fuel_station })
             })
-            .catch(() => {
+            .catch((error) => {
                 if (!active) return
-                localStorage.removeItem("token")
-                navigate("/auth/login", { replace: true })
+                const status = error.response?.status
+                if (status === 401 || status === 403) {
+                    localStorage.removeItem("token")
+                    navigate("/auth/login", { replace: true })
+                    return
+                }
+                notifyError(error)
+                setFailed(true)
             })
 
         return () => {
@@ -45,12 +53,12 @@ export function RequireFuelStation() {
     }, [navigate])
 
     if (!session) {
-        return <LoadingWrapper loading />
+        return <LoadingWrapper loading={!failed} />
     }
 
     return (
         <SessionContext.Provider value={{ user: session.user }}>
-            <StationSessionContext.Provider value={{ user: session.user, station: session.station }}>
+            <StationSessionContext.Provider value={{ station: session.station }}>
                 <StationLayout />
             </StationSessionContext.Provider>
         </SessionContext.Provider>

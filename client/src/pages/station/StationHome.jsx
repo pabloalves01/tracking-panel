@@ -1,10 +1,12 @@
 import { LayoutToolbar } from "@/components/common/LayoutToolbar"
 import { Badge } from "@/components/ui/badge"
 import { formatCpfCnpj } from "@/helpers/formatters"
+import { useSession } from "@/lib/auth/session"
 import { useStationSession } from "@/lib/auth/stationSession"
 
 export default function StationHome() {
-    const { user, station } = useStationSession()
+    const { user } = useSession()
+    const { station } = useStationSession()
     const firstName = user?.name?.split(" ")[0]
     const stationName = station.trade_name || station.corporate_name
 

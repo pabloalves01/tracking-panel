@@ -70,11 +70,13 @@ export function AppHeader({ switcher }) {
                     />
                     <DropdownMenuContent align="end" className="w-56">
                         <DropdownMenuGroup>
-                            <DropdownMenuItem onClick={() => navigate('/app/perfil')}>
-                                <User />
-                                Meu perfil
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
+                            {!switcher && (
+                                <DropdownMenuItem onClick={() => navigate('/app/perfil')}>
+                                    <User />
+                                    Meu perfil
+                                </DropdownMenuItem>
+                            )}
+                            {!switcher && <DropdownMenuSeparator />}
                             <DropdownMenuItem variant="destructive" onClick={handleLogout}>
                                 <LogOut />
                                 Sair

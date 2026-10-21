@@ -1,8 +1,8 @@
 import { createContext, useContext } from 'react'
 
 /**
- * Sessão do posto: usuário e posto gravado no token.
- * Carregada uma vez em RequireFuelStation e lida pelo cabeçalho.
+ * Posto gravado no token.
+ * Carregado uma vez em RequireFuelStation e lido pelo cabeçalho.
  */
 export const StationSessionContext = createContext(null)
 
