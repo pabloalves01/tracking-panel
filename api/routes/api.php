@@ -100,7 +100,8 @@ Route::middleware(['auth:sanctum', 'ensure.company'])->group(function () {
             Route::post('/', [FuelStationController::class, 'store']);
             Route::get('/{uuid}', [FuelStationController::class, 'show']);
             Route::put('/{uuid}', [FuelStationController::class, 'update']);
-            Route::delete('/{uuid}', [FuelStationController::class, 'destroy']);
+            Route::post('/{uuid}/deactivate', [FuelStationController::class, 'deactivate']);
+            Route::post('/{uuid}/activate', [FuelStationController::class, 'activate']);
         });
 
         Route::prefix('drivers')->group(function () {

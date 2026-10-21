@@ -15,6 +15,7 @@ import {
     ReceiptIcon,
     ShipIcon,
     ShoppingCartIcon,
+    FuelIcon,
     TruckIcon,
     UserIcon,
     UsersIcon,
@@ -133,6 +134,7 @@ export const navigation = [
                             { title: 'Motoristas', path: 'motoristas', icon: UserIcon },
                             { title: 'Proprietários', path: 'proprietarios', icon: UserIcon },
                             { title: 'Responsáveis', path: 'responsaveis', icon: UserIcon },
+                            { title: 'Postos', path: 'postos', icon: FuelIcon },
                         ],
                     },
                     {
