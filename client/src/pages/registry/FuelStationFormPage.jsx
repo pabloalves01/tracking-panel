@@ -434,7 +434,6 @@ export default function FuelStationFormPage() {
                                     value={formData.password}
                                     onChange={(password) => setField('password', password)}
                                     placeholder={isEditing ? 'Em branco mantém a atual' : 'Senha de acesso'}
-                                    required={!isEditing}
                                 />
                             </Field>
                             <Field className="col-span-12 md:col-span-3">

@@ -43,9 +43,15 @@ class StoreFuelStationTest extends TestCase
 
     public function test_cria_posto_quando_o_documento_e_novo(): void
     {
-        $this->postJson('/api/registry/fuel-stations', $this->payload())
-            ->assertCreated();
+        $this->postJson('/api/registry/fuel-stations', $this->payload([
+            'login' => null,
+            'password' => null,
+            'password_confirmation' => null,
+        ]))->assertCreated();
 
+        $fuelStation = FuelStation::query()->first();
+        $this->assertNull($fuelStation->login);
+        $this->assertNull($fuelStation->password);
         $this->assertSame(1, CommonEntity::query()->count());
         $this->assertSame(1, FuelStation::query()->count());
     }
@@ -147,6 +153,7 @@ class StoreFuelStationTest extends TestCase
             'pix_key_type' => 'email',
             'pix_key' => 'maria@example.com',
             'login' => 'posto@example.com',
+            'password' => null,
             'status' => 'active',
         ])->assertOk();
 

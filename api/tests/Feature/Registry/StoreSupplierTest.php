@@ -46,6 +46,9 @@ class StoreSupplierTest extends TestCase
         $this->postJson('/api/registry/suppliers', $this->payload())
             ->assertCreated();
 
+        $supplier = Supplier::query()->first();
+        $this->assertNull($supplier->login);
+        $this->assertNull($supplier->password);
         $this->assertSame(1, CommonEntity::query()->count());
         $this->assertSame(1, Supplier::query()->count());
     }
@@ -144,6 +147,7 @@ class StoreSupplierTest extends TestCase
             'pix_key_type' => 'email',
             'pix_key' => 'maria@example.com',
             'login' => 'fornecedor',
+            'password' => null,
         ])->assertOk();
 
         $this->assertTrue(Hash::check('senha1234', $supplier->fresh()->password));

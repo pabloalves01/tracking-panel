@@ -29,7 +29,7 @@ class StoreSupplierRequest extends FormRequest
         $this->merge([
             'entity' => $entity,
             ...$this->normalizedPix(),
-            ...$this->blankPassword(),
+            ...$this->blankCredentials(),
         ]);
     }
 
@@ -112,17 +112,23 @@ class StoreSupplierRequest extends FormRequest
     }
 
     /**
+     * Login e senha vazios viram null. A senha só é validada quando vem preenchida.
+     *
      * @return array<string, null>
      */
-    private function blankPassword(): array
+    private function blankCredentials(): array
     {
-        if (filled($this->input('password'))) {
-            return [];
+        $values = [];
+
+        if (! filled($this->input('login'))) {
+            $values['login'] = null;
         }
 
-        return [
-            'password' => null,
-            'password_confirmation' => null,
-        ];
+        if (! filled($this->input('password'))) {
+            $values['password'] = null;
+            $values['password_confirmation'] = null;
+        }
+
+        return $values;
     }
 }

@@ -30,6 +30,7 @@ class StoreFuelStationRequest extends FormRequest
             'entity' => $entity,
             ...$this->normalizedPix(),
             ...$this->optionalAttributes(),
+            ...$this->blankCredentials(),
         ]);
     }
 
@@ -77,7 +78,7 @@ class StoreFuelStationRequest extends FormRequest
             'pix_key_type' => ['nullable', 'in:cpf,cnpj,email,phone,random'],
             'pix_key' => ['nullable', 'string', 'max:255', 'bail', new PixKeyForType],
             'login' => ['nullable', 'string', 'max:255', Rule::unique('fuel_stations', 'login')],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'password' => ['nullable', 'string', 'min:8', 'confirmed'],
             ...$this->stationRules(),
         ];
     }
@@ -107,7 +108,6 @@ class StoreFuelStationRequest extends FormRequest
             'pix_key.max' => 'A chave PIX deve ter no máximo 255 caracteres',
             'login.max' => 'O login deve ter no máximo 255 caracteres',
             'login.unique' => 'Este login já está em uso',
-            'password.required' => 'A senha é obrigatória',
             'password.min' => 'A senha deve ter no mínimo 8 caracteres',
             'password.confirmed' => 'A confirmação da senha não confere',
             ...$this->stationMessages(),
@@ -164,5 +164,26 @@ class StoreFuelStationRequest extends FormRequest
             'status.required' => 'A situação é obrigatória',
             'status.in' => 'A situação é inválida',
         ];
+    }
+
+    /**
+     * Login e senha vazios viram null. A senha só é validada quando vem preenchida.
+     *
+     * @return array<string, null>
+     */
+    private function blankCredentials(): array
+    {
+        $values = [];
+
+        if (! filled($this->input('login'))) {
+            $values['login'] = null;
+        }
+
+        if (! filled($this->input('password'))) {
+            $values['password'] = null;
+            $values['password_confirmation'] = null;
+        }
+
+        return $values;
     }
 }

@@ -17,7 +17,7 @@ return new class extends Migration
             $table->foreignId('company_id')->constrained('companies');
             $table->foreignId('entity_id')->constrained('common_entities');
             $table->string('login')->nullable()->unique();
-            $table->string('password');
+            $table->string('password')->nullable();
             $table->string('pix_key_type')->nullable();
             $table->string('pix_key')->nullable();
             $table->decimal('diesel_s10_price', 12, 4)->nullable();

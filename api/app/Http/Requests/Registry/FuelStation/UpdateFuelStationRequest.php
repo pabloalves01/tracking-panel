@@ -18,7 +18,7 @@ class UpdateFuelStationRequest extends FormRequest
         $this->merge([
             ...$this->normalizedPix(),
             ...$this->optionalAttributes(),
-            ...$this->blankPassword(),
+            ...$this->blankCredentials(),
         ]);
     }
 
@@ -77,18 +77,24 @@ class UpdateFuelStationRequest extends FormRequest
     }
 
     /**
+     * Login e senha vazios viram null. Senha vazia na edição não troca o hash.
+     *
      * @return array<string, null>
      */
-    private function blankPassword(): array
+    private function blankCredentials(): array
     {
-        if (filled($this->input('password'))) {
-            return [];
+        $values = [];
+
+        if (! filled($this->input('login'))) {
+            $values['login'] = null;
         }
 
-        return [
-            'password' => null,
-            'password_confirmation' => null,
-        ];
+        if (! filled($this->input('password'))) {
+            $values['password'] = null;
+            $values['password_confirmation'] = null;
+        }
+
+        return $values;
     }
 
     /**
