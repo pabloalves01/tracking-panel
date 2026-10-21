@@ -8,6 +8,8 @@ import ProfilePage from '@/pages/ProfilePage'
 import authRoutes from './auth/authRoutes'
 import registryRoutes from './registry/registryRoutes'
 import { RequireCompany } from './RequireCompany'
+import { RequireFuelStation } from './RequireFuelStation'
+import stationRoutes from './station/stationRoutes'
 import systemRoutes from './system/systemRoutes'
 
 export const router = createBrowserRouter([
@@ -26,6 +28,11 @@ export const router = createBrowserRouter([
       ...registryRoutes,
       ...systemRoutes,
     ],
+  },
+  {
+    path: '/posto',
+    element: <RequireFuelStation />,
+    children: stationRoutes,
   },
   { path: '*', element: <NotFound /> },
   // Sem layout. Exemplo: { path: '/login', element: <Login /> },
