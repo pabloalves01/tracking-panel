@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Registry\Supplier;
 
+use App\Models\Registry\Supplier;
 use App\Rules\PixKeyForType;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -70,7 +71,7 @@ class UpdateSupplierRequest extends FormRequest
 
     private function supplierId(): ?int
     {
-        return \App\Models\Registry\Supplier::query()->where('uuid', $this->route('uuid'))->value('id');
+        return Supplier::query()->where('uuid', $this->route('uuid'))->value('id');
     }
 
     /**
