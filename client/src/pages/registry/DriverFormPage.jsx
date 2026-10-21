@@ -44,7 +44,6 @@ const emptyEntityFields = {
     email: '',
     phone: '',
     rg_ie: '',
-    birth_date: '',
     emergency_phone: '',
     emergency_phone_type: 'mobile',
     document_file_path: '',
@@ -66,7 +65,6 @@ function entityFieldsFrom(source) {
         email: source.email ?? '',
         phone: source.phone ?? '',
         rg_ie: source.rg_ie ?? '',
-        birth_date: source.birth_date ?? '',
         emergency_phone: source.emergency_phone ?? '',
         emergency_phone_type: source.emergency_phone_type || 'mobile',
         document_file_path: source.document_file_path ?? '',
@@ -109,7 +107,6 @@ export default function DriverFormPage() {
         email: '',
         phone: '',
         rg_ie: '',
-        birth_date: '',
         emergency_phone: '',
         emergency_phone_type: 'mobile',
         document_file_path: '',
@@ -246,7 +243,6 @@ export default function DriverFormPage() {
                     email: formData.email || null,
                     phone: formData.phone || null,
                     rg_ie: formData.rg_ie || null,
-                    birth_date: formData.birth_date || null,
                     emergency_phone: formData.emergency_phone || null,
                     emergency_phone_type: formData.emergency_phone ? formData.emergency_phone_type : null,
                     document_file_path: formData.document_file_path || null,
@@ -427,15 +423,6 @@ export default function DriverFormPage() {
                                     name="rg_ie"
                                     value={formData.rg_ie}
                                     onChange={(event) => setField('rg_ie', event.target.value)}
-                                    disabled={entityLocked}
-                                />
-                            </Field>
-                            <Field className="col-span-12 md:col-span-6">
-                                <FieldLabel htmlFor="birth-date">Data de nascimento</FieldLabel>
-                                <DatePicker
-                                    id="birth-date"
-                                    value={formData.birth_date}
-                                    onChange={(birthDate) => setField('birth_date', birthDate)}
                                     disabled={entityLocked}
                                 />
                             </Field>

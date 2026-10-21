@@ -45,7 +45,6 @@ class StoreEmployeeTest extends TestCase
         $this->postJson('/api/registry/employees', $this->payload([
             'entity' => [
                 'rg_ie' => '1234567',
-                'birth_date' => '1990-05-01',
                 'emergency_phone' => '(11) 99999-8888',
                 'emergency_phone_type' => 'mobile',
                 'document_file_path' => 'documentos/maria.pdf',
@@ -55,7 +54,6 @@ class StoreEmployeeTest extends TestCase
         $entity = CommonEntity::query()->first();
         $this->assertSame(1, Employee::query()->count());
         $this->assertSame('1234567', $entity->rg_ie);
-        $this->assertSame('1990-05-01', $entity->birth_date->format('Y-m-d'));
         $this->assertSame('11999998888', $entity->emergency_phone);
         $this->assertSame('mobile', $entity->emergency_phone_type);
         $this->assertSame('documentos/maria.pdf', $entity->document_file_path);
@@ -63,8 +61,7 @@ class StoreEmployeeTest extends TestCase
         $employee = Employee::query()->first();
         $this->getJson("/api/registry/employees/{$employee->uuid}")
             ->assertOk()
-            ->assertJsonPath('data.rg_ie', '1234567')
-            ->assertJsonPath('data.birth_date', '1990-05-01');
+            ->assertJsonPath('data.rg_ie', '1234567');
     }
 
     public function test_reaproveita_pessoa_existente_sem_alterar_os_dados(): void
@@ -139,7 +136,6 @@ class StoreEmployeeTest extends TestCase
             'cpf_cnpj' => self::CPF,
             'email' => 'corrigida@example.com',
             'rg_ie' => '445566',
-            'birth_date' => '1988-02-03',
             'emergency_phone' => '11988887777',
             'emergency_phone_type' => 'home',
             'document_file_path' => 'documentos/rg.pdf',
@@ -149,7 +145,6 @@ class StoreEmployeeTest extends TestCase
         $this->assertSame('Maria Corrigida', $entity->name);
         $this->assertSame('corrigida@example.com', $entity->email);
         $this->assertSame('445566', $entity->rg_ie);
-        $this->assertSame('1988-02-03', $entity->birth_date->format('Y-m-d'));
         $this->assertSame('11988887777', $entity->emergency_phone);
         $this->assertSame('home', $entity->emergency_phone_type);
         $this->assertSame('documentos/rg.pdf', $entity->document_file_path);

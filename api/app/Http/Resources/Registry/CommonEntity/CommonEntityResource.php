@@ -24,7 +24,6 @@ class CommonEntityResource extends JsonResource
             'email' => $this->email,
             'phone' => $this->phone,
             'rg_ie' => $this->rg_ie,
-            'birth_date' => $this->birth_date?->format('Y-m-d'),
             'emergency_phone' => $this->emergency_phone,
             'emergency_phone_type' => $this->emergency_phone_type,
             'document_file_path' => $this->document_file_path,

@@ -26,7 +26,6 @@ class CarrierResource extends JsonResource
             'email' => $this->entity?->email,
             'phone' => $this->entity?->phone,
             'rg_ie' => $this->entity?->rg_ie,
-            'birth_date' => $this->entity?->birth_date?->format('Y-m-d'),
             'emergency_phone' => $this->entity?->emergency_phone,
             'emergency_phone_type' => $this->entity?->emergency_phone_type,
             'document_file_path' => $this->entity?->document_file_path,

@@ -21,7 +21,7 @@ class UpdateCommonEntityRequest extends FormRequest
 
         $optional = [];
 
-        foreach (['rg_ie', 'birth_date', 'emergency_phone', 'emergency_phone_type', 'document_file_path'] as $field) {
+        foreach (['rg_ie', 'emergency_phone', 'emergency_phone_type', 'document_file_path'] as $field) {
             if (! $this->exists($field)) {
                 continue;
             }
@@ -62,7 +62,6 @@ class UpdateCommonEntityRequest extends FormRequest
             'email' => ['nullable', 'email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:20'],
             'rg_ie' => ['nullable', 'string', 'max:30'],
-            'birth_date' => ['nullable', 'date_format:Y-m-d'],
             'emergency_phone' => ['nullable', 'string', 'max:20'],
             'emergency_phone_type' => ['nullable', 'in:mobile,home,work,other'],
             'document_file_path' => ['nullable', 'string', 'max:255'],
@@ -90,7 +89,6 @@ class UpdateCommonEntityRequest extends FormRequest
             'email.email' => 'Informe um e-mail válido',
             'phone.max' => 'O telefone deve ter no máximo 20 caracteres',
             'rg_ie.max' => 'O RG ou a inscrição estadual deve ter no máximo 30 caracteres',
-            'birth_date.date_format' => 'Informe uma data de nascimento válida',
             'emergency_phone.max' => 'O telefone de emergência deve ter no máximo 20 caracteres',
             'emergency_phone_type.in' => 'O tipo do telefone de emergência é inválido',
             'document_file_path.max' => 'O caminho do documento deve ter no máximo 255 caracteres',

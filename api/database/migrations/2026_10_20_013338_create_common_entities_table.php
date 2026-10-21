@@ -22,7 +22,6 @@ return new class extends Migration
             $table->string('email')->nullable();
             $table->string('phone')->nullable();
             $table->string('rg_ie')->nullable();
-            $table->date('birth_date')->nullable();
             $table->string('emergency_phone')->nullable();
             $table->string('emergency_phone_type')->nullable();
             $table->string('document_file_path')->nullable();

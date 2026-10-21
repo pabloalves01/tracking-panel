@@ -5,7 +5,6 @@ import { InputCpfCnpj } from '@/components/common/inputs/InputCpfCnpj'
 import { InputPhone } from '@/components/common/inputs/InputPhone'
 import { InputPostalCode } from '@/components/common/inputs/InputPostalCode'
 import { SelectState } from '@/components/common/inputs/SelectState'
-import { DatePicker } from '@/components/datepicker/DatePicker'
 import { LayoutToolbar } from '@/components/common/LayoutToolbar'
 import { LoadingWrapper } from '@/components/common/LoadingWrapper'
 import { Field, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field'
@@ -41,7 +40,6 @@ export default function EntityFormPage() {
         email: '',
         phone: '',
         rg_ie: '',
-        birth_date: '',
         emergency_phone: '',
         emergency_phone_type: 'mobile',
         document_file_path: '',
@@ -68,7 +66,6 @@ export default function EntityFormPage() {
                     email: entity.email ?? '',
                     phone: entity.phone ?? '',
                     rg_ie: entity.rg_ie ?? '',
-                    birth_date: entity.birth_date ?? '',
                     emergency_phone: entity.emergency_phone ?? '',
                     emergency_phone_type: entity.emergency_phone_type || 'mobile',
                     document_file_path: entity.document_file_path ?? '',
@@ -100,7 +97,6 @@ export default function EntityFormPage() {
             email: formData.email || null,
             phone: formData.phone || null,
             rg_ie: formData.rg_ie || null,
-            birth_date: formData.birth_date || null,
             emergency_phone: formData.emergency_phone || null,
             emergency_phone_type: formData.emergency_phone ? formData.emergency_phone_type : null,
             document_file_path: formData.document_file_path || null,
@@ -234,14 +230,6 @@ export default function EntityFormPage() {
                                     name="rg_ie"
                                     value={formData.rg_ie}
                                     onChange={(event) => setField('rg_ie', event.target.value)}
-                                />
-                            </Field>
-                            <Field className="col-span-12 md:col-span-6">
-                                <FieldLabel htmlFor="birth-date">Data de nascimento</FieldLabel>
-                                <DatePicker
-                                    id="birth-date"
-                                    value={formData.birth_date}
-                                    onChange={(birthDate) => setField('birth_date', birthDate)}
                                 />
                             </Field>
                             <Field className="col-span-12 md:col-span-4">

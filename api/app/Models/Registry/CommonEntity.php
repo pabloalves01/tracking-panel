@@ -27,7 +27,6 @@ class CommonEntity extends Model
         'email',
         'phone',
         'rg_ie',
-        'birth_date',
         'emergency_phone',
         'emergency_phone_type',
         'document_file_path',
@@ -48,7 +47,6 @@ class CommonEntity extends Model
         return [
             'state_id' => 'integer',
             'city_id' => 'integer',
-            'birth_date' => 'date:Y-m-d',
         ];
     }
 
