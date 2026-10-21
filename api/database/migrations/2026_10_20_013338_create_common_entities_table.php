@@ -22,7 +22,7 @@ return new class extends Migration
             $table->string('email')->nullable();
             $table->string('phone')->nullable();
             $table->string('rg')->nullable();
-            $table->string('state_registration')->nullable();
+            $table->string('ie')->nullable();
             $table->string('emergency_phone')->nullable();
             $table->string('emergency_phone_type')->nullable();
             $table->string('postal_code')->nullable();

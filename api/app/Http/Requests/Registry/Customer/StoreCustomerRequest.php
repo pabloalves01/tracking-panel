@@ -24,7 +24,7 @@ class StoreCustomerRequest extends FormRequest
             $entity['cpf_cnpj'] = preg_replace('/\D/', '', (string) $entity['cpf_cnpj']) ?? '';
         }
 
-        foreach (['rg', 'state_registration', 'emergency_phone', 'emergency_phone_type'] as $field) {
+        foreach (['rg', 'ie', 'emergency_phone', 'emergency_phone_type'] as $field) {
             if (! array_key_exists($field, $entity)) {
                 continue;
             }
@@ -51,7 +51,7 @@ class StoreCustomerRequest extends FormRequest
             'entity.email' => ['nullable', 'email', 'max:255'],
             'entity.phone' => ['nullable', 'string', 'max:20'],
             'entity.rg' => ['nullable', 'string', 'max:30'],
-            'entity.state_registration' => ['nullable', 'string', 'max:30'],
+            'entity.ie' => ['nullable', 'string', 'max:30'],
             'entity.emergency_phone' => ['nullable', 'string', 'max:20'],
             'entity.emergency_phone_type' => ['nullable', 'in:mobile,home,work,other'],
             'entity.state_id' => ['nullable', 'integer', 'exists:states,id'],
@@ -77,7 +77,7 @@ class StoreCustomerRequest extends FormRequest
             'entity.email.email' => 'Informe um e-mail válido',
             'entity.phone.max' => 'O telefone deve ter no máximo 20 caracteres',
             'entity.rg.max' => 'O RG deve ter no máximo 30 caracteres',
-            'entity.state_registration.max' => 'A inscrição estadual deve ter no máximo 30 caracteres',
+            'entity.ie.max' => 'A inscrição estadual deve ter no máximo 30 caracteres',
             'entity.emergency_phone.max' => 'O telefone de emergência deve ter no máximo 20 caracteres',
             'entity.emergency_phone_type.in' => 'O tipo do telefone de emergência é inválido',
             'entity.state_id.integer' => 'O estado informado é inválido',

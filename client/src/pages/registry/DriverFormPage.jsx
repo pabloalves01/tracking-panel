@@ -37,7 +37,7 @@ const emptyEntityFields = {
     email: '',
     phone: '',
     rg: '',
-    state_registration: '',
+    ie: '',
     emergency_phone: '',
     emergency_phone_type: 'mobile',
     postal_code: '',
@@ -58,7 +58,7 @@ function entityFieldsFrom(source) {
         email: source.email ?? '',
         phone: source.phone ?? '',
         rg: source.rg ?? '',
-        state_registration: source.state_registration ?? '',
+        ie: source.ie ?? '',
         emergency_phone: source.emergency_phone ?? '',
         emergency_phone_type: source.emergency_phone_type || 'mobile',
         postal_code: source.postal_code ?? '',
@@ -98,7 +98,7 @@ export default function DriverFormPage() {
         email: '',
         phone: '',
         rg: '',
-        state_registration: '',
+        ie: '',
         emergency_phone: '',
         emergency_phone_type: 'mobile',
         postal_code: '',
@@ -230,7 +230,7 @@ export default function DriverFormPage() {
                     email: formData.email || null,
                     phone: formData.phone || null,
                     rg: formData.person_type === 'pf' ? (formData.rg || null) : null,
-                    state_registration: formData.person_type === 'pj' ? (formData.state_registration || null) : null,
+                    ie: formData.person_type === 'pj' ? (formData.ie || null) : null,
                     emergency_phone: formData.emergency_phone || null,
                     emergency_phone_type: formData.emergency_phone ? formData.emergency_phone_type : null,
                     postal_code: formData.postal_code || null,
@@ -405,12 +405,12 @@ export default function DriverFormPage() {
                             </Field>
                             {isCompany ? (
                                 <Field className="col-span-12 md:col-span-6">
-                                    <FieldLabel htmlFor="state-registration">Inscrição estadual</FieldLabel>
+                                    <FieldLabel htmlFor="ie">Inscrição estadual</FieldLabel>
                                     <Input
-                                        id="state-registration"
-                                        name="state_registration"
-                                        value={formData.state_registration}
-                                        onChange={(event) => setField('state_registration', event.target.value)}
+                                        id="ie"
+                                        name="ie"
+                                        value={formData.ie}
+                                        onChange={(event) => setField('ie', event.target.value)}
                                         placeholder="Ex: 123.456.789.012"
                                         disabled={entityLocked}
                                     />

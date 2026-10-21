@@ -27,7 +27,7 @@ class CommonEntity extends Model
         'email',
         'phone',
         'rg',
-        'state_registration',
+        'ie',
         'emergency_phone',
         'emergency_phone_type',
         'postal_code',

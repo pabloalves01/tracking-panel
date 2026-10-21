@@ -24,7 +24,7 @@ class CommonEntityResource extends JsonResource
             'email' => $this->email,
             'phone' => $this->phone,
             'rg' => $this->rg,
-            'state_registration' => $this->state_registration,
+            'ie' => $this->ie,
             'emergency_phone' => $this->emergency_phone,
             'emergency_phone_type' => $this->emergency_phone_type,
             'postal_code' => $this->postal_code,

@@ -34,7 +34,7 @@ export default function EntityFormPage() {
         email: '',
         phone: '',
         rg: '',
-        state_registration: '',
+        ie: '',
         emergency_phone: '',
         emergency_phone_type: 'mobile',
         postal_code: '',
@@ -60,7 +60,7 @@ export default function EntityFormPage() {
                     email: entity.email ?? '',
                     phone: entity.phone ?? '',
                     rg: entity.rg ?? '',
-                    state_registration: entity.state_registration ?? '',
+                    ie: entity.ie ?? '',
                     emergency_phone: entity.emergency_phone ?? '',
                     emergency_phone_type: entity.emergency_phone_type || 'mobile',
                     postal_code: entity.postal_code ?? '',
@@ -91,7 +91,7 @@ export default function EntityFormPage() {
             email: formData.email || null,
             phone: formData.phone || null,
             rg: formData.person_type === 'pf' ? (formData.rg || null) : null,
-            state_registration: formData.person_type === 'pj' ? (formData.state_registration || null) : null,
+            ie: formData.person_type === 'pj' ? (formData.ie || null) : null,
             emergency_phone: formData.emergency_phone || null,
             emergency_phone_type: formData.emergency_phone ? formData.emergency_phone_type : null,
             postal_code: formData.postal_code || null,
@@ -219,12 +219,12 @@ export default function EntityFormPage() {
                             </Field>
                             {isCompany ? (
                                 <Field className="col-span-12 md:col-span-6">
-                                    <FieldLabel htmlFor="state-registration">Inscrição estadual</FieldLabel>
+                                    <FieldLabel htmlFor="ie">Inscrição estadual</FieldLabel>
                                     <Input
-                                        id="state-registration"
-                                        name="state_registration"
-                                        value={formData.state_registration}
-                                        onChange={(event) => setField('state_registration', event.target.value)}
+                                        id="ie"
+                                        name="ie"
+                                        value={formData.ie}
+                                        onChange={(event) => setField('ie', event.target.value)}
                                         placeholder="Ex: 123.456.789.012"
                                     />
                                 </Field>

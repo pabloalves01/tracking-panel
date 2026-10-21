@@ -114,7 +114,7 @@ class StoreCustomerTest extends TestCase
 
         $entity = CommonEntity::query()->first();
         $this->assertSame('pj', $entity->person_type);
-        $this->assertNull($entity->state_registration);
+        $this->assertNull($entity->ie);
     }
 
     public function test_editar_cliente_nao_altera_a_entidade(): void
@@ -149,7 +149,7 @@ class StoreCustomerTest extends TestCase
             'cpf_cnpj' => self::CPF,
             'email' => 'corrigida@example.com',
             'rg' => '445566',
-            'state_registration' => '123456789012',
+            'ie' => '123456789012',
             'emergency_phone' => '11988887777',
             'emergency_phone_type' => 'home',
         ])->assertOk();
@@ -158,7 +158,7 @@ class StoreCustomerTest extends TestCase
         $this->assertSame('Maria Corrigida', $entity->name);
         $this->assertSame('corrigida@example.com', $entity->email);
         $this->assertSame('445566', $entity->rg);
-        $this->assertSame('123456789012', $entity->state_registration);
+        $this->assertSame('123456789012', $entity->ie);
         $this->assertSame('11988887777', $entity->emergency_phone);
         $this->assertSame('home', $entity->emergency_phone_type);
     }
