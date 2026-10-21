@@ -8,6 +8,6 @@ export function checkStationSignupEmail(payload) {
     return api.post('/auth/station-signup/check-email', payload).then((response) => response.data)
 }
 
-export function startStationSignup(payload) {
+export function storeStationSignup(payload) {
     return api.post('/auth/station-signup', payload).then((response) => response.data)
 }

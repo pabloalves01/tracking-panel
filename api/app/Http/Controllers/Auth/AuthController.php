@@ -15,11 +15,15 @@ class AuthController extends Controller
 {
     public function login(LoginRequest $request)
     {
-        if (! Auth::attempt($request->only('email', 'password'))) {
+        $credentials = $request->only('email', 'password');
+        $credentials['email'] = strtolower(trim((string) $credentials['email']));
+
+        if (! Auth::attempt($credentials)) {
             abort(401, 'E-mail ou senha inválidos.');
         }
         $user = $request->user();
         $token = $user->createToken('web')->plainTextToken;
+
         return response()->json([
             'token' => $token,
             'user' => UserResource::make($user),

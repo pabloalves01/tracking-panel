@@ -8,7 +8,7 @@ import { ThemeToggle } from "@/components/layout/ThemeToggle"
 import { Button } from "@/components/ui/button"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { checkStationSignupEmail, lookupStationCnpj, startStationSignup } from "@/lib/auth/stationSignup"
+import { checkStationSignupEmail, lookupStationCnpj, storeStationSignup } from "@/lib/auth/stationSignup"
 import { notifyError, notifySuccess } from "@/lib/notify"
 
 export default function RegisterFuelStationPage() {
@@ -56,7 +56,7 @@ export default function RegisterFuelStationPage() {
         return
       }
 
-      const result = await startStationSignup(
+      const result = await storeStationSignup(
         emailExists
           ? {
               cnpj: station.cnpj,
@@ -130,7 +130,7 @@ export default function RegisterFuelStationPage() {
                       </div>
                     ) : null}
                     <Field>
-                      <Button type="submit" disabled={loading}>
+                      <Button type="submit" disabled={loading || cnpj.length !== 14}>
                         {cnpjReady ? "Continuar" : "Consultar CNPJ"}
                       </Button>
                     </Field>
