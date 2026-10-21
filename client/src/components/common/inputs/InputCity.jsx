@@ -19,32 +19,31 @@ import { notifyError } from '@/lib/notify'
  * `onChange` recebe esse id, ou null quando o campo é limpo.
  */
 export function InputCity({ id, stateId = null, value = null, onChange, disabled = false }) {
-    const [loaded, setLoaded] = useState({ stateId: null, cities: [] })
+    const [cities, setCities] = useState([])
+    const [loading, setLoading] = useState(false)
     const selectedStateId = toId(stateId)
     const selectedCityId = toId(value)
-    const cities = loaded.stateId === selectedStateId ? loaded.cities : []
-    const loading = selectedStateId != null && loaded.stateId !== selectedStateId
 
     useEffect(() => {
         if (!selectedStateId) {
+            setCities([])
+            setLoading(false)
             return
         }
 
         let active = true
+        setCities([])
+        setLoading(true)
 
         getCities(selectedStateId)
             .then((rows) => {
-                if (active) {
-                    setLoaded({ stateId: selectedStateId, cities: rows ?? [] })
-                }
+                if (active) setCities(rows ?? [])
             })
             .catch((error) => {
-                if (!active) {
-                    return
-                }
-
-                setLoaded({ stateId: selectedStateId, cities: [] })
-                notifyError(error)
+                if (active) notifyError(error)
+            })
+            .finally(() => {
+                if (active) setLoading(false)
             })
 
         return () => {

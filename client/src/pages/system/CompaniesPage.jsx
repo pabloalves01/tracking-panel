@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router"
-import { BanIcon, BuildingIcon, CircleCheckIcon, PencilIcon, PlusIcon, UserIcon } from "lucide-react"
+import { BanIcon, BuildingIcon, CircleCheckIcon, PencilIcon, PlusIcon, User, UserIcon } from "lucide-react"
 
 import {
     AlertDialog,
