@@ -20,10 +20,10 @@ return new class extends Migration
             $table->string('password');
             $table->string('pix_key_type')->nullable();
             $table->string('pix_key')->nullable();
-            $table->decimal('diesel_s10_price', 12, 3)->nullable();
-            $table->decimal('diesel_s500_price', 12, 3)->nullable();
-            $table->decimal('gasoline_price', 12, 3)->nullable();
-            $table->decimal('additive_gasoline_price', 12, 3)->nullable();
+            $table->decimal('diesel_s10_price', 12, 4)->nullable();
+            $table->decimal('diesel_s500_price', 12, 4)->nullable();
+            $table->decimal('gasoline_price', 12, 4)->nullable();
+            $table->decimal('additive_gasoline_price', 12, 4)->nullable();
             $table->string('status', 50)->default('active');
             $table->timestamps();
             $table->softDeletes();

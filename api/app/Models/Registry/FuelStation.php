@@ -43,10 +43,10 @@ class FuelStation extends Model
     {
         return [
             'password' => 'hashed',
-            'diesel_s10_price' => 'decimal:3',
-            'diesel_s500_price' => 'decimal:3',
-            'gasoline_price' => 'decimal:3',
-            'additive_gasoline_price' => 'decimal:3',
+            'diesel_s10_price' => 'decimal:4',
+            'diesel_s500_price' => 'decimal:4',
+            'gasoline_price' => 'decimal:4',
+            'additive_gasoline_price' => 'decimal:4',
         ];
     }
 

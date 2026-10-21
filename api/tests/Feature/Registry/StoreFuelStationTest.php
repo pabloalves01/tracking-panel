@@ -107,7 +107,7 @@ class StoreFuelStationTest extends TestCase
         $this->assertSame('email', $fuelStation->pix_key_type);
         $this->assertSame('maria@example.com', $fuelStation->pix_key);
         $this->assertSame('suspended', $fuelStation->status);
-        $this->assertSame('6.199', $fuelStation->diesel_s10_price);
+        $this->assertSame('6.1990', $fuelStation->diesel_s10_price);
     }
 
     public function test_editar_entidade_atualiza_os_dados_compartilhados(): void
