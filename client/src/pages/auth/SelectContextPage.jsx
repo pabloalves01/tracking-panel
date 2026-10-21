@@ -9,7 +9,7 @@ import { formatCpfCnpj } from "@/helpers/formatters"
 import { getAuthContexts, logout, me, selectCompany, selectFuelStation } from "@/lib/auth/auth"
 import { notifyError } from "@/lib/notify"
 
-export default function SelectCompaniesPage() {
+export default function SelectContextPage() {
     const navigate = useNavigate()
     const [user, setUser] = useState(null)
     const [companies, setCompanies] = useState([])

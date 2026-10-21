@@ -26,7 +26,7 @@ function getInitials(name) {
     return (first + last).toUpperCase()
 }
 
-export function AppHeader() {
+export function AppHeader({ switcher }) {
     const { user } = useSession()
     const navigate = useNavigate()
 
@@ -47,7 +47,7 @@ export function AppHeader() {
             </div>
 
             <div className="ml-auto flex items-center gap-3">
-                <CompanySwitcher />
+                {switcher ?? <CompanySwitcher />}
                 <ThemeToggle />
                 <DropdownMenu>
                     <DropdownMenuTrigger

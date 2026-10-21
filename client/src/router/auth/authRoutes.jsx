@@ -4,7 +4,7 @@ import LoginPage from '@/pages/auth/LoginPage'
 import RegisterPage from '@/pages/auth/RegisterPage'
 import RegisterFuelStationPage from '@/pages/auth/RegisterFuelStationPage'
 import ForgotPasswordPage from '@/pages/auth/ForgotPasswordPage'
-import SelectCompaniesPage from '@/pages/auth/SelectCompaniesPage'
+import SelectContextPage from '@/pages/auth/SelectContextPage'
 export default [
     {
         path: '/auth',
@@ -13,7 +13,7 @@ export default [
             { path: 'register', element: <RegisterPage /> },
             { path: 'register/posto', element: <RegisterFuelStationPage /> },
             { path: 'empresas', element: <Navigate to="/auth/contextos" replace /> },
-            { path: 'contextos', element: <SelectCompaniesPage /> },
+            { path: 'contextos', element: <SelectContextPage /> },
             { path: 'forgot-password', element: <ForgotPasswordPage /> },
         ],
     },

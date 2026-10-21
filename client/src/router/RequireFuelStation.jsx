@@ -4,8 +4,8 @@ import { useNavigate } from "react-router"
 import { LoadingWrapper } from "@/components/common/LoadingWrapper"
 import { StationLayout } from "@/layouts/StationLayout"
 import { me } from "@/lib/auth/auth"
+import { SessionContext } from "@/lib/auth/session"
 import { StationSessionContext } from "@/lib/auth/stationSession"
-import { getStation } from "@/lib/station/station"
 
 /**
  * /posto só abre com token e posto gravado nesse token.
@@ -24,22 +24,17 @@ export function RequireFuelStation() {
             }
         }
 
-        Promise.all([me(), getStation()])
-            .then(([user, station]) => {
+        me()
+            .then((user) => {
                 if (!active) return
                 if (!user.has_fuel_station) {
                     navigate("/auth/contextos", { replace: true })
                     return
                 }
-                setSession({ user, station })
+                setSession({ user, station: user.current_fuel_station })
             })
-            .catch((error) => {
+            .catch(() => {
                 if (!active) return
-                const status = error.response?.status
-                if (status === 409 || status === 403) {
-                    navigate("/auth/contextos", { replace: true })
-                    return
-                }
                 localStorage.removeItem("token")
                 navigate("/auth/login", { replace: true })
             })
@@ -54,8 +49,10 @@ export function RequireFuelStation() {
     }
 
     return (
-        <StationSessionContext.Provider value={{ user: session.user, station: session.station }}>
-            <StationLayout />
-        </StationSessionContext.Provider>
+        <SessionContext.Provider value={{ user: session.user }}>
+            <StationSessionContext.Provider value={{ user: session.user, station: session.station }}>
+                <StationLayout />
+            </StationSessionContext.Provider>
+        </SessionContext.Provider>
     )
 }

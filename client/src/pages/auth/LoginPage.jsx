@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { login, me } from "@/lib/auth/auth"
 import { notifyError } from "@/lib/notify"
 
+// Empresa, depois posto, depois admin sem contexto. Admin com posto entra no posto.
 function destinationFor(user) {
   if (user.has_company) return "/app"
   if (user.has_fuel_station) return "/posto"
