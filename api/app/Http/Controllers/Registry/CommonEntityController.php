@@ -87,7 +87,7 @@ class CommonEntityController extends Controller
     public function byDocument(string $document): JsonResponse
     {
         $entity = CommonEntity::query()
-            ->withExists('supplier')
+            ->withExists(['supplier', 'employee', 'driver', 'vehicleOwner', 'vehicleResponsible', 'fuelStation', 'customer'])
             ->where('cpf_cnpj', $document)
             ->first();
 

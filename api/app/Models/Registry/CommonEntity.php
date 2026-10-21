@@ -95,6 +95,14 @@ class CommonEntity extends Model
     }
 
     /**
+     * The customer that the entity belongs to.
+     */
+    public function customer()
+    {
+        return $this->hasOne(Customer::class, 'entity_id');
+    }
+
+    /**
      * The driver that the entity belongs to.
      */
     public function driver()

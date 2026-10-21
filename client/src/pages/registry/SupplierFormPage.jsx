@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { TriangleAlert } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { InputCity } from '@/components/common/inputs/InputCity'
@@ -24,14 +24,38 @@ const personTypes = [
     { label: 'Pessoa física', value: 'pf' },
 ]
 
+/**
+ * Campos que pertencem à entidade. Usado para limpar o formulário
+ * quando os dados preenchidos vieram de uma entidade que não vale mais.
+ */
+const emptyEntityFields = {
+    name: '',
+    trade_name: '',
+    email: '',
+    phone: '',
+    postal_code: '',
+    street: '',
+    street_number: '',
+    complement: '',
+    neighborhood: '',
+    state_id: null,
+    city_id: null,
+}
+
 export default function SupplierFormPage() {
     const { uuid } = useParams()
     const navigate = useNavigate()
     const isEditing = !!uuid
+
     const [loading, setLoading] = useState(false)
     const [existingEntity, setExistingEntity] = useState(false)
     const [existingSupplier, setExistingSupplier] = useState(false)
     const [entityUuid, setEntityUuid] = useState(null)
+
+    // Marca quando os campos foram preenchidos pela busca, para limpá-los
+    // se o documento mudar. O que o usuário digitou à mão não é apagado.
+    const filledFromEntity = useRef(false)
+
     const [formData, setFormData] = useState({
         person_type: 'pj',
         name: '',
@@ -50,6 +74,21 @@ export default function SupplierFormPage() {
         pix_key: '',
     })
 
+    /**
+     * Desfaz o resultado da busca. Os campos só são limpos quando o
+     * preenchimento veio de uma entidade; o que foi digitado permanece.
+     */
+    function clearLookup() {
+        setExistingEntity(false)
+        setExistingSupplier(false)
+        setEntityUuid(null)
+
+        if (filledFromEntity.current) {
+            filledFromEntity.current = false
+            setFormData((current) => ({ ...current, ...emptyEntityFields }))
+        }
+    }
+
     useEffect(() => {
         if (isEditing) {
             return
@@ -59,9 +98,7 @@ export default function SupplierFormPage() {
         const expectedLength = formData.person_type === 'pf' ? 11 : 14
 
         if (digits.length !== expectedLength) {
-            setExistingEntity(false)
-            setExistingSupplier(false)
-            setEntityUuid(null)
+            clearLookup()
             return
         }
 
@@ -75,23 +112,7 @@ export default function SupplierFormPage() {
                 }
 
                 if (!entity) {
-                    setExistingEntity(false)
-                    setExistingSupplier(false)
-                    setEntityUuid(null)
-                    setFormData((current) => ({
-                        ...current,
-                        name: '',
-                        trade_name: '',
-                        email: '',
-                        phone: '',
-                        postal_code: '',
-                        street: '',
-                        street_number: '',
-                        complement: '',
-                        neighborhood: '',
-                        state_id: null,
-                        city_id: null,
-                    }))
+                    clearLookup()
                     return
                 }
 
@@ -111,6 +132,7 @@ export default function SupplierFormPage() {
                     city_id: entity.city_id ?? null,
                 }))
 
+                filledFromEntity.current = true
                 setExistingEntity(true)
                 setExistingSupplier(Boolean(entity.supplier_exists))
                 setEntityUuid(entity.uuid ?? null)
@@ -251,7 +273,7 @@ export default function SupplierFormPage() {
                                 <TriangleAlert className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
                                 <p className="leading-5">
                                     <span className="font-semibold">Atenção.</span>{' '}
-                                    Estes dados pertencem a uma entidade já cadastrada.
+                                    Entidade encontrada. Dados preenchidos automaticamente.
                                     {entityUuid ? (
                                         <>
                                             {' '}
