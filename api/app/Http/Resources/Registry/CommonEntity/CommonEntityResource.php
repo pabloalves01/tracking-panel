@@ -26,7 +26,6 @@ class CommonEntityResource extends JsonResource
             'rg_ie' => $this->rg_ie,
             'emergency_phone' => $this->emergency_phone,
             'emergency_phone_type' => $this->emergency_phone_type,
-            'document_file_path' => $this->document_file_path,
             'postal_code' => $this->postal_code,
             'street' => $this->street,
             'street_number' => $this->street_number,

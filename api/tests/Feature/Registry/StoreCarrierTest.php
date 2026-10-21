@@ -47,7 +47,6 @@ class StoreCarrierTest extends TestCase
                 'rg_ie' => '1234567',
                 'emergency_phone' => '(11) 99999-8888',
                 'emergency_phone_type' => 'mobile',
-                'document_file_path' => 'documentos/maria.pdf',
             ],
         ]))->assertCreated();
 
@@ -56,7 +55,6 @@ class StoreCarrierTest extends TestCase
         $this->assertSame('1234567', $entity->rg_ie);
         $this->assertSame('11999998888', $entity->emergency_phone);
         $this->assertSame('mobile', $entity->emergency_phone_type);
-        $this->assertSame('documentos/maria.pdf', $entity->document_file_path);
 
         $carrier = Carrier::query()->first();
         $this->getJson("/api/registry/carriers/{$carrier->uuid}")
@@ -138,7 +136,6 @@ class StoreCarrierTest extends TestCase
             'rg_ie' => '445566',
             'emergency_phone' => '11988887777',
             'emergency_phone_type' => 'home',
-            'document_file_path' => 'documentos/rg.pdf',
         ])->assertOk();
 
         $entity->refresh();
@@ -147,7 +144,6 @@ class StoreCarrierTest extends TestCase
         $this->assertSame('445566', $entity->rg_ie);
         $this->assertSame('11988887777', $entity->emergency_phone);
         $this->assertSame('home', $entity->emergency_phone_type);
-        $this->assertSame('documentos/rg.pdf', $entity->document_file_path);
     }
 
     /**

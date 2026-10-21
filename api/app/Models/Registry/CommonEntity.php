@@ -29,7 +29,6 @@ class CommonEntity extends Model
         'rg_ie',
         'emergency_phone',
         'emergency_phone_type',
-        'document_file_path',
         'postal_code',
         'street',
         'street_number',

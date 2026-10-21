@@ -21,7 +21,7 @@ class UpdateCommonEntityRequest extends FormRequest
 
         $optional = [];
 
-        foreach (['rg_ie', 'emergency_phone', 'emergency_phone_type', 'document_file_path'] as $field) {
+        foreach (['rg_ie', 'emergency_phone', 'emergency_phone_type'] as $field) {
             if (! $this->exists($field)) {
                 continue;
             }
@@ -64,7 +64,6 @@ class UpdateCommonEntityRequest extends FormRequest
             'rg_ie' => ['nullable', 'string', 'max:30'],
             'emergency_phone' => ['nullable', 'string', 'max:20'],
             'emergency_phone_type' => ['nullable', 'in:mobile,home,work,other'],
-            'document_file_path' => ['nullable', 'string', 'max:255'],
             'state_id' => ['nullable', 'integer', 'exists:states,id'],
             'city_id' => ['nullable', 'integer', 'exists:cities,id'],
             'postal_code' => ['nullable', 'string', 'max:8'],
@@ -91,7 +90,6 @@ class UpdateCommonEntityRequest extends FormRequest
             'rg_ie.max' => 'O RG ou a inscrição estadual deve ter no máximo 30 caracteres',
             'emergency_phone.max' => 'O telefone de emergência deve ter no máximo 20 caracteres',
             'emergency_phone_type.in' => 'O tipo do telefone de emergência é inválido',
-            'document_file_path.max' => 'O caminho do documento deve ter no máximo 255 caracteres',
             'state_id.integer' => 'O estado informado é inválido',
             'state_id.exists' => 'Selecione um estado válido',
             'city_id.integer' => 'A cidade informada é inválida',

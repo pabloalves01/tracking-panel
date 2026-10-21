@@ -43,16 +43,12 @@ class StoreDriverTest extends TestCase
     public function test_cria_motorista_quando_o_documento_e_novo(): void
     {
         $this->postJson('/api/registry/drivers', $this->payload([
-            'entity' => [
-                'document_file_path' => 'documentos/cnh.pdf',
-            ],
             'residence_proof_path' => 'documentos/residencia.pdf',
             'license_issued_state' => 'sp',
         ]))->assertCreated();
 
         $driver = Driver::query()->first();
         $this->assertSame(1, CommonEntity::query()->count());
-        $this->assertSame('documentos/cnh.pdf', $driver->entity->document_file_path);
         $this->assertSame('12345678900', $driver->license_number);
         $this->assertSame('AB', $driver->license_category);
         $this->assertSame('2030-01-15', $driver->license_expires_on->format('Y-m-d'));
@@ -136,12 +132,10 @@ class StoreDriverTest extends TestCase
             'person_type' => 'pf',
             'cpf_cnpj' => self::CPF,
             'email' => 'corrigida@example.com',
-            'document_file_path' => 'documentos/rg.pdf',
         ])->assertOk();
 
         $entity->refresh();
         $this->assertSame('Maria Corrigida', $entity->name);
-        $this->assertSame('documentos/rg.pdf', $entity->document_file_path);
     }
 
     /**

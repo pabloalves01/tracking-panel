@@ -36,7 +36,6 @@ export default function EntityFormPage() {
         rg_ie: '',
         emergency_phone: '',
         emergency_phone_type: 'mobile',
-        document_file_path: '',
         postal_code: '',
         street: '',
         street_number: '',
@@ -62,7 +61,6 @@ export default function EntityFormPage() {
                     rg_ie: entity.rg_ie ?? '',
                     emergency_phone: entity.emergency_phone ?? '',
                     emergency_phone_type: entity.emergency_phone_type || 'mobile',
-                    document_file_path: entity.document_file_path ?? '',
                     postal_code: entity.postal_code ?? '',
                     street: entity.street ?? '',
                     street_number: entity.street_number ?? '',
@@ -93,7 +91,6 @@ export default function EntityFormPage() {
             rg_ie: formData.rg_ie || null,
             emergency_phone: formData.emergency_phone || null,
             emergency_phone_type: formData.emergency_phone ? formData.emergency_phone_type : null,
-            document_file_path: formData.document_file_path || null,
             postal_code: formData.postal_code || null,
             street: formData.street || null,
             street_number: formData.street_number || null,
@@ -236,17 +233,6 @@ export default function EntityFormPage() {
                                     onTypeChange={(phoneType) => setField('emergency_phone_type', phoneType)}
                                     onValueChange={(phone) => setField('emergency_phone', phone)}
                                 />
-                            </Field>
-                            <Field className="col-span-12">
-                                <FieldLabel htmlFor="document-file-path">Caminho do documento</FieldLabel>
-                                <Input
-                                    id="document-file-path"
-                                    name="document_file_path"
-                                    value={formData.document_file_path}
-                                    onChange={(event) => setField('document_file_path', event.target.value)}
-                                    placeholder="Ex: documentos/rg.pdf"
-                                />
-                                <FieldDescription>Guarda só o caminho. O arquivo não é enviado por aqui.</FieldDescription>
                             </Field>
                         </FieldGroup>
                     </FieldSet>

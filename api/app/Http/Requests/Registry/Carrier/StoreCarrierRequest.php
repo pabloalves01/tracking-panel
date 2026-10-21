@@ -24,7 +24,7 @@ class StoreCarrierRequest extends FormRequest
             $entity['cpf_cnpj'] = preg_replace('/\D/', '', (string) $entity['cpf_cnpj']) ?? '';
         }
 
-        foreach (['rg_ie', 'emergency_phone', 'emergency_phone_type', 'document_file_path'] as $field) {
+        foreach (['rg_ie', 'emergency_phone', 'emergency_phone_type'] as $field) {
             if (! array_key_exists($field, $entity)) {
                 continue;
             }
@@ -53,7 +53,6 @@ class StoreCarrierRequest extends FormRequest
             'entity.rg_ie' => ['nullable', 'string', 'max:30'],
             'entity.emergency_phone' => ['nullable', 'string', 'max:20'],
             'entity.emergency_phone_type' => ['nullable', 'in:mobile,home,work,other'],
-            'entity.document_file_path' => ['nullable', 'string', 'max:255'],
             'entity.state_id' => ['nullable', 'integer', 'exists:states,id'],
             'entity.city_id' => ['nullable', 'integer', 'exists:cities,id'],
             'entity.postal_code' => ['nullable', 'string', 'max:8'],
@@ -79,7 +78,6 @@ class StoreCarrierRequest extends FormRequest
             'entity.rg_ie.max' => 'O RG ou a inscrição estadual deve ter no máximo 30 caracteres',
             'entity.emergency_phone.max' => 'O telefone de emergência deve ter no máximo 20 caracteres',
             'entity.emergency_phone_type.in' => 'O tipo do telefone de emergência é inválido',
-            'entity.document_file_path.max' => 'O caminho do documento deve ter no máximo 255 caracteres',
             'entity.state_id.integer' => 'O estado informado é inválido',
             'entity.state_id.exists' => 'Selecione um estado válido',
             'entity.city_id.integer' => 'A cidade informada é inválida',
