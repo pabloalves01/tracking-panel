@@ -33,7 +33,8 @@ const emptyEntityFields = {
     trade_name: '',
     email: '',
     phone: '',
-    rg_ie: '',
+    rg: '',
+    state_registration: '',
     emergency_phone: '',
     emergency_phone_type: 'mobile',
     postal_code: '',
@@ -53,7 +54,8 @@ function entityFieldsFrom(source) {
         cpf_cnpj: source.cpf_cnpj ?? '',
         email: source.email ?? '',
         phone: source.phone ?? '',
-        rg_ie: source.rg_ie ?? '',
+        rg: source.rg ?? '',
+        state_registration: source.state_registration ?? '',
         emergency_phone: source.emergency_phone ?? '',
         emergency_phone_type: source.emergency_phone_type || 'mobile',
         postal_code: source.postal_code ?? '',
@@ -87,7 +89,8 @@ export default function EmployeeFormPage() {
         cpf_cnpj: '',
         email: '',
         phone: '',
-        rg_ie: '',
+        rg: '',
+        state_registration: '',
         emergency_phone: '',
         emergency_phone_type: 'mobile',
         postal_code: '',
@@ -202,7 +205,8 @@ export default function EmployeeFormPage() {
                     cpf_cnpj: formData.cpf_cnpj,
                     email: formData.email || null,
                     phone: formData.phone || null,
-                    rg_ie: formData.rg_ie || null,
+                    rg: formData.rg || null,
+                    state_registration: formData.state_registration || null,
                     emergency_phone: formData.emergency_phone || null,
                     emergency_phone_type: formData.emergency_phone ? formData.emergency_phone_type : null,
                     postal_code: formData.postal_code || null,
@@ -375,17 +379,31 @@ export default function EmployeeFormPage() {
                                     disabled={entityLocked}
                                 />
                             </Field>
-                            <Field className="col-span-12 md:col-span-6">
-                                <FieldLabel htmlFor="rg-ie">{isCompany ? 'Inscrição estadual' : 'RG'}</FieldLabel>
-                                <Input
-                                    id="rg-ie"
-                                    name="rg_ie"
-                                    value={formData.rg_ie}
-                                    onChange={(event) => setField('rg_ie', event.target.value)}
-                                    placeholder={isCompany ? 'Ex: 123.456.789.012' : 'Ex: 12.345.678-9'}
-                                    disabled={entityLocked}
-                                />
-                            </Field>
+                            {isCompany ? (
+                                <Field className="col-span-12 md:col-span-6">
+                                    <FieldLabel htmlFor="state-registration">Inscrição estadual</FieldLabel>
+                                    <Input
+                                        id="state-registration"
+                                        name="state_registration"
+                                        value={formData.state_registration}
+                                        onChange={(event) => setField('state_registration', event.target.value)}
+                                        placeholder="Ex: 123.456.789.012"
+                                        disabled={entityLocked}
+                                    />
+                                </Field>
+                            ) : (
+                                <Field className="col-span-12 md:col-span-6">
+                                    <FieldLabel htmlFor="rg">RG</FieldLabel>
+                                    <Input
+                                        id="rg"
+                                        name="rg"
+                                        value={formData.rg}
+                                        onChange={(event) => setField('rg', event.target.value)}
+                                        placeholder="Ex: 12.345.678-9"
+                                        disabled={entityLocked}
+                                    />
+                                </Field>
+                            )}
                             <Field className="col-span-12 md:col-span-6">
                                 <FieldLabel htmlFor="emergency-phone">Telefone de emergência</FieldLabel>
                                 <InputEmergencyNumber

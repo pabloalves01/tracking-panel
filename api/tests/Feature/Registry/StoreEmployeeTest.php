@@ -44,7 +44,7 @@ class StoreEmployeeTest extends TestCase
     {
         $this->postJson('/api/registry/employees', $this->payload([
             'entity' => [
-                'rg_ie' => '1234567',
+                'rg' => '1234567',
                 'emergency_phone' => '(11) 99999-8888',
                 'emergency_phone_type' => 'mobile',
             ],
@@ -52,14 +52,14 @@ class StoreEmployeeTest extends TestCase
 
         $entity = CommonEntity::query()->first();
         $this->assertSame(1, Employee::query()->count());
-        $this->assertSame('1234567', $entity->rg_ie);
+        $this->assertSame('1234567', $entity->rg);
         $this->assertSame('11999998888', $entity->emergency_phone);
         $this->assertSame('mobile', $entity->emergency_phone_type);
 
         $employee = Employee::query()->first();
         $this->getJson("/api/registry/employees/{$employee->uuid}")
             ->assertOk()
-            ->assertJsonPath('data.rg_ie', '1234567');
+            ->assertJsonPath('data.rg', '1234567');
     }
 
     public function test_reaproveita_pessoa_existente_sem_alterar_os_dados(): void
@@ -69,7 +69,7 @@ class StoreEmployeeTest extends TestCase
             'person_type' => 'pf',
             'cpf_cnpj' => self::CPF,
             'email' => 'maria@example.com',
-            'rg_ie' => '111',
+            'rg' => '111',
         ]);
 
         $this->postJson('/api/registry/employees', $this->payload([
@@ -78,14 +78,14 @@ class StoreEmployeeTest extends TestCase
                 'person_type' => 'pf',
                 'cpf_cnpj' => self::CPF,
                 'email' => 'outro@example.com',
-                'rg_ie' => '999',
+                'rg' => '999',
             ],
         ]))->assertCreated();
 
         $entity->refresh();
         $this->assertSame('Maria Original', $entity->name);
         $this->assertSame('maria@example.com', $entity->email);
-        $this->assertSame('111', $entity->rg_ie);
+        $this->assertSame('111', $entity->rg);
         $this->assertSame(1, CommonEntity::query()->count());
         $this->assertSame(1, Employee::query()->where('entity_id', $entity->id)->count());
     }
@@ -133,7 +133,7 @@ class StoreEmployeeTest extends TestCase
             'person_type' => 'pf',
             'cpf_cnpj' => self::CPF,
             'email' => 'corrigida@example.com',
-            'rg_ie' => '445566',
+            'rg' => '445566',
             'emergency_phone' => '11988887777',
             'emergency_phone_type' => 'home',
         ])->assertOk();
@@ -141,7 +141,7 @@ class StoreEmployeeTest extends TestCase
         $entity->refresh();
         $this->assertSame('Maria Corrigida', $entity->name);
         $this->assertSame('corrigida@example.com', $entity->email);
-        $this->assertSame('445566', $entity->rg_ie);
+        $this->assertSame('445566', $entity->rg);
         $this->assertSame('11988887777', $entity->emergency_phone);
         $this->assertSame('home', $entity->emergency_phone_type);
     }

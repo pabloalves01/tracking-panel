@@ -24,7 +24,7 @@ class StoreCarrierRequest extends FormRequest
             $entity['cpf_cnpj'] = preg_replace('/\D/', '', (string) $entity['cpf_cnpj']) ?? '';
         }
 
-        foreach (['rg_ie', 'emergency_phone', 'emergency_phone_type'] as $field) {
+        foreach (['rg', 'state_registration', 'emergency_phone', 'emergency_phone_type'] as $field) {
             if (! array_key_exists($field, $entity)) {
                 continue;
             }
@@ -50,7 +50,8 @@ class StoreCarrierRequest extends FormRequest
             'entity.cpf_cnpj' => ['required', 'string', 'max:18', 'bail', new CpfCnpjForPersonType],
             'entity.email' => ['nullable', 'email', 'max:255'],
             'entity.phone' => ['nullable', 'string', 'max:20'],
-            'entity.rg_ie' => ['nullable', 'string', 'max:30'],
+            'entity.rg' => ['nullable', 'string', 'max:30'],
+            'entity.state_registration' => ['nullable', 'string', 'max:30'],
             'entity.emergency_phone' => ['nullable', 'string', 'max:20'],
             'entity.emergency_phone_type' => ['nullable', 'in:mobile,home,work,other'],
             'entity.state_id' => ['nullable', 'integer', 'exists:states,id'],
@@ -75,7 +76,8 @@ class StoreCarrierRequest extends FormRequest
             'entity.cpf_cnpj.max' => 'O CPF ou CNPJ deve ter no máximo 18 caracteres',
             'entity.email.email' => 'Informe um e-mail válido',
             'entity.phone.max' => 'O telefone deve ter no máximo 20 caracteres',
-            'entity.rg_ie.max' => 'O RG ou a inscrição estadual deve ter no máximo 30 caracteres',
+            'entity.rg.max' => 'O RG deve ter no máximo 30 caracteres',
+            'entity.state_registration.max' => 'A inscrição estadual deve ter no máximo 30 caracteres',
             'entity.emergency_phone.max' => 'O telefone de emergência deve ter no máximo 20 caracteres',
             'entity.emergency_phone_type.in' => 'O tipo do telefone de emergência é inválido',
             'entity.state_id.integer' => 'O estado informado é inválido',

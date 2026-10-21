@@ -21,7 +21,7 @@ class UpdateCommonEntityRequest extends FormRequest
 
         $optional = [];
 
-        foreach (['rg_ie', 'emergency_phone', 'emergency_phone_type'] as $field) {
+        foreach (['rg', 'state_registration', 'emergency_phone', 'emergency_phone_type'] as $field) {
             if (! $this->exists($field)) {
                 continue;
             }
@@ -61,7 +61,8 @@ class UpdateCommonEntityRequest extends FormRequest
             'cpf_cnpj' => $documentRules,
             'email' => ['nullable', 'email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:20'],
-            'rg_ie' => ['nullable', 'string', 'max:30'],
+            'rg' => ['nullable', 'string', 'max:30'],
+            'state_registration' => ['nullable', 'string', 'max:30'],
             'emergency_phone' => ['nullable', 'string', 'max:20'],
             'emergency_phone_type' => ['nullable', 'in:mobile,home,work,other'],
             'state_id' => ['nullable', 'integer', 'exists:states,id'],
@@ -87,7 +88,8 @@ class UpdateCommonEntityRequest extends FormRequest
             'cpf_cnpj.unique' => 'Este CPF ou CNPJ já está cadastrado',
             'email.email' => 'Informe um e-mail válido',
             'phone.max' => 'O telefone deve ter no máximo 20 caracteres',
-            'rg_ie.max' => 'O RG ou a inscrição estadual deve ter no máximo 30 caracteres',
+            'rg.max' => 'O RG deve ter no máximo 30 caracteres',
+            'state_registration.max' => 'A inscrição estadual deve ter no máximo 30 caracteres',
             'emergency_phone.max' => 'O telefone de emergência deve ter no máximo 20 caracteres',
             'emergency_phone_type.in' => 'O tipo do telefone de emergência é inválido',
             'state_id.integer' => 'O estado informado é inválido',
