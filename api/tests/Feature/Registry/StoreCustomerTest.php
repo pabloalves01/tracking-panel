@@ -102,6 +102,21 @@ class StoreCustomerTest extends TestCase
         $this->assertSame('Maria Silva', CommonEntity::query()->first()->name);
     }
 
+    public function test_cria_pessoa_juridica_sem_inscricao_estadual(): void
+    {
+        $this->postJson('/api/registry/customers', $this->payload([
+            'entity' => [
+                'name' => 'Empresa Sem IE LTDA',
+                'person_type' => 'pj',
+                'cpf_cnpj' => '12345678000195',
+            ],
+        ]))->assertCreated();
+
+        $entity = CommonEntity::query()->first();
+        $this->assertSame('pj', $entity->person_type);
+        $this->assertNull($entity->state_registration);
+    }
+
     public function test_editar_cliente_nao_altera_a_entidade(): void
     {
         $this->postJson('/api/registry/customers', $this->payload())->assertCreated();
