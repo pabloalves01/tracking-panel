@@ -5,6 +5,7 @@ import { InputCpfCnpj } from "@/components/common/inputs/InputCpfCnpj"
 import { InputPassword } from "@/components/common/inputs/InputPassword"
 import { LoadingWrapper } from "@/components/common/LoadingWrapper"
 import { ThemeToggle } from "@/components/layout/ThemeToggle"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
@@ -148,11 +149,11 @@ export default function RegisterFuelStationPage() {
                   <FieldGroup>
                     <div className="flex flex-col items-center gap-1 text-center">
                       <h1 className="text-2xl font-bold">Acesso do responsável</h1>
-                      <p className="text-sm text-balance text-muted-foreground">
-                        {emailExists
-                          ? "Este e-mail já tem conta. Informe a senha atual para vincular o posto."
-                          : "Informe o e-mail de quem vai administrar o posto."}
-                      </p>
+                      {emailExists ? null : (
+                        <p className="text-sm text-balance text-muted-foreground">
+                          Informe o e-mail de quem vai administrar o posto.
+                        </p>
+                      )}
                     </div>
                     <Field>
                       <FieldLabel htmlFor="station-email">E-mail</FieldLabel>
@@ -202,20 +203,32 @@ export default function RegisterFuelStationPage() {
                       </>
                     ) : null}
                     {emailExists === true ? (
-                      <Field>
-                        <FieldLabel htmlFor="station-current-password">Senha atual</FieldLabel>
-                        <InputPassword
-                          id="station-current-password"
-                          value={password}
-                          autoComplete="current-password"
-                          onChange={setPassword}
-                          placeholder="Senha da conta"
-                        />
-                      </Field>
+                      <>
+                        <Alert>
+                          <AlertTitle>Conta já existente</AlertTitle>
+                          <AlertDescription>
+                            Este e-mail já tem uma conta na Logiv. Digite a senha dessa conta para vincular o posto a ela.
+                          </AlertDescription>
+                        </Alert>
+                        <Field>
+                          <FieldLabel htmlFor="station-current-password">Senha atual</FieldLabel>
+                          <InputPassword
+                            id="station-current-password"
+                            value={password}
+                            autoComplete="current-password"
+                            onChange={setPassword}
+                            placeholder="Senha da conta"
+                          />
+                        </Field>
+                      </>
                     ) : null}
                     <Field>
                       <Button type="submit" disabled={loading}>
-                        {emailExists === null ? "Continuar" : "Cadastrar posto"}
+                        {emailExists === null
+                          ? "Continuar"
+                          : emailExists
+                            ? "Vincular posto à minha conta"
+                            : "Cadastrar posto"}
                       </Button>
                     </Field>
                     <Button type="button" variant="outline" onClick={() => setStep(1)}>

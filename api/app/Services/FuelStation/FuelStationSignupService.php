@@ -60,7 +60,9 @@ class FuelStationSignupService
         $this->createStation($digits, $payload, $user, $data);
 
         return [
-            'message' => 'Posto cadastrado com sucesso',
+            'message' => $user
+                ? 'Posto vinculado à sua conta'
+                : 'Posto cadastrado com sucesso',
         ];
     }
 

@@ -204,7 +204,7 @@ class FuelStationSignupTest extends TestCase
             'email' => 'dono@posto.com',
             'password' => 'senha-atual',
         ])->assertCreated()
-            ->assertJsonPath('message', 'Posto cadastrado com sucesso');
+            ->assertJsonPath('message', 'Posto vinculado à sua conta');
 
         $this->assertSame(1, User::query()->count());
         $this->assertSame('Conta Antiga', $user->fresh()->name);
@@ -240,7 +240,7 @@ class FuelStationSignupTest extends TestCase
             'email' => 'dono@posto.com',
             'password' => 'senha-atual',
         ])->assertCreated()
-            ->assertJsonPath('message', 'Posto cadastrado com sucesso');
+            ->assertJsonPath('message', 'Posto vinculado à sua conta');
 
         $this->assertSame(1, FuelStation::query()->count());
     }
@@ -275,9 +275,50 @@ class FuelStationSignupTest extends TestCase
             'cnpj' => self::CNPJ,
             'email' => ' DONO@POSTO.COM ',
             'password' => 'senha-atual',
-        ])->assertCreated();
+        ])->assertCreated()
+            ->assertJsonPath('message', 'Posto vinculado à sua conta');
 
         $this->assertSame(1, User::query()->count());
+    }
+
+    public function test_usuario_criado_na_empresa_vira_owner_do_posto_sem_duplicar(): void
+    {
+        $admin = User::factory()->create([
+            'email' => 'admin@logiv.com.br',
+            'is_system_admin' => true,
+        ]);
+
+        $this->actingAs($admin, 'sanctum');
+
+        $this->postJson('/api/system/companies', [
+            'legal_name' => 'Empresa Teste LTDA',
+            'trade_name' => 'Empresa Teste',
+            'cnpj' => '11222333000181',
+            'user' => [
+                'name' => 'Pablo Alves',
+                'email' => ' PabloAlvesZimba@gmail.com ',
+                'password' => 'senha1234',
+                'password_confirmation' => 'senha1234',
+            ],
+        ])->assertCreated();
+
+        $owner = User::query()->where('email', 'pabloalveszimba@gmail.com')->first();
+        $this->assertNotNull($owner);
+        $this->assertSame(2, User::query()->count());
+
+        $this->postJson('/api/auth/station-signup', [
+            'cnpj' => self::CNPJ,
+            'name' => 'Outro Nome',
+            'email' => 'PABLOALVESZIMBA@gmail.com',
+            'password' => 'senha1234',
+            'password_confirmation' => 'senha1234',
+        ])->assertCreated()
+            ->assertJsonPath('message', 'Posto vinculado à sua conta');
+
+        $this->assertSame(2, User::query()->count());
+        $this->assertSame('Pablo Alves', $owner->fresh()->name);
+        $this->assertSame($owner->id, FuelStationUser::query()->first()->user_id);
+        $this->assertSame('owner', FuelStationUser::query()->first()->role);
     }
 
     public function test_email_duplicado_na_criacao_avisa_que_a_conta_ja_existe(): void
