@@ -26,6 +26,11 @@ class CommonEntity extends Model
         'cpf_cnpj',
         'email',
         'phone',
+        'rg_ie',
+        'birth_date',
+        'emergency_phone',
+        'emergency_phone_type',
+        'document_file_path',
         'postal_code',
         'street',
         'street_number',
@@ -43,6 +48,7 @@ class CommonEntity extends Model
         return [
             'state_id' => 'integer',
             'city_id' => 'integer',
+            'birth_date' => 'date:Y-m-d',
         ];
     }
 

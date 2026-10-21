@@ -5,6 +5,7 @@ import { InputCpfCnpj } from '@/components/common/inputs/InputCpfCnpj'
 import { InputPhone } from '@/components/common/inputs/InputPhone'
 import { InputPostalCode } from '@/components/common/inputs/InputPostalCode'
 import { SelectState } from '@/components/common/inputs/SelectState'
+import { DatePicker } from '@/components/datepicker/DatePicker'
 import { LayoutToolbar } from '@/components/common/LayoutToolbar'
 import { LoadingWrapper } from '@/components/common/LoadingWrapper'
 import { Field, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field'
@@ -21,6 +22,13 @@ const personTypes = [
     { label: 'Pessoa física', value: 'pf' },
 ]
 
+const emergencyPhoneTypes = [
+    { label: 'Celular', value: 'mobile' },
+    { label: 'Residencial', value: 'home' },
+    { label: 'Trabalho', value: 'work' },
+    { label: 'Outro', value: 'other' },
+]
+
 export default function EntityFormPage() {
     const { uuid } = useParams()
     const navigate = useNavigate()
@@ -32,6 +40,11 @@ export default function EntityFormPage() {
         cpf_cnpj: '',
         email: '',
         phone: '',
+        rg_ie: '',
+        birth_date: '',
+        emergency_phone: '',
+        emergency_phone_type: 'mobile',
+        document_file_path: '',
         postal_code: '',
         street: '',
         street_number: '',
@@ -54,6 +67,11 @@ export default function EntityFormPage() {
                     cpf_cnpj: entity.cpf_cnpj ?? '',
                     email: entity.email ?? '',
                     phone: entity.phone ?? '',
+                    rg_ie: entity.rg_ie ?? '',
+                    birth_date: entity.birth_date ?? '',
+                    emergency_phone: entity.emergency_phone ?? '',
+                    emergency_phone_type: entity.emergency_phone_type || 'mobile',
+                    document_file_path: entity.document_file_path ?? '',
                     postal_code: entity.postal_code ?? '',
                     street: entity.street ?? '',
                     street_number: entity.street_number ?? '',
@@ -81,6 +99,11 @@ export default function EntityFormPage() {
             cpf_cnpj: formData.cpf_cnpj,
             email: formData.email || null,
             phone: formData.phone || null,
+            rg_ie: formData.rg_ie || null,
+            birth_date: formData.birth_date || null,
+            emergency_phone: formData.emergency_phone || null,
+            emergency_phone_type: formData.emergency_phone ? formData.emergency_phone_type : null,
+            document_file_path: formData.document_file_path || null,
             postal_code: formData.postal_code || null,
             street: formData.street || null,
             street_number: formData.street_number || null,
@@ -203,6 +226,64 @@ export default function EntityFormPage() {
                                     value={formData.phone}
                                     onChange={(phone) => setField('phone', phone)}
                                 />
+                            </Field>
+                            <Field className="col-span-12 md:col-span-6">
+                                <FieldLabel htmlFor="rg-ie">{isCompany ? 'Inscrição estadual' : 'RG'}</FieldLabel>
+                                <Input
+                                    id="rg-ie"
+                                    name="rg_ie"
+                                    value={formData.rg_ie}
+                                    onChange={(event) => setField('rg_ie', event.target.value)}
+                                />
+                            </Field>
+                            <Field className="col-span-12 md:col-span-6">
+                                <FieldLabel htmlFor="birth-date">Data de nascimento</FieldLabel>
+                                <DatePicker
+                                    id="birth-date"
+                                    value={formData.birth_date}
+                                    onChange={(birthDate) => setField('birth_date', birthDate)}
+                                />
+                            </Field>
+                            <Field className="col-span-12 md:col-span-4">
+                                <FieldLabel htmlFor="emergency-phone-type">Tipo do telefone de emergência</FieldLabel>
+                                <Select
+                                    items={emergencyPhoneTypes}
+                                    value={formData.emergency_phone_type}
+                                    onValueChange={(value) => setField('emergency_phone_type', value)}
+                                >
+                                    <SelectTrigger id="emergency-phone-type" className="w-full">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectGroup>
+                                            {emergencyPhoneTypes.map((item) => (
+                                                <SelectItem key={item.value} value={item.value}>
+                                                    {item.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectGroup>
+                                    </SelectContent>
+                                </Select>
+                            </Field>
+                            <Field className="col-span-12 md:col-span-8">
+                                <FieldLabel htmlFor="emergency-phone">Telefone de emergência</FieldLabel>
+                                <InputPhone
+                                    id="emergency-phone"
+                                    name="emergency_phone"
+                                    value={formData.emergency_phone}
+                                    onChange={(phone) => setField('emergency_phone', phone)}
+                                />
+                            </Field>
+                            <Field className="col-span-12">
+                                <FieldLabel htmlFor="document-file-path">Caminho do documento</FieldLabel>
+                                <Input
+                                    id="document-file-path"
+                                    name="document_file_path"
+                                    value={formData.document_file_path}
+                                    onChange={(event) => setField('document_file_path', event.target.value)}
+                                    placeholder="Ex: documentos/rg.pdf"
+                                />
+                                <FieldDescription>Guarda só o caminho. O arquivo não é enviado por aqui.</FieldDescription>
                             </Field>
                         </FieldGroup>
                     </FieldSet>

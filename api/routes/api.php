@@ -90,7 +90,8 @@ Route::middleware(['auth:sanctum', 'ensure.company'])->group(function () {
             Route::post('/', [CustomerController::class, 'store']);
             Route::get('/{uuid}', [CustomerController::class, 'show']);
             Route::put('/{uuid}', [CustomerController::class, 'update']);
-            Route::delete('/{uuid}', [CustomerController::class, 'destroy']);
+            Route::post('/{uuid}/deactivate', [CustomerController::class, 'deactivate']);
+            Route::post('/{uuid}/activate', [CustomerController::class, 'activate']);
         });
 
         Route::prefix('fuel-stations')->group(function () {
