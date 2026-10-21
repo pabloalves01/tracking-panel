@@ -99,7 +99,6 @@ class StoreFuelStationTest extends TestCase
             'status' => 'suspended',
             'pix_key_type' => 'email',
             'pix_key' => 'maria@example.com',
-            'credit_limit' => '1500.50',
             'diesel_s10_price' => '6.199',
         ])->assertOk();
 
@@ -108,7 +107,6 @@ class StoreFuelStationTest extends TestCase
         $this->assertSame('email', $fuelStation->pix_key_type);
         $this->assertSame('maria@example.com', $fuelStation->pix_key);
         $this->assertSame('suspended', $fuelStation->status);
-        $this->assertSame('1500.50', $fuelStation->credit_limit);
         $this->assertSame('6.199', $fuelStation->diesel_s10_price);
     }
 

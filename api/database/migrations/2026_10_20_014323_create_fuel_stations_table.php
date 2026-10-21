@@ -18,9 +18,6 @@ return new class extends Migration
             $table->foreignId('entity_id')->constrained('common_entities');
             $table->string('login')->unique();
             $table->string('password');
-            $table->string('contact_name')->nullable();
-            $table->decimal('credit_limit', 12, 2)->nullable();
-            $table->string('default_payment_method')->nullable();
             $table->string('pix_key_type')->nullable();
             $table->string('pix_key')->nullable();
             $table->decimal('diesel_s10_price', 12, 3)->nullable();

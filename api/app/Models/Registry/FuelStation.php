@@ -23,9 +23,6 @@ class FuelStation extends Model
         'entity_id',
         'login',
         'password',
-        'contact_name',
-        'credit_limit',
-        'default_payment_method',
         'pix_key_type',
         'pix_key',
         'diesel_s10_price',
@@ -46,7 +43,6 @@ class FuelStation extends Model
     {
         return [
             'password' => 'hashed',
-            'credit_limit' => 'decimal:2',
             'diesel_s10_price' => 'decimal:3',
             'diesel_s500_price' => 'decimal:3',
             'gasoline_price' => 'decimal:3',

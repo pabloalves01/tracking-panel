@@ -54,7 +54,7 @@ class UpdateFuelStationRequest extends FormRequest
             'pix_key' => ['nullable', 'string', 'max:255', 'bail', new PixKeyForType],
             'login' => ['required', 'email', 'max:255', Rule::unique('fuel_stations', 'login')->ignore($this->fuelStationId())],
             'password' => ['nullable', 'string', 'min:8', 'confirmed'],
-            ...$this->stationRules(true),
+            ...$this->stationRules(),
         ];
     }
 
@@ -101,9 +101,6 @@ class UpdateFuelStationRequest extends FormRequest
         $values = [];
 
         foreach ([
-            'contact_name',
-            'credit_limit',
-            'default_payment_method',
             'diesel_s10_price',
             'diesel_s500_price',
             'gasoline_price',
@@ -125,9 +122,6 @@ class UpdateFuelStationRequest extends FormRequest
     private function stationRules(bool $statusRequired = false): array
     {
         return [
-            'contact_name' => ['nullable', 'string', 'max:255'],
-            'credit_limit' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
-            'default_payment_method' => ['nullable', 'in:cash,pix,invoice,debit,credit'],
             'diesel_s10_price' => ['nullable', 'numeric', 'min:0', 'max:999999.999'],
             'diesel_s500_price' => ['nullable', 'numeric', 'min:0', 'max:999999.999'],
             'gasoline_price' => ['nullable', 'numeric', 'min:0', 'max:999999.999'],
@@ -142,10 +136,6 @@ class UpdateFuelStationRequest extends FormRequest
     private function stationMessages(): array
     {
         return [
-            'contact_name.max' => 'O contato deve ter no máximo 255 caracteres',
-            'credit_limit.numeric' => 'O limite de crédito deve ser um número',
-            'credit_limit.min' => 'O limite de crédito não pode ser negativo',
-            'default_payment_method.in' => 'A forma de pagamento é inválida',
             'diesel_s10_price.numeric' => 'O preço do diesel S10 deve ser um número',
             'diesel_s500_price.numeric' => 'O preço do diesel S500 deve ser um número',
             'gasoline_price.numeric' => 'O preço da gasolina deve ser um número',

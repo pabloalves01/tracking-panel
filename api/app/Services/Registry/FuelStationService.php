@@ -113,19 +113,23 @@ class FuelStationService
      */
     private function stationAttributes(array $data): array
     {
-        return [
+        $attributes = [
             'login' => $data['login'],
-            'contact_name' => $data['contact_name'] ?? null,
-            'credit_limit' => $data['credit_limit'] ?? null,
-            'default_payment_method' => $data['default_payment_method'] ?? null,
             'pix_key_type' => $data['pix_key_type'] ?? null,
             'pix_key' => $data['pix_key'] ?? null,
             'diesel_s10_price' => $data['diesel_s10_price'] ?? null,
             'diesel_s500_price' => $data['diesel_s500_price'] ?? null,
             'gasoline_price' => $data['gasoline_price'] ?? null,
             'additive_gasoline_price' => $data['additive_gasoline_price'] ?? null,
-            'status' => $data['status'] ?? 'active',
         ];
+
+        // Situação sai do formulário. A lista ainda ativa e desativa.
+        // Sem a chave, o create usa o default da coluna e o update mantém a atual.
+        if (filled($data['status'] ?? null)) {
+            $attributes['status'] = $data['status'];
+        }
+
+        return $attributes;
     }
 
     /**

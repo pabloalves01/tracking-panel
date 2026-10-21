@@ -21,20 +21,6 @@ import { notifyError, notifySuccess } from '@/lib/notify'
 
 const listPath = '/app/cadastros/entidades/postos'
 
-const paymentMethods = [
-    { label: 'Dinheiro', value: 'cash' },
-    { label: 'PIX', value: 'pix' },
-    { label: 'Faturado', value: 'invoice' },
-    { label: 'Débito', value: 'debit' },
-    { label: 'Crédito', value: 'credit' },
-]
-
-const stationStatuses = [
-    { label: 'Ativo', value: 'active' },
-    { label: 'Inativo', value: 'inactive' },
-    { label: 'Suspenso', value: 'suspended' },
-]
-
 function emptyToNull(value) {
     return value === '' || value === null || value === undefined ? null : value
 }
@@ -95,14 +81,10 @@ export default function FuelStationFormPage() {
         login: '',
         password: '',
         password_confirmation: '',
-        contact_name: '',
-        credit_limit: '',
-        default_payment_method: '',
         diesel_s10_price: '',
         diesel_s500_price: '',
         gasoline_price: '',
         additive_gasoline_price: '',
-        status: 'active',
     })
 
     /**
@@ -210,14 +192,10 @@ export default function FuelStationFormPage() {
                     login: fuelStation.login ?? '',
                     password: '',
                     password_confirmation: '',
-                    contact_name: fuelStation.contact_name ?? '',
-                    credit_limit: fuelStation.credit_limit ?? '',
-                    default_payment_method: fuelStation.default_payment_method ?? '',
                     diesel_s10_price: fuelStation.diesel_s10_price ?? '',
                     diesel_s500_price: fuelStation.diesel_s500_price ?? '',
                     gasoline_price: fuelStation.gasoline_price ?? '',
                     additive_gasoline_price: fuelStation.additive_gasoline_price ?? '',
-                    status: fuelStation.status || 'active',
                 })
             })
             .catch(notifyError)
@@ -241,14 +219,10 @@ export default function FuelStationFormPage() {
             login: formData.login,
             password: formData.password || null,
             password_confirmation: formData.password ? formData.password_confirmation : null,
-            contact_name: emptyToNull(formData.contact_name),
-            credit_limit: emptyToNull(formData.credit_limit),
-            default_payment_method: emptyToNull(formData.default_payment_method),
             diesel_s10_price: emptyToNull(formData.diesel_s10_price),
             diesel_s500_price: emptyToNull(formData.diesel_s500_price),
             gasoline_price: emptyToNull(formData.gasoline_price),
             additive_gasoline_price: emptyToNull(formData.additive_gasoline_price),
-            status: formData.status || 'active',
         }
 
         const payload = isEditing
@@ -473,74 +447,6 @@ export default function FuelStationFormPage() {
                                     onChange={(password) => setField('password_confirmation', password)}
                                     placeholder="Repita a senha"
                                 />
-                            </Field>
-                        </FieldGroup>
-                    </FieldSet>
-
-                    <Separator />
-
-                    <FieldSet>
-                        <FieldLegend variant="label">Comercial</FieldLegend>
-                        <FieldGroup className="md:grid grid-cols-1 md:grid-cols-12">
-                            <Field className="col-span-12 md:col-span-4">
-                                <FieldLabel htmlFor="contact-name">Contato</FieldLabel>
-                                <Input
-                                    id="contact-name"
-                                    value={formData.contact_name}
-                                    onChange={(event) => setField('contact_name', event.target.value)}
-                                    placeholder="Ex: Maria da Silva"
-                                />
-                            </Field>
-                            <Field className="col-span-12 md:col-span-4">
-                                <FieldLabel htmlFor="credit-limit">Limite de crédito</FieldLabel>
-                                <InputMoney
-                                    id="credit-limit"
-                                    value={formData.credit_limit}
-                                    onChange={(amount) => setField('credit_limit', amount)}
-                                />
-                            </Field>
-                            <Field className="col-span-12 md:col-span-4">
-                                <FieldLabel htmlFor="payment-method">Forma de pagamento</FieldLabel>
-                                <Select
-                                    items={paymentMethods}
-                                    value={formData.default_payment_method}
-                                    onValueChange={(value) => setField('default_payment_method', value)}
-                                >
-                                    <SelectTrigger id="payment-method" className="w-full">
-                                        <SelectValue placeholder="Ex: PIX" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectGroup>
-                                            {paymentMethods.map((item) => (
-                                                <SelectItem key={item.value} value={item.value}>
-                                                    {item.label}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectGroup>
-                                    </SelectContent>
-                                </Select>
-                                <FieldDescription>Lista fixa. O catálogo antigo de formas de pagamento não existe aqui.</FieldDescription>
-                            </Field>
-                            <Field className="col-span-12 md:col-span-4">
-                                <FieldLabel htmlFor="station-status">Situação</FieldLabel>
-                                <Select
-                                    items={stationStatuses}
-                                    value={formData.status}
-                                    onValueChange={(value) => setField('status', value)}
-                                >
-                                    <SelectTrigger id="station-status" className="w-full">
-                                        <SelectValue placeholder="Ex: Ativo" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectGroup>
-                                            {stationStatuses.map((item) => (
-                                                <SelectItem key={item.value} value={item.value}>
-                                                    {item.label}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectGroup>
-                                    </SelectContent>
-                                </Select>
                             </Field>
                         </FieldGroup>
                     </FieldSet>
