@@ -11,13 +11,7 @@ import { ThemeToggle } from "@/components/layout/ThemeToggle"
 import { Button } from "@/components/ui/button"
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import {
-  checkStationSignupEmail,
-  lookupStationCnpj,
-  resendStationSignupCode,
-  startStationSignup,
-  verifyStationSignup,
-} from "@/lib/auth/stationSignup"
+import { checkStationSignupEmail, lookupStationCnpj, startStationSignup } from "@/lib/auth/stationSignup"
 import { notifyError, notifySuccess } from "@/lib/notify"
 
 export default function RegisterFuelStationPage() {
@@ -31,9 +25,6 @@ export default function RegisterFuelStationPage() {
   const [name, setName] = useState("")
   const [password, setPassword] = useState("")
   const [passwordConfirmation, setPasswordConfirmation] = useState("")
-  const [signupUuid, setSignupUuid] = useState("")
-  const [maskedEmail, setMaskedEmail] = useState("")
-  const [code, setCode] = useState("")
 
   const cnpjReady = station?.cnpj === cnpj
 
@@ -122,50 +113,8 @@ export default function RegisterFuelStationPage() {
             },
       )
 
-      if (result.signup_uuid) {
-        setSignupUuid(result.signup_uuid)
-        setMaskedEmail(result.email_masked ?? normalizedEmail)
-        setStep(3)
-        return
-      }
-
       notifySuccess(result)
       navigate("/auth/login", { replace: true })
-    } catch (error) {
-      notifyError(error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function handleVerify(event) {
-    event.preventDefault()
-
-    if (code.length !== 6) {
-      notifyError({ response: { status: 422, data: { message: "O código deve ter 6 dígitos" } } })
-      return
-    }
-
-    setLoading(true)
-
-    try {
-      const result = await verifyStationSignup(signupUuid, code)
-      notifySuccess(result)
-      navigate("/auth/login", { replace: true })
-    } catch (error) {
-      notifyError(error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function handleResend() {
-    setLoading(true)
-
-    try {
-      await resendStationSignupCode(signupUuid)
-      setCode("")
-      notifySuccess({ message: "Enviamos um novo código." })
     } catch (error) {
       notifyError(error)
     } finally {
@@ -355,53 +304,11 @@ export default function RegisterFuelStationPage() {
                     ) : null}
                     <Field>
                       <Button type="submit" disabled={loading}>
-                        {emailExists === null
-                          ? "Continuar"
-                          : emailExists
-                            ? "Cadastrar posto"
-                            : "Enviar código"}
+                        {emailExists === null ? "Continuar" : "Cadastrar posto"}
                       </Button>
                     </Field>
                     <Button type="button" variant="outline" onClick={() => setStep(1)}>
                       Voltar
-                    </Button>
-                    <p className="text-center text-sm text-muted-foreground">
-                      <Link to="/auth/login" className="underline underline-offset-4 hover:text-foreground">
-                        Voltar para o login
-                      </Link>
-                    </p>
-                  </FieldGroup>
-                </form>
-              ) : null}
-
-              {step === 3 ? (
-                <form className="flex flex-col gap-6" onSubmit={handleVerify}>
-                  <FieldGroup>
-                    <div className="flex flex-col items-center gap-1 text-center">
-                      <h1 className="text-2xl font-bold">Confirme o código</h1>
-                      <p className="text-sm text-balance text-muted-foreground">
-                        {`Enviamos um código de 6 dígitos para ${maskedEmail}. Ele expira em 10 minutos.`}
-                      </p>
-                    </div>
-                    <Field>
-                      <FieldLabel htmlFor="station-code">Código</FieldLabel>
-                      <Input
-                        id="station-code"
-                        inputMode="numeric"
-                        autoComplete="one-time-code"
-                        placeholder="000000"
-                        value={code}
-                        onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
-                        required
-                      />
-                    </Field>
-                    <Field>
-                      <Button type="submit" disabled={loading || code.length !== 6}>
-                        Verificar
-                      </Button>
-                    </Field>
-                    <Button type="button" variant="outline" disabled={loading} onClick={handleResend}>
-                      Reenviar código
                     </Button>
                     <p className="text-center text-sm text-muted-foreground">
                       <Link to="/auth/login" className="underline underline-offset-4 hover:text-foreground">

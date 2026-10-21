@@ -2,9 +2,7 @@
 
 namespace Tests\Feature\FuelStation;
 
-use App\Mail\FuelStationSignupCodeMail;
 use App\Models\FuelStation;
-use App\Models\FuelStationSignup;
 use App\Models\FuelStationUser;
 use App\Models\Location\City;
 use App\Models\Location\State;
@@ -15,7 +13,6 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
 class FuelStationSignupTest extends TestCase
@@ -28,7 +25,6 @@ class FuelStationSignupTest extends TestCase
     {
         parent::setUp();
 
-        Mail::fake();
         Http::preventStrayRequests();
         $this->fakeReceita();
     }
@@ -136,31 +132,14 @@ class FuelStationSignupTest extends TestCase
 
         $this->assertSame(1, User::query()->count());
         $this->assertSame(0, FuelStation::query()->count());
-        $this->assertSame(0, FuelStationSignup::query()->count());
     }
 
-    public function test_codigo_e_salvo_em_hash_e_nada_e_criado_antes_de_verificar(): void
+    public function test_cadastro_cria_posto_e_usuario(): void
     {
         [$state, $city] = $this->seedSaoPaulo();
-        $code = $this->startSignup();
 
-        $this->assertSame(0, User::query()->count());
-        $this->assertSame(0, FuelStation::query()->count());
-        $this->assertSame(0, FuelStationUser::query()->count());
-        $this->assertSame(1, FuelStationSignup::query()->count());
+        $this->registerStation();
 
-        $signup = FuelStationSignup::query()->first();
-        $this->assertNotSame($code, $signup->code_hash);
-        $this->assertTrue(Hash::check($code, $signup->code_hash));
-        $this->assertTrue(Hash::check('senha1234', $signup->password));
-        $this->assertStringContainsString('123456', (new FuelStationSignupCodeMail('123456'))->render());
-
-        $this->postJson("/api/auth/station-signup/{$signup->uuid}/verify", [
-            'code' => $code,
-        ])->assertCreated()
-            ->assertJsonPath('message', 'Posto cadastrado com sucesso');
-
-        $this->assertSame(0, FuelStationSignup::query()->count());
         $this->assertSame(1, User::query()->count());
         $this->assertSame(1, FuelStation::query()->count());
 
@@ -170,7 +149,6 @@ class FuelStationSignupTest extends TestCase
 
         $this->assertSame('Dona do Posto', $user->name);
         $this->assertSame('nova@posto.com', $user->email);
-        $this->assertNotNull($user->email_verified_at);
         $this->assertTrue(Hash::check('senha1234', $user->password));
         $this->assertSame(self::CNPJ, $station->cnpj);
         $this->assertSame('POSTO EXEMPLO LTDA', $station->corporate_name);
@@ -196,12 +174,7 @@ class FuelStationSignupTest extends TestCase
 
     public function test_posto_aceita_somente_um_usuario(): void
     {
-        $code = $this->startSignup();
-        $signup = FuelStationSignup::query()->first();
-
-        $this->postJson("/api/auth/station-signup/{$signup->uuid}/verify", [
-            'code' => $code,
-        ])->assertCreated();
+        $this->registerStation();
 
         $station = FuelStation::query()->first();
         $other = User::factory()->create([
@@ -223,85 +196,6 @@ class FuelStationSignupTest extends TestCase
         $this->assertSame(1, FuelStationUser::query()->count());
     }
 
-    public function test_codigo_errado_nao_cria_o_posto(): void
-    {
-        $code = $this->startSignup();
-        $signup = FuelStationSignup::query()->first();
-        $wrong = $code === '000000' ? '000001' : '000000';
-
-        $this->postJson("/api/auth/station-signup/{$signup->uuid}/verify", [
-            'code' => $wrong,
-        ])->assertUnprocessable()
-            ->assertJsonPath('message', 'Código inválido');
-
-        $this->assertNotNull($signup->fresh());
-        $this->assertSame(0, FuelStation::query()->count());
-    }
-
-    public function test_codigo_expirado_retorna_422(): void
-    {
-        $code = $this->startSignup();
-        $signup = FuelStationSignup::query()->first();
-
-        $this->travel(11)->minutes();
-
-        $this->postJson("/api/auth/station-signup/{$signup->uuid}/verify", [
-            'code' => $code,
-        ])->assertUnprocessable()
-            ->assertJsonPath('message', 'O código expirou. Peça um novo código');
-
-        $this->assertNotNull($signup->fresh());
-        $this->assertSame(0, FuelStation::query()->count());
-    }
-
-    public function test_codigos_errados_nao_invalidam_o_cadastro(): void
-    {
-        $code = $this->startSignup();
-        $signup = FuelStationSignup::query()->first();
-        $wrong = $code === '000000' ? '000001' : '000000';
-
-        for ($attempt = 0; $attempt < 5; $attempt++) {
-            $this->postJson("/api/auth/station-signup/{$signup->uuid}/verify", [
-                'code' => $wrong,
-            ])->assertUnprocessable()
-                ->assertJsonPath('message', 'Código inválido');
-        }
-
-        $this->assertNotNull($signup->fresh());
-
-        $this->postJson("/api/auth/station-signup/{$signup->uuid}/verify", [
-            'code' => $code,
-        ])->assertCreated();
-    }
-
-    public function test_reenvio_troca_o_codigo(): void
-    {
-        $code = $this->startSignup();
-        $signup = FuelStationSignup::query()->first();
-
-        $this->postJson("/api/auth/station-signup/{$signup->uuid}/resend")
-            ->assertOk()
-            ->assertJsonStructure(['expires_at']);
-
-        $signup->refresh();
-        $this->assertFalse(Hash::check($code, $signup->code_hash));
-
-        $resent = null;
-        Mail::assertSent(FuelStationSignupCodeMail::class, function (FuelStationSignupCodeMail $mail) use (&$resent) {
-            $resent = $mail->code;
-
-            return true;
-        });
-
-        $this->postJson("/api/auth/station-signup/{$signup->uuid}/verify", [
-            'code' => $code,
-        ])->assertUnprocessable();
-
-        $this->postJson("/api/auth/station-signup/{$signup->uuid}/verify", [
-            'code' => $resent,
-        ])->assertCreated();
-    }
-
     public function test_email_existente_com_senha_certa_liga_o_posto_ao_usuario(): void
     {
         $verifiedAt = now()->subDay();
@@ -320,7 +214,6 @@ class FuelStationSignupTest extends TestCase
             ->assertJsonPath('message', 'Posto cadastrado com sucesso');
 
         $this->assertSame(1, User::query()->count());
-        $this->assertSame(0, FuelStationSignup::query()->count());
         $this->assertSame('Conta Antiga', $user->fresh()->name);
         $this->assertSame(
             $verifiedAt->toDateTimeString(),
@@ -332,7 +225,6 @@ class FuelStationSignupTest extends TestCase
         $this->assertSame('owner', $membership->role);
         $this->assertSame('active', $membership->status);
         $this->assertSame('active', FuelStation::query()->first()->status);
-        Mail::assertNothingSent();
     }
 
     public function test_email_existente_com_senha_errada_nao_cadastra(): void
@@ -352,7 +244,7 @@ class FuelStationSignupTest extends TestCase
         }
 
         $this->assertSame(0, FuelStation::query()->count());
-        $this->assertSame(0, FuelStationSignup::query()->count());
+        $this->assertSame(1, User::query()->count());
 
         $this->postJson('/api/auth/station-signup', [
             'cnpj' => self::CNPJ,
@@ -366,25 +258,21 @@ class FuelStationSignupTest extends TestCase
 
     public function test_segundo_cadastro_do_mesmo_cnpj_nao_conclui(): void
     {
-        $first = $this->startSignup('primeira@posto.com');
-        $second = $this->startSignup('segunda@posto.com', 'Outra Pessoa');
+        $this->registerStation('primeira@posto.com', 'Primeira Pessoa');
 
-        $firstSignup = FuelStationSignup::query()->where('email', 'primeira@posto.com')->first();
-        $secondSignup = FuelStationSignup::query()->where('email', 'segunda@posto.com')->first();
-
-        $this->postJson("/api/auth/station-signup/{$firstSignup->uuid}/verify", [
-            'code' => $first,
-        ])->assertCreated();
-
-        $this->postJson("/api/auth/station-signup/{$secondSignup->uuid}/verify", [
-            'code' => $second,
+        $this->postJson('/api/auth/station-signup', [
+            'cnpj' => self::CNPJ,
+            'name' => 'Outra Pessoa',
+            'email' => 'segunda@posto.com',
+            'password' => 'senha1234',
+            'password_confirmation' => 'senha1234',
         ])->assertUnprocessable()
             ->assertJsonPath('message', 'Este posto já está cadastrado. Fale com o responsável');
 
         $this->assertSame(1, FuelStation::query()->count());
         $this->assertSame(1, User::query()->count());
         $this->assertSame(1, FuelStationUser::query()->count());
-        $this->assertNotNull($secondSignup->fresh());
+        $this->assertSame('primeira@posto.com', User::query()->first()->email);
     }
 
     /**
@@ -450,31 +338,15 @@ class FuelStationSignupTest extends TestCase
         return [$state, $city];
     }
 
-    private function startSignup(string $email = 'nova@posto.com', string $name = 'Dona do Posto'): string
+    private function registerStation(string $email = 'nova@posto.com', string $name = 'Dona do Posto'): void
     {
-        $response = $this->postJson('/api/auth/station-signup', [
+        $this->postJson('/api/auth/station-signup', [
             'cnpj' => self::CNPJ,
             'name' => $name,
             'email' => $email,
             'password' => 'senha1234',
             'password_confirmation' => 'senha1234',
-        ])->assertOk();
-
-        $code = null;
-        Mail::assertSent(FuelStationSignupCodeMail::class, function (FuelStationSignupCodeMail $mail) use ($email, &$code) {
-            if (! $mail->hasTo($email)) {
-                return false;
-            }
-
-            $code = $mail->code;
-
-            return true;
-        });
-
-        $this->assertNotEmpty($response->json('signup_uuid'));
-        $this->assertNotEmpty($response->json('email_masked'));
-        $this->assertNotSame($code, $response->json('email_masked'));
-
-        return $code;
+        ])->assertCreated()
+            ->assertJsonPath('message', 'Posto cadastrado com sucesso');
     }
 }

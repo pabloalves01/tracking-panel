@@ -11,11 +11,3 @@ export function checkStationSignupEmail(payload) {
 export function startStationSignup(payload) {
     return api.post('/auth/station-signup', payload).then((response) => response.data)
 }
-
-export function resendStationSignupCode(uuid) {
-    return api.post(`/auth/station-signup/${uuid}/resend`).then((response) => response.data)
-}
-
-export function verifyStationSignup(uuid, code) {
-    return api.post(`/auth/station-signup/${uuid}/verify`, { code }).then((response) => response.data)
-}

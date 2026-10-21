@@ -38,8 +38,6 @@ Route::prefix('auth')->group(function () {
         Route::post('check-email', [FuelStationSignupController::class, 'checkEmail'])
             ->middleware('throttle:5,1,station-signup-email');
         Route::post('/', [FuelStationSignupController::class, 'store']);
-        Route::post('{signup}/resend', [FuelStationSignupController::class, 'resend']);
-        Route::post('{signup}/verify', [FuelStationSignupController::class, 'verify']);
     });
 
     Route::middleware('auth:sanctum')->group(function () {
