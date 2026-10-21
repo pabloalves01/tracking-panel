@@ -64,7 +64,8 @@ Route::middleware(['auth:sanctum', 'ensure.company'])->group(function () {
             Route::post('/', [EmployeeController::class, 'store']);
             Route::get('/{uuid}', [EmployeeController::class, 'show']);
             Route::put('/{uuid}', [EmployeeController::class, 'update']);
-            Route::delete('/{uuid}', [EmployeeController::class, 'destroy']);
+            Route::post('/{uuid}/deactivate', [EmployeeController::class, 'deactivate']);
+            Route::post('/{uuid}/activate', [EmployeeController::class, 'activate']);
         });
 
         Route::prefix('carriers')->group(function () {
