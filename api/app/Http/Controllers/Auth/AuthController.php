@@ -10,7 +10,6 @@ use App\Http\Resources\Auth\UserResource;
 use App\Http\Resources\FuelStation\FuelStationResource;
 use App\Http\Resources\System\Company\CompanyResource;
 use App\Models\Company;
-use App\Models\FuelStation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -19,7 +18,6 @@ class AuthController extends Controller
     public function login(LoginRequest $request)
     {
         $credentials = $request->only('email', 'password');
-        $credentials['email'] = strtolower(trim((string) $credentials['email']));
 
         if (! Auth::attempt($credentials)) {
             abort(401, 'E-mail ou senha inválidos.');
@@ -63,11 +61,14 @@ class AuthController extends Controller
 
     public function selectStation(SelectFuelStationRequest $request)
     {
-        $station = FuelStation::where('uuid', $request->validated('uuid'))->firstOrFail();
-        $belongs = $request->user()->fuelStations()->whereKey($station->id)->exists();
-        if (! $belongs) {
+        $station = $request->user()->fuelStations()
+            ->where('fuel_stations.uuid', $request->validated('uuid'))
+            ->first();
+
+        if (! $station) {
             abort(403, 'Você não tem acesso a este posto.');
         }
+
         $request->user()->currentAccessToken()->forceFill([
             'company_id' => null,
             'fuel_station_id' => $station->id,

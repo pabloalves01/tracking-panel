@@ -14,7 +14,7 @@ class SelectFuelStationRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'uuid' => ['required', 'uuid', 'exists:fuel_stations,uuid'],
+            'uuid' => ['required', 'uuid'],
         ];
     }
 
@@ -23,7 +23,6 @@ class SelectFuelStationRequest extends FormRequest
         return [
             'uuid.required' => 'Selecione um posto',
             'uuid.uuid' => 'O posto informado é inválido',
-            'uuid.exists' => 'O posto informado não existe',
         ];
     }
 }
