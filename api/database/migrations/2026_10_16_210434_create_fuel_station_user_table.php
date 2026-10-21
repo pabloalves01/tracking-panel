@@ -14,14 +14,10 @@ return new class extends Migration
     {
         Schema::create('fuel_station_user', function (Blueprint $table) {
             $table->id();
-            $table->uuid('uuid')->unique();
             $table->foreignId('fuel_station_id')->constrained('fuel_stations');
             $table->foreignId('user_id')->constrained('users');
             $table->string('role');
-            $table->string('status', 50)->default('active');
-            $table->foreignId('invited_by')->nullable()->constrained('users');
             $table->timestamps();
-            $table->softDeletes();
 
             $table->unique('fuel_station_id');
         });

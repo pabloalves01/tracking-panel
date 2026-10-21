@@ -50,8 +50,7 @@ Route::prefix('auth')->group(function () {
 
 // =============================== LOCATION ROUTES ===============================
 
-// Catálogo do IBGE. Público para o cadastro do posto usar os mesmos selects.
-Route::prefix('locations')->group(function () {
+Route::middleware('auth:sanctum')->prefix('locations')->group(function () {
     Route::get('states', [LocationController::class, 'states']);
     Route::get('states/{state}/cities', [LocationController::class, 'cities']);
 });

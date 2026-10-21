@@ -30,8 +30,6 @@ class FuelStation extends Model
         'district',
         'state_id',
         'city_id',
-        'pix_key_type',
-        'pix_key',
         'status',
     ];
 

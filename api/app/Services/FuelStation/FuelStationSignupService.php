@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Rules\Cnpj;
 use App\Services\External\BrasilApiService;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
@@ -25,18 +26,19 @@ class FuelStationSignupService
         $digits = $this->availableCnpj($cnpj);
         $payload = $this->brasilApi->cnpj($digits);
 
-        return array_merge(['cnpj' => $digits], $this->address($payload));
+        return array_merge(
+            ['cnpj' => $digits],
+            Arr::except($this->address($payload), ['state_name', 'state_id', 'city_id']),
+        );
     }
 
     /**
      * @return array{exists: bool}
      */
-    public function checkEmail(string $cnpj, string $email): array
+    public function checkEmail(string $email): array
     {
-        $this->availableCnpj($cnpj);
-
         return [
-            'exists' => User::where('email', strtolower($email))->exists(),
+            'exists' => User::where('email', $email)->exists(),
         ];
     }
 
@@ -48,7 +50,7 @@ class FuelStationSignupService
     {
         $digits = $this->availableCnpj((string) $data['cnpj']);
         $payload = $this->brasilApi->cnpj($digits);
-        $email = strtolower((string) $data['email']);
+        $email = (string) $data['email'];
         $user = User::where('email', $email)->first();
 
         if ($user) {
@@ -94,26 +96,19 @@ class FuelStationSignupService
 
         try {
             DB::transaction(function () use ($cnpj, $address, $owner, $data) {
-                $station = FuelStation::create([
-                    'cnpj' => $cnpj,
-                    'corporate_name' => $address['corporate_name'],
-                    'trade_name' => $address['trade_name'],
-                    'receita_status' => $address['receita_status'],
-                    'receita_checked_at' => now(),
-                    'zip_code' => $address['zip_code'],
-                    'street' => $address['street'],
-                    'number' => $address['number'],
-                    'complement' => $address['complement'],
-                    'district' => $address['district'],
-                    'state_id' => $address['state_id'],
-                    'city_id' => $address['city_id'],
-                    'status' => 'active',
-                ]);
+                $station = FuelStation::create(array_merge(
+                    Arr::except($address, ['state_name', 'city_name', 'uf']),
+                    [
+                        'cnpj' => $cnpj,
+                        'receita_checked_at' => now(),
+                        'status' => 'active',
+                    ],
+                ));
 
                 if (! $owner) {
                     $owner = User::create([
                         'name' => $data['name'],
-                        'email' => strtolower((string) $data['email']),
+                        'email' => $data['email'],
                         'password' => $data['password'],
                     ]);
                 }
@@ -122,11 +117,14 @@ class FuelStationSignupService
                     'fuel_station_id' => $station->id,
                     'user_id' => $owner->id,
                     'role' => 'owner',
-                    'status' => 'active',
                 ]);
             });
         } catch (UniqueConstraintViolationException) {
-            abort(422, 'Este posto já está cadastrado. Fale com o responsável');
+            if (FuelStation::withTrashed()->where('cnpj', $cnpj)->exists()) {
+                abort(422, 'Este posto já está cadastrado. Fale com o responsável');
+            }
+
+            abort(422, 'Este e-mail já tem conta');
         }
     }
 

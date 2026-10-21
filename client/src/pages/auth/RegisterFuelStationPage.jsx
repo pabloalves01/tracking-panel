@@ -1,15 +1,12 @@
 import { useState } from "react"
 import { Link, useNavigate } from "react-router"
 
-import { InputCity } from "@/components/common/inputs/InputCity"
 import { InputCpfCnpj } from "@/components/common/inputs/InputCpfCnpj"
 import { InputPassword } from "@/components/common/inputs/InputPassword"
-import { InputPostalCode } from "@/components/common/inputs/InputPostalCode"
-import { SelectState } from "@/components/common/inputs/SelectState"
 import { LoadingWrapper } from "@/components/common/LoadingWrapper"
 import { ThemeToggle } from "@/components/layout/ThemeToggle"
 import { Button } from "@/components/ui/button"
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { checkStationSignupEmail, lookupStationCnpj, startStationSignup } from "@/lib/auth/stationSignup"
 import { notifyError, notifySuccess } from "@/lib/notify"
@@ -36,11 +33,6 @@ export default function RegisterFuelStationPage() {
       return
     }
 
-    if (cnpj.length !== 14) {
-      notifyError({ response: { status: 422, data: { message: "Informe um CNPJ válido" } } })
-      return
-    }
-
     setLoading(true)
 
     try {
@@ -55,45 +47,12 @@ export default function RegisterFuelStationPage() {
 
   async function handleAccountSubmit(event) {
     event.preventDefault()
-    const normalizedEmail = email.trim().toLowerCase()
-
-    if (!normalizedEmail) {
-      notifyError({ response: { status: 422, data: { message: "O e-mail é obrigatório" } } })
-      return
-    }
-
     setLoading(true)
 
     try {
       if (emailExists === null) {
-        const result = await checkStationSignupEmail({
-          cnpj: station.cnpj,
-          email: normalizedEmail,
-        })
-        setEmail(normalizedEmail)
+        const result = await checkStationSignupEmail({ email })
         setEmailExists(Boolean(result.exists))
-        return
-      }
-
-      if (!emailExists && (!name.trim() || password.length < 8)) {
-        notifyError({
-          response: {
-            status: 422,
-            data: {
-              message: !name.trim() ? "O nome é obrigatório" : "A senha deve ter no mínimo 8 caracteres",
-            },
-          },
-        })
-        return
-      }
-
-      if (!emailExists && password !== passwordConfirmation) {
-        notifyError({ response: { status: 422, data: { message: "A confirmação da senha não confere" } } })
-        return
-      }
-
-      if (emailExists && !password) {
-        notifyError({ response: { status: 422, data: { message: "A senha é obrigatória" } } })
         return
       }
 
@@ -101,13 +60,13 @@ export default function RegisterFuelStationPage() {
         emailExists
           ? {
               cnpj: station.cnpj,
-              email: normalizedEmail,
+              email,
               password,
             }
           : {
               cnpj: station.cnpj,
-              name: name.trim(),
-              email: normalizedEmail,
+              name,
+              email,
               password,
               password_confirmation: passwordConfirmation,
             },
@@ -158,66 +117,20 @@ export default function RegisterFuelStationPage() {
                       />
                     </Field>
                     {cnpjReady ? (
-                      <>
-                        <Field>
-                          <FieldLabel htmlFor="station-corporate-name">Razão social</FieldLabel>
-                          <Input id="station-corporate-name" value={station.corporate_name ?? ""} disabled />
-                        </Field>
-                        <Field>
-                          <FieldLabel htmlFor="station-trade-name">Nome fantasia</FieldLabel>
-                          <Input id="station-trade-name" value={station.trade_name ?? ""} disabled />
-                        </Field>
-                        <Field>
-                          <FieldLabel htmlFor="station-receita-status">Situação cadastral</FieldLabel>
-                          <Input id="station-receita-status" value={station.receita_status ?? ""} disabled />
-                        </Field>
-                        <FieldDescription>Endereço informado pela Receita Federal.</FieldDescription>
-                        <Field>
-                          <FieldLabel htmlFor="station-zip-code">CEP</FieldLabel>
-                          <InputPostalCode id="station-zip-code" value={station.zip_code ?? ""} disabled />
-                        </Field>
-                        <Field>
-                          <FieldLabel htmlFor="station-street">Rua</FieldLabel>
-                          <Input id="station-street" value={station.street ?? ""} disabled />
-                        </Field>
-                        <Field>
-                          <FieldLabel htmlFor="station-number">Número</FieldLabel>
-                          <Input id="station-number" value={station.number ?? ""} disabled />
-                        </Field>
-                        <Field>
-                          <FieldLabel htmlFor="station-complement">Complemento</FieldLabel>
-                          <Input id="station-complement" value={station.complement ?? ""} disabled />
-                        </Field>
-                        <Field>
-                          <FieldLabel htmlFor="station-district">Bairro</FieldLabel>
-                          <Input id="station-district" value={station.district ?? ""} disabled />
-                        </Field>
-                        <Field>
-                          <FieldLabel htmlFor="station-state">Estado</FieldLabel>
-                          {station.state_id ? (
-                            <SelectState id="station-state" value={station.state_id} disabled onChange={() => {}} />
-                          ) : (
-                            <Input id="station-state" value={station.state_name || station.uf || ""} disabled />
-                          )}
-                        </Field>
-                        <Field data-disabled>
-                          <FieldLabel htmlFor="station-city">Cidade</FieldLabel>
-                          {station.state_id ? (
-                            <InputCity
-                              id="station-city"
-                              stateId={station.state_id}
-                              value={station.city_id}
-                              disabled
-                              onChange={() => {}}
-                            />
-                          ) : (
-                            <Input id="station-city" value={station.city_name ?? ""} disabled />
-                          )}
-                        </Field>
-                      </>
+                      <div className="space-y-1 text-sm text-muted-foreground">
+                        <p className="font-medium text-foreground">{station.corporate_name}</p>
+                        {station.trade_name ? <p>{station.trade_name}</p> : null}
+                        <p>{station.receita_status}</p>
+                        <p>
+                          {[station.street, station.number, station.complement, station.district, station.zip_code]
+                            .filter(Boolean)
+                            .join(", ")}
+                        </p>
+                        <p>{[station.city_name, station.uf].filter(Boolean).join("/")}</p>
+                      </div>
                     ) : null}
                     <Field>
-                      <Button type="submit" disabled={loading || cnpj.length !== 14}>
+                      <Button type="submit" disabled={loading}>
                         {cnpjReady ? "Continuar" : "Consultar CNPJ"}
                       </Button>
                     </Field>
@@ -253,7 +166,6 @@ export default function RegisterFuelStationPage() {
                           setEmail(event.target.value)
                           setEmailExists(null)
                         }}
-                        required
                       />
                     </Field>
                     {emailExists === false ? (
@@ -265,7 +177,6 @@ export default function RegisterFuelStationPage() {
                             value={name}
                             autoComplete="name"
                             onChange={(event) => setName(event.target.value)}
-                            required
                           />
                         </Field>
                         <Field>

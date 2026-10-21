@@ -43,7 +43,6 @@ class User extends Authenticatable
     public function fuelStations(): BelongsToMany
     {
         return $this->belongsToMany(FuelStation::class, 'fuel_station_user')
-            ->withPivot('role', 'status')
-            ->wherePivotNull('deleted_at');
+            ->withPivot('role');
     }
 }

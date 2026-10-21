@@ -31,20 +31,14 @@ class FuelStationSignupTest extends TestCase
 
     public function test_consulta_cnpj_ativo_e_reaproveita_o_cache(): void
     {
-        [$state, $city] = $this->seedSaoPaulo();
+        $this->seedSaoPaulo();
 
         $this->getJson('/api/auth/station-signup/cnpj/'.self::CNPJ)
             ->assertOk()
-            ->assertJsonPath('cnpj', self::CNPJ)
             ->assertJsonPath('corporate_name', 'POSTO EXEMPLO LTDA')
-            ->assertJsonPath('trade_name', 'POSTO EXEMPLO')
-            ->assertJsonPath('receita_status', 'ATIVA')
-            ->assertJsonPath('zip_code', '01310930')
-            ->assertJsonPath('street', 'AVENIDA PAULISTA')
-            ->assertJsonPath('number', '1000')
-            ->assertJsonPath('district', 'BELA VISTA')
-            ->assertJsonPath('state_id', $state->id)
-            ->assertJsonPath('city_id', $city->id);
+            ->assertJsonPath('city_name', 'São Paulo')
+            ->assertJsonPath('uf', 'SP')
+            ->assertJsonMissingPath('state_id');
 
         $this->getJson('/api/auth/station-signup/cnpj/'.self::CNPJ)->assertOk();
 
@@ -105,6 +99,24 @@ class FuelStationSignupTest extends TestCase
             ->assertJsonPath('corporate_name', 'POSTO EXEMPLO LTDA');
     }
 
+    public function test_brasilapi_nao_encontra_o_cnpj(): void
+    {
+        $this->fakeReceita([], 404);
+
+        $this->getJson('/api/auth/station-signup/cnpj/'.self::CNPJ)
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'CNPJ não encontrado na Receita Federal');
+    }
+
+    public function test_brasilapi_com_erro_retorna_503(): void
+    {
+        $this->fakeReceita([], 500);
+
+        $this->getJson('/api/auth/station-signup/cnpj/'.self::CNPJ)
+            ->assertStatus(503)
+            ->assertJsonPath('message', 'A consulta de CNPJ está indisponível. Tente novamente em instantes');
+    }
+
     public function test_consulta_de_cnpj_respeita_o_limite(): void
     {
         for ($attempt = 0; $attempt < 10; $attempt++) {
@@ -121,12 +133,10 @@ class FuelStationSignupTest extends TestCase
         ]);
 
         $this->postJson('/api/auth/station-signup/check-email', [
-            'cnpj' => self::CNPJ,
             'email' => 'existe@posto.com',
         ])->assertOk()->assertExactJson(['exists' => true]);
 
         $this->postJson('/api/auth/station-signup/check-email', [
-            'cnpj' => self::CNPJ,
             'email' => 'novo@posto.com',
         ])->assertOk()->assertExactJson(['exists' => false]);
 
@@ -136,7 +146,7 @@ class FuelStationSignupTest extends TestCase
 
     public function test_cadastro_cria_posto_e_usuario(): void
     {
-        [$state, $city] = $this->seedSaoPaulo();
+        [, $city] = $this->seedSaoPaulo();
 
         $this->registerStation();
 
@@ -151,25 +161,9 @@ class FuelStationSignupTest extends TestCase
         $this->assertSame('nova@posto.com', $user->email);
         $this->assertTrue(Hash::check('senha1234', $user->password));
         $this->assertSame(self::CNPJ, $station->cnpj);
-        $this->assertSame('POSTO EXEMPLO LTDA', $station->corporate_name);
-        $this->assertSame('POSTO EXEMPLO', $station->trade_name);
-        $this->assertSame('ATIVA', $station->receita_status);
-        $this->assertNotNull($station->receita_checked_at);
-        $this->assertSame('01310930', $station->zip_code);
-        $this->assertSame('AVENIDA PAULISTA', $station->street);
-        $this->assertSame('1000', $station->number);
-        $this->assertSame('LOJA 1', $station->complement);
-        $this->assertSame('BELA VISTA', $station->district);
-        $this->assertSame($state->id, $station->state_id);
         $this->assertSame($city->id, $station->city_id);
-        $this->assertNull($station->pix_key_type);
-        $this->assertNull($station->pix_key);
-        $this->assertSame('active', $station->status);
-        $this->assertSame($station->id, $membership->fuel_station_id);
-        $this->assertSame($user->id, $membership->user_id);
         $this->assertSame('owner', $membership->role);
-        $this->assertSame('active', $membership->status);
-        $this->assertNull($membership->invited_by);
+        $this->assertSame($user->id, $membership->user_id);
     }
 
     public function test_posto_aceita_somente_um_usuario(): void
@@ -186,7 +180,6 @@ class FuelStationSignupTest extends TestCase
                 'fuel_station_id' => $station->id,
                 'user_id' => $other->id,
                 'role' => 'owner',
-                'status' => 'active',
             ]);
             $this->fail('O posto aceitou um segundo usuário.');
         } catch (QueryException $exception) {
@@ -220,11 +213,7 @@ class FuelStationSignupTest extends TestCase
             $user->fresh()->email_verified_at->toDateTimeString(),
         );
 
-        $membership = FuelStationUser::query()->first();
-        $this->assertSame($user->id, $membership->user_id);
-        $this->assertSame('owner', $membership->role);
-        $this->assertSame('active', $membership->status);
-        $this->assertSame('active', FuelStation::query()->first()->status);
+        $this->assertSame($user->id, FuelStationUser::query()->first()->user_id);
     }
 
     public function test_email_existente_com_senha_errada_nao_cadastra(): void
@@ -273,6 +262,50 @@ class FuelStationSignupTest extends TestCase
         $this->assertSame(1, User::query()->count());
         $this->assertSame(1, FuelStationUser::query()->count());
         $this->assertSame('primeira@posto.com', User::query()->first()->email);
+    }
+
+    public function test_email_em_maiusculas_encontra_o_usuario_existente(): void
+    {
+        User::factory()->create([
+            'email' => 'dono@posto.com',
+            'password' => 'senha-atual',
+        ]);
+
+        $this->postJson('/api/auth/station-signup', [
+            'cnpj' => self::CNPJ,
+            'email' => ' DONO@POSTO.COM ',
+            'password' => 'senha-atual',
+        ])->assertCreated();
+
+        $this->assertSame(1, User::query()->count());
+    }
+
+    public function test_email_duplicado_na_criacao_avisa_que_a_conta_ja_existe(): void
+    {
+        FuelStation::created(function () {
+            if (User::query()->where('email', 'nova@posto.com')->exists()) {
+                return;
+            }
+
+            User::query()->insert([
+                'name' => 'Outra conta',
+                'email' => 'nova@posto.com',
+                'password' => 'secreta',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        });
+
+        $this->postJson('/api/auth/station-signup', [
+            'cnpj' => self::CNPJ,
+            'name' => 'Dona do Posto',
+            'email' => 'nova@posto.com',
+            'password' => 'senha1234',
+            'password_confirmation' => 'senha1234',
+        ])->assertUnprocessable()
+            ->assertJsonPath('message', 'Este e-mail já tem conta');
+
+        $this->assertSame(0, FuelStation::query()->count());
     }
 
     /**

@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests\Auth;
 
-use App\Rules\Cnpj;
 use Illuminate\Foundation\Http\FormRequest;
 
 class CheckFuelStationSignupEmailRequest extends FormRequest
@@ -15,7 +14,6 @@ class CheckFuelStationSignupEmailRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $this->merge([
-            'cnpj' => Cnpj::digits($this->input('cnpj')),
             'email' => strtolower(trim((string) $this->input('email'))),
         ]);
     }
@@ -23,7 +21,6 @@ class CheckFuelStationSignupEmailRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'cnpj' => ['required', 'string', new Cnpj],
             'email' => ['required', 'email', 'max:255'],
         ];
     }
@@ -31,7 +28,6 @@ class CheckFuelStationSignupEmailRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'cnpj.required' => 'O CNPJ é obrigatório',
             'email.required' => 'O e-mail é obrigatório',
             'email.email' => 'Informe um e-mail válido',
         ];

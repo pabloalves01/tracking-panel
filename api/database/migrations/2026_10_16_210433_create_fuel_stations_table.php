@@ -26,8 +26,6 @@ return new class extends Migration
             $table->string('district')->nullable();
             $table->foreignId('state_id')->nullable()->constrained('states');
             $table->foreignId('city_id')->nullable()->constrained('cities');
-            $table->string('pix_key_type')->nullable();
-            $table->string('pix_key')->nullable();
             $table->string('status', 50)->default('active');
             $table->timestamps();
             $table->softDeletes();
