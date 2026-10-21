@@ -24,12 +24,7 @@ class Driver extends Model
         'license_expires_on',
         'license_issued_state',
         'residence_proof_path',
-        'app_password',
         'status',
-    ];
-
-    protected $hidden = [
-        'app_password',
     ];
 
     /**
@@ -39,7 +34,6 @@ class Driver extends Model
     {
         return [
             'license_expires_on' => 'date:Y-m-d',
-            'app_password' => 'hashed',
         ];
     }
 

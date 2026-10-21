@@ -4,7 +4,6 @@ import { Link, useNavigate, useParams } from 'react-router'
 import { InputCity } from '@/components/common/inputs/InputCity'
 import { InputEmergencyNumber } from '@/components/common/inputs/InputEmergencyNumber'
 import { InputCpfCnpj } from '@/components/common/inputs/InputCpfCnpj'
-import { InputPassword } from '@/components/common/inputs/InputPassword'
 import { InputPhone } from '@/components/common/inputs/InputPhone'
 import { InputPostalCode } from '@/components/common/inputs/InputPostalCode'
 import { SelectState } from '@/components/common/inputs/SelectState'
@@ -93,8 +92,6 @@ export default function DriverFormPage() {
         license_expires_on: '',
         license_issued_state: '',
         residence_proof_path: '',
-        app_password: '',
-        app_password_confirmation: '',
         name: '',
         trade_name: '',
         cpf_cnpj: '',
@@ -196,8 +193,6 @@ export default function DriverFormPage() {
                     license_expires_on: driver.license_expires_on ?? '',
                     license_issued_state: driver.license_issued_state ?? '',
                     residence_proof_path: driver.residence_proof_path ?? '',
-                    app_password: '',
-                    app_password_confirmation: '',
                 })
             })
             .catch(notifyError)
@@ -221,8 +216,6 @@ export default function DriverFormPage() {
             license_expires_on: formData.license_expires_on || null,
             license_issued_state: formData.license_issued_state || null,
             residence_proof_path: formData.residence_proof_path || null,
-            app_password: formData.app_password || null,
-            app_password_confirmation: formData.app_password ? formData.app_password_confirmation : null,
         }
 
         const payload = isEditing
@@ -293,7 +286,7 @@ export default function DriverFormPage() {
                     <FieldSet>
                         <FieldLegend variant="label">Dados do motorista</FieldLegend>
                         <FieldDescription>
-                            A CNH e a senha do aplicativo ficam no motorista. Nome, documento e contato pertencem à entidade.
+                            A CNH fica no motorista. Nome, documento e contato pertencem à entidade.
                         </FieldDescription>
 
                         {entityLocked && !existingDriver && (
@@ -514,24 +507,6 @@ export default function DriverFormPage() {
                                     placeholder="Ex: documentos/comprovante.pdf"
                                 />
                                 <FieldDescription>Guarda só o caminho. O arquivo não é enviado por aqui.</FieldDescription>
-                            </Field>
-                            <Field className="col-span-12 md:col-span-6">
-                                <FieldLabel htmlFor="driver-app-password">Senha do aplicativo</FieldLabel>
-                                <InputPassword
-                                    id="driver-app-password"
-                                    value={formData.app_password}
-                                    onChange={(password) => setField('app_password', password)}
-                                    placeholder={isEditing ? 'Em branco mantém a atual' : 'Senha de acesso'}
-                                />
-                            </Field>
-                            <Field className="col-span-12 md:col-span-6">
-                                <FieldLabel htmlFor="driver-app-password-confirmation">Confirmação da senha</FieldLabel>
-                                <InputPassword
-                                    id="driver-app-password-confirmation"
-                                    value={formData.app_password_confirmation}
-                                    onChange={(password) => setField('app_password_confirmation', password)}
-                                    placeholder="Repita a senha"
-                                />
                             </Field>
                         </FieldGroup>
                     </FieldSet>

@@ -43,7 +43,6 @@ class StoreDriverRequest extends FormRequest
                 ? strtoupper((string) $this->input('license_issued_state'))
                 : null,
             'residence_proof_path' => filled($this->input('residence_proof_path')) ? $this->input('residence_proof_path') : null,
-            ...$this->blankPassword(),
         ]);
     }
 
@@ -72,7 +71,6 @@ class StoreDriverRequest extends FormRequest
             'license_expires_on' => ['nullable', 'date_format:Y-m-d'],
             'license_issued_state' => ['nullable', 'string', 'size:2'],
             'residence_proof_path' => ['nullable', 'string', 'max:255'],
-            'app_password' => ['nullable', 'string', 'min:8', 'confirmed'],
         ];
     }
 
@@ -108,23 +106,6 @@ class StoreDriverRequest extends FormRequest
             'license_expires_on.date_format' => 'Informe uma validade da CNH válida',
             'license_issued_state.size' => 'A UF da CNH deve ter 2 letras',
             'residence_proof_path.max' => 'O caminho do comprovante deve ter no máximo 255 caracteres',
-            'app_password.min' => 'A senha deve ter no mínimo 8 caracteres',
-            'app_password.confirmed' => 'A confirmação da senha não confere',
-        ];
-    }
-
-    /**
-     * @return array<string, null>
-     */
-    private function blankPassword(): array
-    {
-        if (filled($this->input('app_password'))) {
-            return [];
-        }
-
-        return [
-            'app_password' => null,
-            'app_password_confirmation' => null,
         ];
     }
 }

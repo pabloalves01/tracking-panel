@@ -40,7 +40,6 @@ class DriverService
             $driver = Driver::create([
                 'entity_id' => $entity->id,
                 ...$this->roleAttributes($data),
-                ...$this->passwordAttribute($data),
             ]);
 
             return $driver->load('entity');
@@ -59,7 +58,7 @@ class DriverService
     }
 
     /**
-     * Update a driver. Só grava os campos da CNH e a senha do aplicativo.
+     * Update a driver. Só grava os campos da CNH.
      *
      * @param string $uuid
      * @param array $data
@@ -70,10 +69,7 @@ class DriverService
         return DB::transaction(function () use ($uuid, $data) {
             $driver = $this->get($uuid);
 
-            $driver->update([
-                ...$this->roleAttributes($data),
-                ...$this->passwordAttribute($data),
-            ]);
+            $driver->update($this->roleAttributes($data));
 
             return $driver;
         });
@@ -120,20 +116,5 @@ class DriverService
             'license_issued_state' => $data['license_issued_state'] ?? null,
             'residence_proof_path' => $data['residence_proof_path'] ?? null,
         ];
-    }
-
-    /**
-     * Senha vazia não troca o hash já gravado.
-     *
-     * @param  array<string, mixed>  $data
-     * @return array<string, string>
-     */
-    private function passwordAttribute(array $data): array
-    {
-        if (! filled($data['app_password'] ?? null)) {
-            return [];
-        }
-
-        return ['app_password' => $data['app_password']];
     }
 }

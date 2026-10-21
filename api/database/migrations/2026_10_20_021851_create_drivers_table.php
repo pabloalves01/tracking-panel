@@ -21,7 +21,6 @@ return new class extends Migration
             $table->date('license_expires_on')->nullable();
             $table->string('license_issued_state', 2)->nullable();
             $table->string('residence_proof_path')->nullable();
-            $table->string('app_password')->nullable();
             $table->string('status', 50)->default('active');
             $table->timestamps();
             $table->softDeletes();

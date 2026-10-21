@@ -8,7 +8,6 @@ use App\Models\Registry\Driver;
 use App\Models\User;
 use App\Support\CurrentCompany;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -62,8 +61,7 @@ class StoreDriverTest extends TestCase
 
         $this->getJson("/api/registry/drivers/{$driver->uuid}")
             ->assertOk()
-            ->assertJsonPath('data.license_number', '12345678900')
-            ->assertJsonMissingPath('data.app_password');
+            ->assertJsonPath('data.license_number', '12345678900');
     }
 
     public function test_reaproveita_pessoa_existente_sem_alterar_os_dados(): void
@@ -144,25 +142,6 @@ class StoreDriverTest extends TestCase
         $entity->refresh();
         $this->assertSame('Maria Corrigida', $entity->name);
         $this->assertSame('documentos/rg.pdf', $entity->document_file_path);
-    }
-
-    public function test_senha_do_aplicativo_e_gravada_com_hash_e_nao_volta_na_resposta(): void
-    {
-        $this->postJson('/api/registry/drivers', $this->payload([
-            'app_password' => 'senha1234',
-            'app_password_confirmation' => 'senha1234',
-        ]))->assertCreated();
-
-        $driver = Driver::query()->first();
-        $this->assertTrue(Hash::check('senha1234', $driver->app_password));
-
-        $this->putJson("/api/registry/drivers/{$driver->uuid}", [
-            'license_number' => '12345678900',
-            'license_category' => 'AB',
-        ])->assertOk();
-
-        $this->assertTrue(Hash::check('senha1234', $driver->fresh()->app_password));
-        $this->assertSame('Maria Silva', $driver->entity->name);
     }
 
     /**
