@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { InputCity } from '@/components/common/inputs/InputCity'
+import { InputEmergencyNumber } from '@/components/common/inputs/InputEmergencyNumber'
 import { InputCpfCnpj } from '@/components/common/inputs/InputCpfCnpj'
 import { InputPhone } from '@/components/common/inputs/InputPhone'
 import { InputPostalCode } from '@/components/common/inputs/InputPostalCode'
@@ -19,13 +20,6 @@ const listPath = '/app/cadastros/entidades'
 const personTypes = [
     { label: 'Pessoa jurídica', value: 'pj' },
     { label: 'Pessoa física', value: 'pf' },
-]
-
-const emergencyPhoneTypes = [
-    { label: 'Celular', value: 'mobile' },
-    { label: 'Residencial', value: 'home' },
-    { label: 'Trabalho', value: 'work' },
-    { label: 'Outro', value: 'other' },
 ]
 
 export default function EntityFormPage() {
@@ -232,34 +226,14 @@ export default function EntityFormPage() {
                                     onChange={(event) => setField('rg_ie', event.target.value)}
                                 />
                             </Field>
-                            <Field className="col-span-12 md:col-span-4">
-                                <FieldLabel htmlFor="emergency-phone-type">Tipo do telefone de emergência</FieldLabel>
-                                <Select
-                                    items={emergencyPhoneTypes}
-                                    value={formData.emergency_phone_type}
-                                    onValueChange={(value) => setField('emergency_phone_type', value)}
-                                >
-                                    <SelectTrigger id="emergency-phone-type" className="w-full">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectGroup>
-                                            {emergencyPhoneTypes.map((item) => (
-                                                <SelectItem key={item.value} value={item.value}>
-                                                    {item.label}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectGroup>
-                                    </SelectContent>
-                                </Select>
-                            </Field>
-                            <Field className="col-span-12 md:col-span-8">
+                            <Field className="col-span-12 md:col-span-6">
                                 <FieldLabel htmlFor="emergency-phone">Telefone de emergência</FieldLabel>
-                                <InputPhone
+                                <InputEmergencyNumber
                                     id="emergency-phone"
-                                    name="emergency_phone"
+                                    type={formData.emergency_phone_type}
                                     value={formData.emergency_phone}
-                                    onChange={(phone) => setField('emergency_phone', phone)}
+                                    onTypeChange={(phoneType) => setField('emergency_phone_type', phoneType)}
+                                    onValueChange={(phone) => setField('emergency_phone', phone)}
                                 />
                             </Field>
                             <Field className="col-span-12">

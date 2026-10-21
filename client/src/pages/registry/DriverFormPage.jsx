@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { TriangleAlert } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { InputCity } from '@/components/common/inputs/InputCity'
+import { InputEmergencyNumber } from '@/components/common/inputs/InputEmergencyNumber'
 import { InputCpfCnpj } from '@/components/common/inputs/InputCpfCnpj'
 import { InputPassword } from '@/components/common/inputs/InputPassword'
 import { InputPhone } from '@/components/common/inputs/InputPhone'
@@ -26,13 +27,6 @@ const personTypes = [
 ]
 
 const licenseCategories = ['A', 'B', 'C', 'D', 'E', 'AB', 'AC', 'AD', 'AE', 'ACC']
-
-const emergencyPhoneTypes = [
-    { label: 'Celular', value: 'mobile' },
-    { label: 'Residencial', value: 'home' },
-    { label: 'Trabalho', value: 'work' },
-    { label: 'Outro', value: 'other' },
-]
 
 /**
  * Campos que pertencem à entidade. Usado para limpar o formulário
@@ -426,35 +420,14 @@ export default function DriverFormPage() {
                                     disabled={entityLocked}
                                 />
                             </Field>
-                            <Field className="col-span-12 md:col-span-4">
-                                <FieldLabel htmlFor="emergency-phone-type">Tipo do telefone de emergência</FieldLabel>
-                                <Select
-                                    items={emergencyPhoneTypes}
-                                    value={formData.emergency_phone_type}
-                                    onValueChange={(value) => setField('emergency_phone_type', value)}
-                                    disabled={entityLocked}
-                                >
-                                    <SelectTrigger id="emergency-phone-type" className="w-full" disabled={entityLocked}>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectGroup>
-                                            {emergencyPhoneTypes.map((item) => (
-                                                <SelectItem key={item.value} value={item.value}>
-                                                    {item.label}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectGroup>
-                                    </SelectContent>
-                                </Select>
-                            </Field>
-                            <Field className="col-span-12 md:col-span-8">
+                            <Field className="col-span-12 md:col-span-6">
                                 <FieldLabel htmlFor="emergency-phone">Telefone de emergência</FieldLabel>
-                                <InputPhone
+                                <InputEmergencyNumber
                                     id="emergency-phone"
-                                    name="emergency_phone"
+                                    type={formData.emergency_phone_type}
                                     value={formData.emergency_phone}
-                                    onChange={(phone) => setField('emergency_phone', phone)}
+                                    onTypeChange={(phoneType) => setField('emergency_phone_type', phoneType)}
+                                    onValueChange={(phone) => setField('emergency_phone', phone)}
                                     disabled={entityLocked}
                                 />
                             </Field>
