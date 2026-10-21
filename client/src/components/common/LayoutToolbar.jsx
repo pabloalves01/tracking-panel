@@ -16,7 +16,7 @@ import {
  * À direita, primeiro o `slot`, depois os botões.
  *
  * `breadcrumbs`: `{ text, to? }`. Sem `to`, o texto não é link. O último item é a página atual.
- * `buttons`: `{ title, icon?, to?, onClick?, permission?, variant?, size? }`.
+ * `buttons`: `{ title, icon?, to?, onClick?, disabled?, permission?, variant?, size? }`.
  * `slot`: qualquer coisa à direita, antes dos botões.
  */
 export function LayoutToolbar({ breadcrumbs = [], buttons = [], slot }) {
@@ -87,7 +87,7 @@ function ToolbarButton({ button, className }) {
     }
 
     return (
-        <Button type="button" variant={button.variant} size={button.size} onClick={button.onClick} className={className}>
+        <Button type="button" variant={button.variant} size={button.size} onClick={button.onClick} disabled={button.disabled} className={className}>
             {content}
         </Button>
     )

@@ -49,7 +49,7 @@ class StoreSupplierTest extends TestCase
         $this->assertSame(1, Supplier::query()->count());
     }
 
-    public function test_reaproveita_pessoa_existente_sem_alterar_os_dados(): void
+    public function test_reaproveita_pessoa_existente_e_atualiza_os_dados(): void
     {
         $entity = CommonEntity::query()->create([
             'name' => 'Maria Original',
@@ -68,8 +68,8 @@ class StoreSupplierTest extends TestCase
         ]))->assertCreated();
 
         $entity->refresh();
-        $this->assertSame('Maria Original', $entity->name);
-        $this->assertSame('maria@example.com', $entity->email);
+        $this->assertSame('Nome Sobrescrito', $entity->name);
+        $this->assertSame('outro@example.com', $entity->email);
         $this->assertSame(1, CommonEntity::query()->count());
         $this->assertSame(1, Supplier::query()->where('entity_id', $entity->id)->count());
     }
@@ -80,7 +80,7 @@ class StoreSupplierTest extends TestCase
 
         $this->postJson('/api/registry/suppliers', $this->payload())
             ->assertConflict()
-            ->assertJsonPath('message', 'Fornecedor já existe');
+            ->assertJsonPath('message', 'Já existe um fornecedor com este documento');
 
         $this->assertSame(1, Supplier::query()->count());
         $this->assertSame('Maria Silva', CommonEntity::query()->first()->name);

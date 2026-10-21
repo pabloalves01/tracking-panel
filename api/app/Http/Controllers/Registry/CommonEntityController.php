@@ -16,7 +16,10 @@ class CommonEntityController extends Controller
      */
     public function byDocument(string $document)
     {
-        $entity = CommonEntity::where('cpf_cnpj', $document)->first();
+        $entity = CommonEntity::query()
+            ->withExists(['supplier', 'employee', 'driver', 'vehicleOwner', 'vehicleResponsible', 'fuelStation'])
+            ->where('cpf_cnpj', $document)
+            ->first();
 
         return response()->json(['data' => $entity]);
     }
