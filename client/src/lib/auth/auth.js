@@ -19,6 +19,14 @@ export function selectCompany(uuid) {
     return api.post('/auth/company', { uuid }).then((response) => response.data.data)
 }
 
+export function getAuthContexts() {
+    return api.get('/auth/contexts').then((response) => response.data)
+}
+
+export function selectFuelStation(uuid) {
+    return api.post('/auth/station', { uuid }).then((response) => response.data.data)
+}
+
 export function logout() {
     return api.post('/auth/logout').finally(() => {
         localStorage.removeItem('token')

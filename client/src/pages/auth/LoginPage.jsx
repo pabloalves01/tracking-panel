@@ -6,8 +6,15 @@ import { LoadingWrapper } from "@/components/common/LoadingWrapper"
 import { Button } from "@/components/ui/button"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { login, me, selectCompany } from "@/lib/auth/auth"
+import { login, me } from "@/lib/auth/auth"
 import { notifyError } from "@/lib/notify"
+
+function destinationFor(user) {
+  if (user.has_company) return "/app"
+  if (user.has_fuel_station) return "/posto"
+  if (user.is_system_admin) return "/app"
+  return "/auth/contextos"
+}
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -24,9 +31,7 @@ export default function LoginPage() {
     me()
       .then((user) => {
         if (!active) return
-        // Admin do sistema entra sem empresa; os demais vão escolher uma.
-        const target = user.has_company || user.is_system_admin ? "/app" : "/auth/empresas"
-        navigate(target, { replace: true })
+        navigate(destinationFor(user), { replace: true })
       })
       .catch(() => {
         localStorage.removeItem("token")
@@ -45,15 +50,15 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      const { user, companies } = await login({ email, password })
+      const { user, companies, fuel_stations: stations = [] } = await login({ email, password })
+      const total = companies.length + stations.length
 
-      if (companies.length === 1) {
-        await selectCompany(companies[0].uuid)
-        navigate("/app", { replace: true })
+      if (total === 1) {
+        navigate(stations.length === 1 ? "/posto" : "/app", { replace: true })
         return
       }
 
-      if (companies.length === 0) {
+      if (total === 0) {
         // Admin do sistema não precisa de empresa; segue direto para o painel.
         if (user.is_system_admin) {
           navigate("/app", { replace: true })
@@ -69,7 +74,7 @@ export default function LoginPage() {
         return
       }
 
-      navigate("/auth/empresas", { replace: true })
+      navigate("/auth/contextos", { replace: true })
     } catch (error) {
       notifyError(error)
     } finally {

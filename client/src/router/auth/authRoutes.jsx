@@ -1,3 +1,5 @@
+import { Navigate } from 'react-router'
+
 import LoginPage from '@/pages/auth/LoginPage'
 import RegisterPage from '@/pages/auth/RegisterPage'
 import RegisterFuelStationPage from '@/pages/auth/RegisterFuelStationPage'
@@ -10,7 +12,8 @@ export default [
             { path: 'login', element: <LoginPage /> },
             { path: 'register', element: <RegisterPage /> },
             { path: 'register/posto', element: <RegisterFuelStationPage /> },
-            { path: 'empresas', element: <SelectCompaniesPage /> },
+            { path: 'empresas', element: <Navigate to="/auth/contextos" replace /> },
+            { path: 'contextos', element: <SelectCompaniesPage /> },
             { path: 'forgot-password', element: <ForgotPasswordPage /> },
         ],
     },

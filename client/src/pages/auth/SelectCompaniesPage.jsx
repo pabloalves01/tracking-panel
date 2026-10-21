@@ -1,25 +1,27 @@
-import { useEffect, useState } from "react"
-import { Building2 } from "lucide-react"
+import { Children, useEffect, useState } from "react"
+import { Building2, Fuel } from "lucide-react"
 import { useNavigate } from "react-router"
 
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { LoadingWrapper } from "@/components/common/LoadingWrapper"
 import { formatCpfCnpj } from "@/helpers/formatters"
-import { getAuthCompanies, logout, me, selectCompany } from "@/lib/auth/auth"
+import { getAuthContexts, logout, me, selectCompany, selectFuelStation } from "@/lib/auth/auth"
 import { notifyError } from "@/lib/notify"
 
 export default function SelectCompaniesPage() {
     const navigate = useNavigate()
     const [user, setUser] = useState(null)
     const [companies, setCompanies] = useState([])
+    const [stations, setStations] = useState([])
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
-        Promise.all([me(), getAuthCompanies()])
-            .then(([currentUser, companyList]) => {
+        Promise.all([me(), getAuthContexts()])
+            .then(([currentUser, contexts]) => {
                 setUser(currentUser)
-                setCompanies(companyList)
+                setCompanies(contexts.companies ?? [])
+                setStations(contexts.fuel_stations ?? [])
             })
             .catch(notifyError)
             .finally(() => setLoading(false))
@@ -31,6 +33,18 @@ export default function SelectCompaniesPage() {
         try {
             await selectCompany(uuid)
             navigate("/app")
+        } catch (error) {
+            notifyError(error)
+            setLoading(false)
+        }
+    }
+
+    async function handleStationClick(uuid) {
+        setLoading(true)
+
+        try {
+            await selectFuelStation(uuid)
+            navigate("/posto")
         } catch (error) {
             notifyError(error)
             setLoading(false)
@@ -58,47 +72,52 @@ export default function SelectCompaniesPage() {
                     <div className="flex w-full max-w-[76rem] flex-col items-center gap-8">
                         <div className="flex flex-col gap-1 text-center">
                             <p className="text-sm text-muted-foreground">Bem-vindo, {user?.name}</p>
-                            <h1 className="text-2xl font-bold">Selecionar a empresa</h1>
+                            <h1 className="text-2xl font-bold">Selecionar o contexto</h1>
                             <p className="text-sm text-muted-foreground">
-                                Escolha em qual empresa você quer entrar.
+                                Escolha em qual empresa ou posto você quer entrar.
                             </p>
                         </div>
 
-                        {!loading && companies.length === 0 ? (
+                        {!loading && companies.length === 0 && stations.length === 0 ? (
                             <Empty>
                                 <EmptyHeader>
                                     <EmptyMedia variant="icon">
                                         <Building2 />
                                     </EmptyMedia>
-                                    <EmptyTitle>Nenhuma empresa</EmptyTitle>
+                                    <EmptyTitle>Nenhum contexto</EmptyTitle>
                                     <EmptyDescription>
-                                        Este usuário não está vinculado a nenhuma empresa.
+                                        Este usuário não está vinculado a uma empresa nem a um posto.
                                     </EmptyDescription>
                                 </EmptyHeader>
                             </Empty>
-                        ) : (
-                            <div className="flex w-full flex-wrap justify-center gap-4">
-                                {companies.map((company) => (
-                                    <button
-                                        key={company.uuid}
-                                        type="button"
-                                        className="flex w-full max-w-sm flex-col gap-4 rounded-xl border bg-card/95 p-5 text-left text-card-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-muted sm:w-72 cursor-pointer"
-                                        onClick={() => handleCompanyClick(company.uuid)}
-                                    >
-                                        <span className="flex size-10 items-center justify-center rounded-lg bg-muted">
-                                            <Building2 className="size-5" />
-                                        </span>
-                                        <span className="flex flex-col gap-1">
-                                            <span className="font-medium">{company.trade_name}</span>
-                                            <span className="text-sm text-muted-foreground">{company.legal_name}</span>
-                                            <span className="text-sm text-muted-foreground">
-                                                {formatCpfCnpj(company.cnpj)}
-                                            </span>
-                                        </span>
-                                    </button>
-                                ))}
+                        ) : !loading ? (
+                            <div className="flex w-full flex-col items-center gap-10">
+                                <ContextSection title="Empresas" empty="Nenhuma empresa vinculada.">
+                                    {companies.map((company) => (
+                                        <ContextCard
+                                            key={company.uuid}
+                                            icon={Building2}
+                                            title={company.trade_name}
+                                            subtitle={company.legal_name}
+                                            document={company.cnpj}
+                                            onClick={() => handleCompanyClick(company.uuid)}
+                                        />
+                                    ))}
+                                </ContextSection>
+                                <ContextSection title="Postos" empty="Nenhum posto vinculado.">
+                                    {stations.map((station) => (
+                                        <ContextCard
+                                            key={station.uuid}
+                                            icon={Fuel}
+                                            title={station.trade_name || station.corporate_name}
+                                            subtitle={station.trade_name ? station.corporate_name : ""}
+                                            document={station.cnpj}
+                                            onClick={() => handleStationClick(station.uuid)}
+                                        />
+                                    ))}
+                                </ContextSection>
                             </div>
-                        )}
+                        ) : null}
 
                         <Button variant="outline" onClick={handleLogout} className="cursor-pointer">
                             Sair
@@ -111,6 +130,38 @@ export default function SelectCompaniesPage() {
                 </footer>
             </div>
         </LoadingWrapper>
+    )
+}
+
+function ContextSection({ title, empty, children }) {
+    return (
+        <section className="flex w-full flex-col items-center gap-4">
+            <h2 className="text-lg font-semibold">{title}</h2>
+            {Children.count(children) === 0 ? (
+                <p className="text-sm text-muted-foreground">{empty}</p>
+            ) : (
+                <div className="flex w-full flex-wrap justify-center gap-4">{children}</div>
+            )}
+        </section>
+    )
+}
+
+function ContextCard({ icon: Icon, title, subtitle, document, onClick }) {
+    return (
+        <button
+            type="button"
+            className="flex w-full max-w-sm flex-col gap-4 rounded-xl border bg-card/95 p-5 text-left text-card-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-muted sm:w-72 cursor-pointer"
+            onClick={onClick}
+        >
+            <span className="flex size-10 items-center justify-center rounded-lg bg-muted">
+                <Icon className="size-5" />
+            </span>
+            <span className="flex flex-col gap-1">
+                <span className="font-medium">{title}</span>
+                {subtitle ? <span className="text-sm text-muted-foreground">{subtitle}</span> : null}
+                <span className="text-sm text-muted-foreground">{formatCpfCnpj(document)}</span>
+            </span>
+        </button>
     )
 }
 

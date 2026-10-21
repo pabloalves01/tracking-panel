@@ -29,9 +29,9 @@ export function RequireCompany() {
         Promise.all([me(), getAuthCompanies()])
             .then(([user, companies]) => {
                 if (!active) return
-                // Admin do sistema entra sem empresa; os demais precisam escolher uma.
-                if (!user.has_company && !user.is_system_admin) {
-                    navigate("/auth/empresas", { replace: true })
+                // Admin do sistema entra sem empresa. Contexto de posto volta pra seleção.
+                if (!user.has_company && (!user.is_system_admin || user.has_fuel_station)) {
+                    navigate("/auth/contextos", { replace: true })
                     return
                 }
                 setSession({ user, companies })
