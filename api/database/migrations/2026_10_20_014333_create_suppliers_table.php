@@ -18,6 +18,8 @@ return new class extends Migration
             $table->foreignId('entity_id')->constrained('common_entities');
             $table->string('pix_key_type')->nullable();
             $table->string('pix_key')->nullable();
+            $table->string('login')->nullable()->unique();
+            $table->string('password')->nullable();
             $table->string('status', 50)->default('active');
             $table->timestamps();
             $table->softDeletes();

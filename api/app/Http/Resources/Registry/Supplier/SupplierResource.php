@@ -34,6 +34,7 @@ class SupplierResource extends JsonResource
             'city_id' => $this->entity?->city_id,
             'pix_key_type' => $this->pix_key_type,
             'pix_key' => $this->pix_key,
+            'login' => $this->login,
             'status' => $this->status,
         ];
     }

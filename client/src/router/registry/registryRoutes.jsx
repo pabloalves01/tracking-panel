@@ -7,6 +7,7 @@ import carrierRoutes from './carrierRoutes'
 import customerRoutes from './customerRoutes'
 import driverRoutes from './driverRoutes'
 import employeeRoutes from './employeeRoutes'
+import fuelStationRoutes from './fuelStationRoutes'
 import supplierRoutes from './supplierRoutes'
 import vehicleOwnerRoutes from './vehicleOwnerRoutes'
 import vehicleResponsibleRoutes from './vehicleResponsibleRoutes'
@@ -29,6 +30,7 @@ export default [
                     ...driverRoutes,
                     ...vehicleOwnerRoutes,
                     ...vehicleResponsibleRoutes,
+                    ...fuelStationRoutes,
                 ],
             },
             {

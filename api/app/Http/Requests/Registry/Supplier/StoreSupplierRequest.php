@@ -5,6 +5,7 @@ namespace App\Http\Requests\Registry\Supplier;
 use App\Rules\CpfCnpjForPersonType;
 use App\Rules\PixKeyForType;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreSupplierRequest extends FormRequest
 {
@@ -28,6 +29,7 @@ class StoreSupplierRequest extends FormRequest
         $this->merge([
             'entity' => $entity,
             ...$this->normalizedPix(),
+            ...$this->blankCredentials(),
         ]);
     }
 
@@ -74,6 +76,8 @@ class StoreSupplierRequest extends FormRequest
             'entity.neighborhood' => ['nullable', 'string', 'max:255'],
             'pix_key_type' => ['nullable', 'in:cpf,cnpj,email,phone,random'],
             'pix_key' => ['nullable', 'string', 'max:255', 'bail', new PixKeyForType],
+            'login' => ['nullable', 'string', 'max:255', Rule::unique('suppliers', 'login')],
+            'password' => ['nullable', 'string', 'min:8', 'confirmed'],
         ];
     }
 
@@ -100,6 +104,31 @@ class StoreSupplierRequest extends FormRequest
             'entity.neighborhood.max' => 'O bairro deve ter no máximo 255 caracteres',
             'pix_key_type.in' => 'O tipo da chave PIX é inválido',
             'pix_key.max' => 'A chave PIX deve ter no máximo 255 caracteres',
+            'login.max' => 'O login deve ter no máximo 255 caracteres',
+            'login.unique' => 'Este login já está em uso',
+            'password.min' => 'A senha deve ter no mínimo 8 caracteres',
+            'password.confirmed' => 'A confirmação da senha não confere',
         ];
+    }
+
+    /**
+     * Login e senha vazios viram null. A senha só é validada quando vem preenchida.
+     *
+     * @return array<string, null>
+     */
+    private function blankCredentials(): array
+    {
+        $values = [];
+
+        if (! filled($this->input('login'))) {
+            $values['login'] = null;
+        }
+
+        if (! filled($this->input('password'))) {
+            $values['password'] = null;
+            $values['password_confirmation'] = null;
+        }
+
+        return $values;
     }
 }

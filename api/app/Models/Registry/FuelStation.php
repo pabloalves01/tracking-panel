@@ -21,9 +21,34 @@ class FuelStation extends Model
     protected $fillable = [
         'company_id',
         'entity_id',
-        'name',
+        'login',
+        'password',
+        'pix_key_type',
+        'pix_key',
+        'diesel_s10_price',
+        'diesel_s500_price',
+        'gasoline_price',
+        'additive_gasoline_price',
         'status',
     ];
+
+    protected $hidden = [
+        'password',
+    ];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'password' => 'hashed',
+            'diesel_s10_price' => 'decimal:4',
+            'diesel_s500_price' => 'decimal:4',
+            'gasoline_price' => 'decimal:4',
+            'additive_gasoline_price' => 'decimal:4',
+        ];
+    }
 
     // ================================ BELONGS TO RELATIONS ================================
     

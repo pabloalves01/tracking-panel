@@ -26,6 +26,10 @@ class CommonEntity extends Model
         'cpf_cnpj',
         'email',
         'phone',
+        'rg_ie',
+        'emergency_phone',
+        'emergency_phone_type',
+        'document_file_path',
         'postal_code',
         'street',
         'street_number',
@@ -92,6 +96,14 @@ class CommonEntity extends Model
     public function employee()
     {
         return $this->hasOne(Employee::class, 'entity_id');
+    }
+
+    /**
+     * The carrier that the entity belongs to.
+     */
+    public function carrier()
+    {
+        return $this->hasOne(Carrier::class, 'entity_id');
     }
 
     /**

@@ -21,6 +21,10 @@ return new class extends Migration
             $table->string('cpf_cnpj');
             $table->string('email')->nullable();
             $table->string('phone')->nullable();
+            $table->string('rg_ie')->nullable();
+            $table->string('emergency_phone')->nullable();
+            $table->string('emergency_phone_type')->nullable();
+            $table->string('document_file_path')->nullable();
             $table->string('postal_code')->nullable();
             $table->string('street')->nullable();
             $table->string('street_number')->nullable();

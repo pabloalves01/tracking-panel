@@ -3,6 +3,7 @@ import { TriangleAlert } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { InputCity } from '@/components/common/inputs/InputCity'
 import { InputCpfCnpj } from '@/components/common/inputs/InputCpfCnpj'
+import { InputPassword } from '@/components/common/inputs/InputPassword'
 import { InputPhone } from '@/components/common/inputs/InputPhone'
 import { InputPix } from '@/components/common/inputs/InputPix'
 import { InputPostalCode } from '@/components/common/inputs/InputPostalCode'
@@ -72,6 +73,9 @@ export default function SupplierFormPage() {
         city_id: null,
         pix_key_type: 'cpf',
         pix_key: '',
+        login: '',
+        password: '',
+        password_confirmation: '',
     })
 
     /**
@@ -176,6 +180,9 @@ export default function SupplierFormPage() {
                     city_id: supplier.city_id ?? null,
                     pix_key_type: supplier.pix_key_type || 'cpf',
                     pix_key: supplier.pix_key ?? '',
+                    login: supplier.login ?? '',
+                    password: '',
+                    password_confirmation: '',
                 })
             })
             .catch(notifyError)
@@ -193,13 +200,16 @@ export default function SupplierFormPage() {
             return
         }
 
-        const pix = {
+        const role = {
             pix_key_type: formData.pix_key ? formData.pix_key_type : null,
             pix_key: formData.pix_key || null,
+            login: formData.login || null,
+            password: formData.password || null,
+            password_confirmation: formData.password ? formData.password_confirmation : null,
         }
 
         const payload = isEditing
-            ? pix
+            ? role
             : {
                 entity: {
                     person_type: formData.person_type,
@@ -216,7 +226,7 @@ export default function SupplierFormPage() {
                     state_id: formData.state_id || null,
                     city_id: formData.city_id || null,
                 },
-                ...pix,
+                ...role,
             }
 
         setLoading(true)
@@ -308,7 +318,7 @@ export default function SupplierFormPage() {
                                     disabled={entityLocked}
                                 >
                                     <SelectTrigger id="person-type" className="w-full" disabled={entityLocked}>
-                                        <SelectValue />
+                                        <SelectValue placeholder="Ex: Pessoa jurídica" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectGroup>
@@ -387,6 +397,35 @@ export default function SupplierFormPage() {
                                     value={formData.pix_key}
                                     onTypeChange={(pixKeyType) => setField('pix_key_type', pixKeyType)}
                                     onValueChange={(pixKey) => setField('pix_key', pixKey)}
+                                />
+                            </Field>
+                            <Field className="col-span-12 md:col-span-6">
+                                <FieldLabel htmlFor="supplier-login">Login</FieldLabel>
+                                <Input
+                                    id="supplier-login"
+                                    value={formData.login}
+                                    onChange={(event) => setField('login', event.target.value)}
+                                    placeholder="E-mail ou usuário de acesso"
+                                    autoComplete="off"
+                                />
+                                <FieldDescription>Fica no fornecedor, para um acesso futuro. Não entra na entidade.</FieldDescription>
+                            </Field>
+                            <Field className="col-span-12 md:col-span-3">
+                                <FieldLabel htmlFor="supplier-password">Senha</FieldLabel>
+                                <InputPassword
+                                    id="supplier-password"
+                                    value={formData.password}
+                                    onChange={(password) => setField('password', password)}
+                                    placeholder={isEditing ? 'Em branco mantém a atual' : 'Senha de acesso'}
+                                />
+                            </Field>
+                            <Field className="col-span-12 md:col-span-3">
+                                <FieldLabel htmlFor="supplier-password-confirmation">Confirmação da senha</FieldLabel>
+                                <InputPassword
+                                    id="supplier-password-confirmation"
+                                    value={formData.password_confirmation}
+                                    onChange={(password) => setField('password_confirmation', password)}
+                                    placeholder="Repita a senha"
                                 />
                             </Field>
                         </FieldGroup>

@@ -64,7 +64,8 @@ Route::middleware(['auth:sanctum', 'ensure.company'])->group(function () {
             Route::post('/', [EmployeeController::class, 'store']);
             Route::get('/{uuid}', [EmployeeController::class, 'show']);
             Route::put('/{uuid}', [EmployeeController::class, 'update']);
-            Route::delete('/{uuid}', [EmployeeController::class, 'destroy']);
+            Route::post('/{uuid}/deactivate', [EmployeeController::class, 'deactivate']);
+            Route::post('/{uuid}/activate', [EmployeeController::class, 'activate']);
         });
 
         Route::prefix('carriers')->group(function () {
@@ -72,7 +73,8 @@ Route::middleware(['auth:sanctum', 'ensure.company'])->group(function () {
             Route::post('/', [CarrierController::class, 'store']);
             Route::get('/{uuid}', [CarrierController::class, 'show']);
             Route::put('/{uuid}', [CarrierController::class, 'update']);
-            Route::delete('/{uuid}', [CarrierController::class, 'destroy']);
+            Route::post('/{uuid}/deactivate', [CarrierController::class, 'deactivate']);
+            Route::post('/{uuid}/activate', [CarrierController::class, 'activate']);
         });
 
         // # 01
@@ -90,7 +92,8 @@ Route::middleware(['auth:sanctum', 'ensure.company'])->group(function () {
             Route::post('/', [CustomerController::class, 'store']);
             Route::get('/{uuid}', [CustomerController::class, 'show']);
             Route::put('/{uuid}', [CustomerController::class, 'update']);
-            Route::delete('/{uuid}', [CustomerController::class, 'destroy']);
+            Route::post('/{uuid}/deactivate', [CustomerController::class, 'deactivate']);
+            Route::post('/{uuid}/activate', [CustomerController::class, 'activate']);
         });
 
         Route::prefix('fuel-stations')->group(function () {
@@ -98,7 +101,8 @@ Route::middleware(['auth:sanctum', 'ensure.company'])->group(function () {
             Route::post('/', [FuelStationController::class, 'store']);
             Route::get('/{uuid}', [FuelStationController::class, 'show']);
             Route::put('/{uuid}', [FuelStationController::class, 'update']);
-            Route::delete('/{uuid}', [FuelStationController::class, 'destroy']);
+            Route::post('/{uuid}/deactivate', [FuelStationController::class, 'deactivate']);
+            Route::post('/{uuid}/activate', [FuelStationController::class, 'activate']);
         });
 
         Route::prefix('drivers')->group(function () {
@@ -106,7 +110,8 @@ Route::middleware(['auth:sanctum', 'ensure.company'])->group(function () {
             Route::post('/', [DriverController::class, 'store']);
             Route::get('/{uuid}', [DriverController::class, 'show']);
             Route::put('/{uuid}', [DriverController::class, 'update']);
-            Route::delete('/{uuid}', [DriverController::class, 'destroy']);
+            Route::post('/{uuid}/deactivate', [DriverController::class, 'deactivate']);
+            Route::post('/{uuid}/activate', [DriverController::class, 'activate']);
         });
 
         Route::prefix('vehicle-owners')->group(function () {
@@ -114,7 +119,8 @@ Route::middleware(['auth:sanctum', 'ensure.company'])->group(function () {
             Route::post('/', [VehicleOwnerController::class, 'store']);
             Route::get('/{uuid}', [VehicleOwnerController::class, 'show']);
             Route::put('/{uuid}', [VehicleOwnerController::class, 'update']);
-            Route::delete('/{uuid}', [VehicleOwnerController::class, 'destroy']);
+            Route::post('/{uuid}/deactivate', [VehicleOwnerController::class, 'deactivate']);
+            Route::post('/{uuid}/activate', [VehicleOwnerController::class, 'activate']);
         });
 
         Route::prefix('vehicle-responsibles')->group(function () {
@@ -122,7 +128,8 @@ Route::middleware(['auth:sanctum', 'ensure.company'])->group(function () {
             Route::post('/', [VehicleResponsibleController::class, 'store']);
             Route::get('/{uuid}', [VehicleResponsibleController::class, 'show']);
             Route::put('/{uuid}', [VehicleResponsibleController::class, 'update']);
-            Route::delete('/{uuid}', [VehicleResponsibleController::class, 'destroy']);
+            Route::post('/{uuid}/deactivate', [VehicleResponsibleController::class, 'deactivate']);
+            Route::post('/{uuid}/activate', [VehicleResponsibleController::class, 'activate']);
         });
 
         Route::prefix('vehicles')->group(function () {

@@ -41,6 +41,8 @@ class SupplierService
                 'entity_id' => $entity->id,
                 'pix_key_type' => $data['pix_key_type'] ?? null,
                 'pix_key' => $data['pix_key'] ?? null,
+                'login' => $data['login'] ?? null,
+                ...$this->passwordAttribute($data),
             ]);
 
             return $supplier->load('entity');
@@ -73,6 +75,8 @@ class SupplierService
             $supplier->update([
                 'pix_key_type' => $data['pix_key_type'] ?? null,
                 'pix_key' => $data['pix_key'] ?? null,
+                'login' => $data['login'] ?? null,
+                ...$this->passwordAttribute($data),
             ]);
 
             return $supplier;
@@ -105,5 +109,20 @@ class SupplierService
             $supplier = Supplier::where('uuid', $uuid)->firstOrFail();
             $supplier->update(['status' => 'active']);
         });
+    }
+
+    /**
+     * Senha vazia não troca o hash já gravado.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, string>
+     */
+    private function passwordAttribute(array $data): array
+    {
+        if (! filled($data['password'] ?? null)) {
+            return [];
+        }
+
+        return ['password' => $data['password']];
     }
 }

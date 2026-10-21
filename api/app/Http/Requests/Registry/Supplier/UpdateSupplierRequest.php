@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests\Registry\Supplier;
 
+use App\Models\Registry\Supplier;
 use App\Rules\PixKeyForType;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateSupplierRequest extends FormRequest
 {
@@ -14,7 +16,10 @@ class UpdateSupplierRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $this->merge($this->normalizedPix());
+        $this->merge([
+            ...$this->normalizedPix(),
+            ...$this->blankCredentials(),
+        ]);
     }
 
     /**
@@ -47,6 +52,8 @@ class UpdateSupplierRequest extends FormRequest
         return [
             'pix_key_type' => ['nullable', 'in:cpf,cnpj,email,phone,random'],
             'pix_key' => ['nullable', 'string', 'max:255', 'bail', new PixKeyForType],
+            'login' => ['nullable', 'string', 'max:255', Rule::unique('suppliers', 'login')->ignore($this->supplierId())],
+            'password' => ['nullable', 'string', 'min:8', 'confirmed'],
         ];
     }
 
@@ -55,6 +62,36 @@ class UpdateSupplierRequest extends FormRequest
         return [
             'pix_key_type.in' => 'O tipo da chave PIX é inválido',
             'pix_key.max' => 'A chave PIX deve ter no máximo 255 caracteres',
+            'login.max' => 'O login deve ter no máximo 255 caracteres',
+            'login.unique' => 'Este login já está em uso',
+            'password.min' => 'A senha deve ter no mínimo 8 caracteres',
+            'password.confirmed' => 'A confirmação da senha não confere',
         ];
+    }
+
+    private function supplierId(): ?int
+    {
+        return Supplier::query()->where('uuid', $this->route('uuid'))->value('id');
+    }
+
+    /**
+     * Login e senha vazios viram null. Senha vazia na edição não troca o hash.
+     *
+     * @return array<string, null>
+     */
+    private function blankCredentials(): array
+    {
+        $values = [];
+
+        if (! filled($this->input('login'))) {
+            $values['login'] = null;
+        }
+
+        if (! filled($this->input('password'))) {
+            $values['password'] = null;
+            $values['password_confirmation'] = null;
+        }
+
+        return $values;
     }
 }

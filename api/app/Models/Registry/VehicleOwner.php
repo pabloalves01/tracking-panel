@@ -20,6 +20,8 @@ class VehicleOwner extends Model
     protected $fillable = [
         'company_id',
         'entity_id',
+        'pix_key_type',
+        'pix_key',
         'status',
     ];
 
