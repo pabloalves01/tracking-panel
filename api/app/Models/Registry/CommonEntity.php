@@ -101,6 +101,14 @@ class CommonEntity extends Model
     }
 
     /**
+     * The carrier that the entity belongs to.
+     */
+    public function carrier()
+    {
+        return $this->hasOne(Carrier::class, 'entity_id');
+    }
+
+    /**
      * The customer that the entity belongs to.
      */
     public function customer()

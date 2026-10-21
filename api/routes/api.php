@@ -72,7 +72,8 @@ Route::middleware(['auth:sanctum', 'ensure.company'])->group(function () {
             Route::post('/', [CarrierController::class, 'store']);
             Route::get('/{uuid}', [CarrierController::class, 'show']);
             Route::put('/{uuid}', [CarrierController::class, 'update']);
-            Route::delete('/{uuid}', [CarrierController::class, 'destroy']);
+            Route::post('/{uuid}/deactivate', [CarrierController::class, 'deactivate']);
+            Route::post('/{uuid}/activate', [CarrierController::class, 'activate']);
         });
 
         // # 01
