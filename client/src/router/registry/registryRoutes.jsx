@@ -1,3 +1,4 @@
+import EntityFormPage from '@/pages/registry/EntityFormPage'
 import EntityPage from '@/pages/registry/EntityPage'
 import FleetPage from '@/pages/registry/FleetPage'
 import RegistryPage from '@/pages/registry/RegistryPage'
@@ -20,6 +21,7 @@ export default [
                 path: 'entidades',
                 children: [
                     { index: true, element: <EntityPage /> },
+                    { path: ':uuid/editar', element: <EntityFormPage /> },
                     ...supplierRoutes,
                     ...customerRoutes,
                     ...employeeRoutes,

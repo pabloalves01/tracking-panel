@@ -49,7 +49,7 @@ class StoreSupplierTest extends TestCase
         $this->assertSame(1, Supplier::query()->count());
     }
 
-    public function test_reaproveita_pessoa_existente_e_atualiza_os_dados(): void
+    public function test_reaproveita_pessoa_existente_sem_alterar_os_dados(): void
     {
         $entity = CommonEntity::query()->create([
             'name' => 'Maria Original',
@@ -68,8 +68,8 @@ class StoreSupplierTest extends TestCase
         ]))->assertCreated();
 
         $entity->refresh();
-        $this->assertSame('Nome Sobrescrito', $entity->name);
-        $this->assertSame('outro@example.com', $entity->email);
+        $this->assertSame('Maria Original', $entity->name);
+        $this->assertSame('maria@example.com', $entity->email);
         $this->assertSame(1, CommonEntity::query()->count());
         $this->assertSame(1, Supplier::query()->where('entity_id', $entity->id)->count());
     }
@@ -86,16 +86,41 @@ class StoreSupplierTest extends TestCase
         $this->assertSame('Maria Silva', CommonEntity::query()->first()->name);
     }
 
-    public function test_editar_fornecedor_atualiza_os_dados_da_pessoa(): void
+    public function test_editar_fornecedor_atualiza_apenas_a_chave_pix(): void
     {
         $this->postJson('/api/registry/suppliers', $this->payload())->assertCreated();
-        $supplier = Supplier::query()->first()->uuid;
+        $supplier = Supplier::query()->first();
 
-        $this->putJson("/api/registry/suppliers/{$supplier}", $this->payload([
-            'entity' => ['name' => 'Maria Corrigida'],
-        ]))->assertOk();
+        $this->putJson("/api/registry/suppliers/{$supplier->uuid}", [
+            'pix_key_type' => 'email',
+            'pix_key' => 'maria@example.com',
+        ])->assertOk();
 
-        $this->assertSame('Maria Corrigida', CommonEntity::query()->first()->name);
+        $supplier->refresh();
+        $this->assertSame('Maria Silva', $supplier->entity->name);
+        $this->assertSame('email', $supplier->pix_key_type);
+        $this->assertSame('maria@example.com', $supplier->pix_key);
+    }
+
+    public function test_editar_entidade_atualiza_os_dados_compartilhados(): void
+    {
+        $entity = CommonEntity::query()->create([
+            'name' => 'Maria Original',
+            'person_type' => 'pf',
+            'cpf_cnpj' => self::CPF,
+            'email' => 'maria@example.com',
+        ]);
+
+        $this->putJson("/api/registry/entities/{$entity->uuid}", [
+            'name' => 'Maria Corrigida',
+            'person_type' => 'pf',
+            'cpf_cnpj' => self::CPF,
+            'email' => 'corrigida@example.com',
+        ])->assertOk();
+
+        $entity->refresh();
+        $this->assertSame('Maria Corrigida', $entity->name);
+        $this->assertSame('corrigida@example.com', $entity->email);
     }
 
     /**

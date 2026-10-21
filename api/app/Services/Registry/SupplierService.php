@@ -70,8 +70,6 @@ class SupplierService
         return DB::transaction(function () use ($uuid, $data) {
             $supplier = $this->get($uuid);
 
-            $supplier->entity->update($data['entity']);
-            
             $supplier->update([
                 'pix_key_type' => $data['pix_key_type'] ?? null,
                 'pix_key' => $data['pix_key'] ?? null,

@@ -10,7 +10,7 @@ import { notifyError } from '@/lib/notify'
  * `value` é o id da tabela `states`, ou null.
  * `onChange` recebe esse id, ou null quando o campo é limpo.
  */
-export function SelectState({ id, value = null, onChange }) {
+export function SelectState({ id, value = null, onChange, disabled = false }) {
     const [states, setStates] = useState([])
     const [loading, setLoading] = useState(true)
     const selectedId = toId(value)
@@ -53,7 +53,7 @@ export function SelectState({ id, value = null, onChange }) {
             items={items}
             value={selectedId ? String(selectedId) : null}
             onValueChange={handleChange}
-            disabled={loading}
+            disabled={disabled || loading}
         >
             <SelectTrigger id={id} className="w-full">
                 <SelectValue placeholder={loading ? 'Carregando estados...' : 'Selecione o estado'} />
