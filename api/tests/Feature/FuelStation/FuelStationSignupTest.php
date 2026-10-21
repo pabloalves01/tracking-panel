@@ -9,6 +9,7 @@ use App\Models\FuelStationUser;
 use App\Models\Location\City;
 use App\Models\Location\State;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory;
@@ -191,6 +192,35 @@ class FuelStationSignupTest extends TestCase
         $this->assertSame('owner', $membership->role);
         $this->assertSame('active', $membership->status);
         $this->assertNull($membership->invited_by);
+    }
+
+    public function test_posto_aceita_somente_um_usuario(): void
+    {
+        $code = $this->startSignup();
+        $signup = FuelStationSignup::query()->first();
+
+        $this->postJson("/api/auth/station-signup/{$signup->uuid}/verify", [
+            'code' => $code,
+        ])->assertCreated();
+
+        $station = FuelStation::query()->first();
+        $other = User::factory()->create([
+            'email' => 'outro@posto.com',
+        ]);
+
+        try {
+            FuelStationUser::query()->create([
+                'fuel_station_id' => $station->id,
+                'user_id' => $other->id,
+                'role' => 'owner',
+                'status' => 'active',
+            ]);
+            $this->fail('O posto aceitou um segundo usuário.');
+        } catch (QueryException $exception) {
+            $this->assertStringContainsString('fuel_station_id', $exception->getMessage());
+        }
+
+        $this->assertSame(1, FuelStationUser::query()->count());
     }
 
     public function test_codigo_errado_incrementa_as_tentativas(): void

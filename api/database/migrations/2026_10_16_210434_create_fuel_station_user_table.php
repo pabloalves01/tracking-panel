@@ -2,13 +2,13 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
     /**
-     * Vínculo do usuário com o posto. Um posto tem um único owner.
+     * Vínculo do usuário com o posto.
+     * Por enquanto cada posto tem um único usuário, o owner.
      */
     public function up(): void
     {
@@ -23,14 +23,8 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->unique(['fuel_station_id', 'user_id']);
+            $table->unique('fuel_station_id');
         });
-
-        $driver = Schema::getConnection()->getDriverName();
-
-        if (in_array($driver, ['sqlite', 'pgsql'], true)) {
-            DB::statement("CREATE UNIQUE INDEX fuel_station_user_one_owner ON fuel_station_user (fuel_station_id) WHERE role = 'owner' AND deleted_at IS NULL");
-        }
     }
 
     public function down(): void
