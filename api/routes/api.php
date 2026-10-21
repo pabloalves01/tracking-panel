@@ -117,7 +117,8 @@ Route::middleware(['auth:sanctum', 'ensure.company'])->group(function () {
             Route::post('/', [VehicleOwnerController::class, 'store']);
             Route::get('/{uuid}', [VehicleOwnerController::class, 'show']);
             Route::put('/{uuid}', [VehicleOwnerController::class, 'update']);
-            Route::delete('/{uuid}', [VehicleOwnerController::class, 'destroy']);
+            Route::post('/{uuid}/deactivate', [VehicleOwnerController::class, 'deactivate']);
+            Route::post('/{uuid}/activate', [VehicleOwnerController::class, 'activate']);
         });
 
         Route::prefix('vehicle-responsibles')->group(function () {
