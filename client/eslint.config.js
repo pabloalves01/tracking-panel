@@ -18,4 +18,19 @@ export default defineConfig([
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
   },
+  {
+    files: ['vite.config.js'],
+    languageOptions: {
+      globals: globals.node,
+    },
+  },
+  {
+    // Arquivos gerados pelo shadcn exportam variantes junto do componente
+    // e importam React mesmo quando o JSX automático não usa o identificador.
+    files: ['src/components/ui/**/*.{js,jsx}'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+      'no-unused-vars': ['error', { varsIgnorePattern: '^React$' }],
+    },
+  },
 ])
