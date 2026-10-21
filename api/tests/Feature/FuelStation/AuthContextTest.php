@@ -70,6 +70,12 @@ class AuthContextTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.uuid', $station->uuid);
 
+        $this->assertDatabaseHas('personal_access_tokens', [
+            'tokenable_id' => $user->id,
+            'company_id' => null,
+            'fuel_station_id' => $station->id,
+        ]);
+
         $this->withToken($token)->getJson('/api/auth/me')
             ->assertOk()
             ->assertJsonPath('data.has_fuel_station', true)
@@ -84,6 +90,12 @@ class AuthContextTest extends TestCase
         $this->withToken($token)->postJson('/api/auth/company', ['uuid' => $company->uuid])
             ->assertOk()
             ->assertJsonPath('data.uuid', $company->uuid);
+
+        $this->assertDatabaseHas('personal_access_tokens', [
+            'tokenable_id' => $user->id,
+            'company_id' => $company->id,
+            'fuel_station_id' => null,
+        ]);
 
         $this->withToken($token)->getJson('/api/auth/me')
             ->assertOk()
@@ -112,6 +124,70 @@ class AuthContextTest extends TestCase
 
         $this->withToken($token)->getJson('/api/station/me')->assertStatus(409);
         $this->withToken($token)->getJson('/api/registry/entities')->assertOk();
+    }
+
+    public function test_posto_inativo_fica_fora_do_login_e_nao_entra(): void
+    {
+        $user = $this->user();
+        $station = $this->stationFor($user);
+        $station->update(['status' => 'inactive']);
+
+        $token = $this->login($user);
+
+        $this->assertSame([], $token['fuel_stations']);
+        $this->assertFalse($token['user']['has_fuel_station']);
+
+        $this->withToken($token['token'])->getJson('/api/auth/contexts')
+            ->assertOk()
+            ->assertJsonCount(0, 'fuel_stations');
+
+        $this->withToken($token['token'])
+            ->postJson('/api/auth/station', ['uuid' => $station->uuid])
+            ->assertForbidden();
+    }
+
+    public function test_token_com_empresa_e_posto_retorna_409_nas_duas_rotas(): void
+    {
+        $user = $this->user();
+        $company = $this->companyFor($user);
+        $station = $this->stationFor($user);
+        $token = $user->createToken('web');
+        $token->accessToken->forceFill([
+            'company_id' => $company->id,
+            'fuel_station_id' => $station->id,
+        ])->save();
+
+        $this->withToken($token->plainTextToken)->getJson('/api/registry/entities')->assertStatus(409);
+        $this->withToken($token->plainTextToken)->getJson('/api/station/me')->assertStatus(409);
+    }
+
+    public function test_login_com_email_em_maiusculas(): void
+    {
+        $user = $this->user('dono@posto.com');
+        $this->stationFor($user);
+
+        $this->postJson('/api/auth/login', [
+            'email' => ' DONO@POSTO.COM ',
+            'password' => 'senha-atual',
+        ])->assertOk()
+            ->assertJsonPath('user.email', 'dono@posto.com')
+            ->assertJsonPath('user.has_fuel_station', true);
+    }
+
+    public function test_admin_do_sistema_com_posto_entra_no_posto(): void
+    {
+        $admin = $this->user('admin@posto.com');
+        $admin->forceFill(['is_system_admin' => true])->save();
+        $station = $this->stationFor($admin);
+
+        $token = $this->login($admin);
+
+        $this->assertTrue($token['user']['is_system_admin']);
+        $this->assertFalse($token['user']['has_company']);
+        $this->assertTrue($token['user']['has_fuel_station']);
+        $this->assertSame($station->uuid, $token['user']['current_fuel_station']['uuid']);
+        $this->assertSame($station->id, $admin->tokens()->first()->fuel_station_id);
+        $this->assertNull($admin->tokens()->first()->company_id);
     }
 
     public function test_usuario_de_fora_nao_seleciona_o_posto(): void
