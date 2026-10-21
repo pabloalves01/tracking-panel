@@ -44,24 +44,22 @@ class StoreCustomerTest extends TestCase
     {
         $this->postJson('/api/registry/customers', $this->payload([
             'entity' => [
-                'rg_ie' => '1234567',
+                'rg' => '1234567',
                 'emergency_phone' => '(11) 99999-8888',
                 'emergency_phone_type' => 'mobile',
-                'document_file_path' => 'documentos/maria.pdf',
             ],
         ]))->assertCreated();
 
         $entity = CommonEntity::query()->first();
         $this->assertSame(1, Customer::query()->count());
-        $this->assertSame('1234567', $entity->rg_ie);
+        $this->assertSame('1234567', $entity->rg);
         $this->assertSame('11999998888', $entity->emergency_phone);
         $this->assertSame('mobile', $entity->emergency_phone_type);
-        $this->assertSame('documentos/maria.pdf', $entity->document_file_path);
 
         $customer = Customer::query()->first();
         $this->getJson("/api/registry/customers/{$customer->uuid}")
             ->assertOk()
-            ->assertJsonPath('data.rg_ie', '1234567');
+            ->assertJsonPath('data.rg', '1234567');
     }
 
     public function test_reaproveita_pessoa_existente_sem_alterar_os_dados(): void
@@ -71,7 +69,7 @@ class StoreCustomerTest extends TestCase
             'person_type' => 'pf',
             'cpf_cnpj' => self::CPF,
             'email' => 'maria@example.com',
-            'rg_ie' => '111',
+            'rg' => '111',
         ]);
 
         $this->postJson('/api/registry/customers', $this->payload([
@@ -80,14 +78,14 @@ class StoreCustomerTest extends TestCase
                 'person_type' => 'pf',
                 'cpf_cnpj' => self::CPF,
                 'email' => 'outro@example.com',
-                'rg_ie' => '999',
+                'rg' => '999',
             ],
         ]))->assertCreated();
 
         $entity->refresh();
         $this->assertSame('Maria Original', $entity->name);
         $this->assertSame('maria@example.com', $entity->email);
-        $this->assertSame('111', $entity->rg_ie);
+        $this->assertSame('111', $entity->rg);
         $this->assertSame(1, CommonEntity::query()->count());
         $this->assertSame(1, Customer::query()->where('entity_id', $entity->id)->count());
     }
@@ -102,6 +100,21 @@ class StoreCustomerTest extends TestCase
 
         $this->assertSame(1, Customer::query()->count());
         $this->assertSame('Maria Silva', CommonEntity::query()->first()->name);
+    }
+
+    public function test_cria_pessoa_juridica_sem_inscricao_estadual(): void
+    {
+        $this->postJson('/api/registry/customers', $this->payload([
+            'entity' => [
+                'name' => 'Empresa Sem IE LTDA',
+                'person_type' => 'pj',
+                'cpf_cnpj' => '12345678000195',
+            ],
+        ]))->assertCreated();
+
+        $entity = CommonEntity::query()->first();
+        $this->assertSame('pj', $entity->person_type);
+        $this->assertNull($entity->ie);
     }
 
     public function test_editar_cliente_nao_altera_a_entidade(): void
@@ -135,19 +148,19 @@ class StoreCustomerTest extends TestCase
             'person_type' => 'pf',
             'cpf_cnpj' => self::CPF,
             'email' => 'corrigida@example.com',
-            'rg_ie' => '445566',
+            'rg' => '445566',
+            'ie' => '123456789012',
             'emergency_phone' => '11988887777',
             'emergency_phone_type' => 'home',
-            'document_file_path' => 'documentos/rg.pdf',
         ])->assertOk();
 
         $entity->refresh();
         $this->assertSame('Maria Corrigida', $entity->name);
         $this->assertSame('corrigida@example.com', $entity->email);
-        $this->assertSame('445566', $entity->rg_ie);
+        $this->assertSame('445566', $entity->rg);
+        $this->assertSame('123456789012', $entity->ie);
         $this->assertSame('11988887777', $entity->emergency_phone);
         $this->assertSame('home', $entity->emergency_phone_type);
-        $this->assertSame('documentos/rg.pdf', $entity->document_file_path);
     }
 
     /**

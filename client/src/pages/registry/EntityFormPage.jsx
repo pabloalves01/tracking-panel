@@ -33,10 +33,10 @@ export default function EntityFormPage() {
         cpf_cnpj: '',
         email: '',
         phone: '',
-        rg_ie: '',
+        rg: '',
+        ie: '',
         emergency_phone: '',
         emergency_phone_type: 'mobile',
-        document_file_path: '',
         postal_code: '',
         street: '',
         street_number: '',
@@ -59,10 +59,10 @@ export default function EntityFormPage() {
                     cpf_cnpj: entity.cpf_cnpj ?? '',
                     email: entity.email ?? '',
                     phone: entity.phone ?? '',
-                    rg_ie: entity.rg_ie ?? '',
+                    rg: entity.rg ?? '',
+                    ie: entity.ie ?? '',
                     emergency_phone: entity.emergency_phone ?? '',
                     emergency_phone_type: entity.emergency_phone_type || 'mobile',
-                    document_file_path: entity.document_file_path ?? '',
                     postal_code: entity.postal_code ?? '',
                     street: entity.street ?? '',
                     street_number: entity.street_number ?? '',
@@ -90,10 +90,10 @@ export default function EntityFormPage() {
             cpf_cnpj: formData.cpf_cnpj,
             email: formData.email || null,
             phone: formData.phone || null,
-            rg_ie: formData.rg_ie || null,
+            rg: formData.person_type === 'pf' ? (formData.rg || null) : null,
+            ie: formData.person_type === 'pj' ? (formData.ie || null) : null,
             emergency_phone: formData.emergency_phone || null,
             emergency_phone_type: formData.emergency_phone ? formData.emergency_phone_type : null,
-            document_file_path: formData.document_file_path || null,
             postal_code: formData.postal_code || null,
             street: formData.street || null,
             street_number: formData.street_number || null,
@@ -217,16 +217,29 @@ export default function EntityFormPage() {
                                     onChange={(phone) => setField('phone', phone)}
                                 />
                             </Field>
-                            <Field className="col-span-12 md:col-span-6">
-                                <FieldLabel htmlFor="rg-ie">{isCompany ? 'Inscrição estadual' : 'RG'}</FieldLabel>
-                                <Input
-                                    id="rg-ie"
-                                    name="rg_ie"
-                                    value={formData.rg_ie}
-                                    onChange={(event) => setField('rg_ie', event.target.value)}
-                                    placeholder={isCompany ? 'Ex: 123.456.789.012' : 'Ex: 12.345.678-9'}
-                                />
-                            </Field>
+                            {isCompany ? (
+                                <Field className="col-span-12 md:col-span-6">
+                                    <FieldLabel htmlFor="ie">Inscrição estadual</FieldLabel>
+                                    <Input
+                                        id="ie"
+                                        name="ie"
+                                        value={formData.ie}
+                                        onChange={(event) => setField('ie', event.target.value)}
+                                        placeholder="Ex: 123.456.789.012"
+                                    />
+                                </Field>
+                            ) : (
+                                <Field className="col-span-12 md:col-span-6">
+                                    <FieldLabel htmlFor="rg">RG</FieldLabel>
+                                    <Input
+                                        id="rg"
+                                        name="rg"
+                                        value={formData.rg}
+                                        onChange={(event) => setField('rg', event.target.value)}
+                                        placeholder="Ex: 12.345.678-9"
+                                    />
+                                </Field>
+                            )}
                             <Field className="col-span-12 md:col-span-6">
                                 <FieldLabel htmlFor="emergency-phone">Telefone de emergência</FieldLabel>
                                 <InputEmergencyNumber
@@ -236,17 +249,6 @@ export default function EntityFormPage() {
                                     onTypeChange={(phoneType) => setField('emergency_phone_type', phoneType)}
                                     onValueChange={(phone) => setField('emergency_phone', phone)}
                                 />
-                            </Field>
-                            <Field className="col-span-12">
-                                <FieldLabel htmlFor="document-file-path">Caminho do documento</FieldLabel>
-                                <Input
-                                    id="document-file-path"
-                                    name="document_file_path"
-                                    value={formData.document_file_path}
-                                    onChange={(event) => setField('document_file_path', event.target.value)}
-                                    placeholder="Ex: documentos/rg.pdf"
-                                />
-                                <FieldDescription>Guarda só o caminho. O arquivo não é enviado por aqui.</FieldDescription>
                             </Field>
                         </FieldGroup>
                     </FieldSet>
