@@ -131,21 +131,12 @@ class StoreFuelStationRequest extends FormRequest
             'diesel_s500_price',
             'gasoline_price',
             'additive_gasoline_price',
-            'billing_recurrence',
-            'billing_cutoff_day',
-            'billing_interval_days',
-            'billing_cycle_starts_on',
-            'billing_due_days',
         ] as $field) {
             if (! $this->exists($field)) {
                 continue;
             }
 
             $values[$field] = filled($this->input($field)) ? $this->input($field) : null;
-        }
-
-        if ($this->exists('billing_last_day_of_month')) {
-            $values['billing_last_day_of_month'] = filter_var($this->input('billing_last_day_of_month'), FILTER_VALIDATE_BOOLEAN);
         }
 
         return $values;
@@ -164,12 +155,6 @@ class StoreFuelStationRequest extends FormRequest
             'diesel_s500_price' => ['nullable', 'numeric', 'min:0', 'max:999999.999'],
             'gasoline_price' => ['nullable', 'numeric', 'min:0', 'max:999999.999'],
             'additive_gasoline_price' => ['nullable', 'numeric', 'min:0', 'max:999999.999'],
-            'billing_recurrence' => ['nullable', 'in:weekly,biweekly,monthly,custom'],
-            'billing_cutoff_day' => ['nullable', 'integer', 'min:1', 'max:31'],
-            'billing_last_day_of_month' => ['nullable', 'boolean'],
-            'billing_interval_days' => ['nullable', 'integer', 'min:1', 'max:366'],
-            'billing_cycle_starts_on' => ['nullable', 'date_format:Y-m-d'],
-            'billing_due_days' => ['nullable', 'integer', 'min:0', 'max:366'],
             'status' => [$statusRequired ? 'required' : 'nullable', 'in:active,inactive,suspended'],
         ];
     }
@@ -188,12 +173,6 @@ class StoreFuelStationRequest extends FormRequest
             'diesel_s500_price.numeric' => 'O preço do diesel S500 deve ser um número',
             'gasoline_price.numeric' => 'O preço da gasolina deve ser um número',
             'additive_gasoline_price.numeric' => 'O preço da gasolina aditivada deve ser um número',
-            'billing_recurrence.in' => 'A recorrência de faturamento é inválida',
-            'billing_cutoff_day.integer' => 'O dia de corte deve ser um número',
-            'billing_cutoff_day.min' => 'O dia de corte deve ser entre 1 e 31',
-            'billing_cutoff_day.max' => 'O dia de corte deve ser entre 1 e 31',
-            'billing_cycle_starts_on.date_format' => 'Informe uma data de início válida',
-            'billing_due_days.integer' => 'Os dias para vencimento devem ser um número',
             'status.required' => 'A situação é obrigatória',
             'status.in' => 'A situação é inválida',
         ];

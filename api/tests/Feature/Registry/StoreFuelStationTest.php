@@ -101,9 +101,6 @@ class StoreFuelStationTest extends TestCase
             'pix_key' => 'maria@example.com',
             'credit_limit' => '1500.50',
             'diesel_s10_price' => '6.199',
-            'billing_recurrence' => 'monthly',
-            'billing_cycle_starts_on' => '2026-01-05',
-            'billing_last_day_of_month' => true,
         ])->assertOk();
 
         $fuelStation->refresh();
@@ -113,9 +110,6 @@ class StoreFuelStationTest extends TestCase
         $this->assertSame('suspended', $fuelStation->status);
         $this->assertSame('1500.50', $fuelStation->credit_limit);
         $this->assertSame('6.199', $fuelStation->diesel_s10_price);
-        $this->assertSame('monthly', $fuelStation->billing_recurrence);
-        $this->assertTrue($fuelStation->billing_last_day_of_month);
-        $this->assertSame('2026-01-05', $fuelStation->billing_cycle_starts_on->format('Y-m-d'));
     }
 
     public function test_editar_entidade_atualiza_os_dados_compartilhados(): void

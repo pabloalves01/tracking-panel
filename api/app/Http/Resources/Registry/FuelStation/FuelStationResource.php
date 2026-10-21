@@ -42,12 +42,6 @@ class FuelStationResource extends JsonResource
             'diesel_s500_price' => $this->diesel_s500_price,
             'gasoline_price' => $this->gasoline_price,
             'additive_gasoline_price' => $this->additive_gasoline_price,
-            'billing_recurrence' => $this->billing_recurrence,
-            'billing_cutoff_day' => $this->billing_cutoff_day,
-            'billing_last_day_of_month' => $this->billing_last_day_of_month,
-            'billing_interval_days' => $this->billing_interval_days,
-            'billing_cycle_starts_on' => $this->billing_cycle_starts_on?->format('Y-m-d'),
-            'billing_due_days' => $this->billing_due_days,
             'status' => $this->status,
         ];
     }

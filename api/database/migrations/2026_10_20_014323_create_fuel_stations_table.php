@@ -27,12 +27,6 @@ return new class extends Migration
             $table->decimal('diesel_s500_price', 12, 3)->nullable();
             $table->decimal('gasoline_price', 12, 3)->nullable();
             $table->decimal('additive_gasoline_price', 12, 3)->nullable();
-            $table->string('billing_recurrence')->nullable();
-            $table->unsignedTinyInteger('billing_cutoff_day')->nullable();
-            $table->boolean('billing_last_day_of_month')->default(false);
-            $table->unsignedSmallInteger('billing_interval_days')->nullable();
-            $table->date('billing_cycle_starts_on')->nullable();
-            $table->unsignedSmallInteger('billing_due_days')->nullable();
             $table->string('status', 50)->default('active');
             $table->timestamps();
             $table->softDeletes();

@@ -124,12 +124,6 @@ class FuelStationService
             'diesel_s500_price' => $data['diesel_s500_price'] ?? null,
             'gasoline_price' => $data['gasoline_price'] ?? null,
             'additive_gasoline_price' => $data['additive_gasoline_price'] ?? null,
-            'billing_recurrence' => $data['billing_recurrence'] ?? null,
-            'billing_cutoff_day' => $data['billing_cutoff_day'] ?? null,
-            'billing_last_day_of_month' => (bool) ($data['billing_last_day_of_month'] ?? false),
-            'billing_interval_days' => $data['billing_interval_days'] ?? null,
-            'billing_cycle_starts_on' => $data['billing_cycle_starts_on'] ?? null,
-            'billing_due_days' => $data['billing_due_days'] ?? null,
             'status' => $data['status'] ?? 'active',
         ];
     }

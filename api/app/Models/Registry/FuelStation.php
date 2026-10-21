@@ -32,12 +32,6 @@ class FuelStation extends Model
         'diesel_s500_price',
         'gasoline_price',
         'additive_gasoline_price',
-        'billing_recurrence',
-        'billing_cutoff_day',
-        'billing_last_day_of_month',
-        'billing_interval_days',
-        'billing_cycle_starts_on',
-        'billing_due_days',
         'status',
     ];
 
@@ -57,8 +51,6 @@ class FuelStation extends Model
             'diesel_s500_price' => 'decimal:3',
             'gasoline_price' => 'decimal:3',
             'additive_gasoline_price' => 'decimal:3',
-            'billing_last_day_of_month' => 'boolean',
-            'billing_cycle_starts_on' => 'date:Y-m-d',
         ];
     }
 

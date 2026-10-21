@@ -8,14 +8,12 @@ import { InputPhone } from '@/components/common/inputs/InputPhone'
 import { InputPix } from '@/components/common/inputs/InputPix'
 import { InputPostalCode } from '@/components/common/inputs/InputPostalCode'
 import { SelectState } from '@/components/common/inputs/SelectState'
-import { DatePicker } from '@/components/datepicker/DatePicker'
 import { LayoutToolbar } from '@/components/common/LayoutToolbar'
 import { LoadingWrapper } from '@/components/common/LoadingWrapper'
 import { Field, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { Switch } from '@/components/ui/switch'
 import { getEntityByDocument } from '@/lib/registry/entities'
 import { createFuelStation, getFuelStation, updateFuelStation } from '@/lib/registry/fuelStations'
 import { notifyError, notifySuccess } from '@/lib/notify'
@@ -28,13 +26,6 @@ const paymentMethods = [
     { label: 'Faturado', value: 'invoice' },
     { label: 'Débito', value: 'debit' },
     { label: 'Crédito', value: 'credit' },
-]
-
-const billingRecurrences = [
-    { label: 'Semanal', value: 'weekly' },
-    { label: 'Quinzenal', value: 'biweekly' },
-    { label: 'Mensal', value: 'monthly' },
-    { label: 'Personalizada', value: 'custom' },
 ]
 
 const stationStatuses = [
@@ -110,12 +101,6 @@ export default function FuelStationFormPage() {
         diesel_s500_price: '',
         gasoline_price: '',
         additive_gasoline_price: '',
-        billing_recurrence: '',
-        billing_cutoff_day: '',
-        billing_last_day_of_month: false,
-        billing_interval_days: '',
-        billing_cycle_starts_on: '',
-        billing_due_days: '',
         status: 'active',
     })
 
@@ -231,12 +216,6 @@ export default function FuelStationFormPage() {
                     diesel_s500_price: fuelStation.diesel_s500_price ?? '',
                     gasoline_price: fuelStation.gasoline_price ?? '',
                     additive_gasoline_price: fuelStation.additive_gasoline_price ?? '',
-                    billing_recurrence: fuelStation.billing_recurrence ?? '',
-                    billing_cutoff_day: fuelStation.billing_cutoff_day ?? '',
-                    billing_last_day_of_month: Boolean(fuelStation.billing_last_day_of_month),
-                    billing_interval_days: fuelStation.billing_interval_days ?? '',
-                    billing_cycle_starts_on: fuelStation.billing_cycle_starts_on ?? '',
-                    billing_due_days: fuelStation.billing_due_days ?? '',
                     status: fuelStation.status || 'active',
                 })
             })
@@ -268,12 +247,6 @@ export default function FuelStationFormPage() {
             diesel_s500_price: emptyToNull(formData.diesel_s500_price),
             gasoline_price: emptyToNull(formData.gasoline_price),
             additive_gasoline_price: emptyToNull(formData.additive_gasoline_price),
-            billing_recurrence: emptyToNull(formData.billing_recurrence),
-            billing_cutoff_day: emptyToNull(formData.billing_cutoff_day),
-            billing_last_day_of_month: formData.billing_last_day_of_month,
-            billing_interval_days: emptyToNull(formData.billing_interval_days),
-            billing_cycle_starts_on: emptyToNull(formData.billing_cycle_starts_on),
-            billing_due_days: emptyToNull(formData.billing_due_days),
             status: formData.status || 'active',
         }
 
@@ -341,7 +314,7 @@ export default function FuelStationFormPage() {
                     <FieldSet>
                         <FieldLegend variant="label">Dados do posto</FieldLegend>
                         <FieldDescription>
-                            Login, senha, PIX, preços e faturamento ficam no posto. Nome, documento e endereço pertencem à entidade.
+                            Login, senha, PIX e preços ficam no posto. Nome, documento e endereço pertencem à entidade.
                         </FieldDescription>
 
                         {entityLocked && !existingFuelStation && (
@@ -596,82 +569,6 @@ export default function FuelStationFormPage() {
                                     />
                                 </Field>
                             ))}
-                        </FieldGroup>
-                    </FieldSet>
-
-                    <Separator />
-
-                    <FieldSet>
-                        <FieldLegend variant="label">Faturamento</FieldLegend>
-                        <FieldGroup className="md:grid grid-cols-1 md:grid-cols-12">
-                            <Field className="col-span-12 md:col-span-4">
-                                <FieldLabel htmlFor="billing-recurrence">Recorrência</FieldLabel>
-                                <Select
-                                    items={billingRecurrences}
-                                    value={formData.billing_recurrence}
-                                    onValueChange={(value) => setField('billing_recurrence', value)}
-                                >
-                                    <SelectTrigger id="billing-recurrence" className="w-full">
-                                        <SelectValue placeholder="Selecione" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectGroup>
-                                            {billingRecurrences.map((item) => (
-                                                <SelectItem key={item.value} value={item.value}>
-                                                    {item.label}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectGroup>
-                                    </SelectContent>
-                                </Select>
-                            </Field>
-                            <Field className="col-span-12 md:col-span-4">
-                                <FieldLabel htmlFor="billing-cutoff-day">Dia de corte</FieldLabel>
-                                <Input
-                                    id="billing-cutoff-day"
-                                    type="number"
-                                    min="1"
-                                    max="31"
-                                    value={formData.billing_cutoff_day}
-                                    onChange={(event) => setField('billing_cutoff_day', event.target.value)}
-                                />
-                            </Field>
-                            <Field className="col-span-12 md:col-span-4">
-                                <FieldLabel htmlFor="billing-due-days">Dias para vencimento</FieldLabel>
-                                <Input
-                                    id="billing-due-days"
-                                    type="number"
-                                    min="0"
-                                    value={formData.billing_due_days}
-                                    onChange={(event) => setField('billing_due_days', event.target.value)}
-                                />
-                            </Field>
-                            <Field className="col-span-12 md:col-span-4">
-                                <FieldLabel htmlFor="billing-interval-days">Intervalo em dias</FieldLabel>
-                                <Input
-                                    id="billing-interval-days"
-                                    type="number"
-                                    min="1"
-                                    value={formData.billing_interval_days}
-                                    onChange={(event) => setField('billing_interval_days', event.target.value)}
-                                />
-                            </Field>
-                            <Field className="col-span-12 md:col-span-4">
-                                <FieldLabel htmlFor="billing-cycle-starts-on">Início do ciclo</FieldLabel>
-                                <DatePicker
-                                    id="billing-cycle-starts-on"
-                                    value={formData.billing_cycle_starts_on}
-                                    onChange={(date) => setField('billing_cycle_starts_on', date)}
-                                />
-                            </Field>
-                            <Field className="col-span-12 md:col-span-4" orientation="horizontal">
-                                <FieldLabel htmlFor="billing-last-day">Último dia do mês</FieldLabel>
-                                <Switch
-                                    id="billing-last-day"
-                                    checked={formData.billing_last_day_of_month}
-                                    onCheckedChange={(checked) => setField('billing_last_day_of_month', checked)}
-                                />
-                            </Field>
                         </FieldGroup>
                     </FieldSet>
 
