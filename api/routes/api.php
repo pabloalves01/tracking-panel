@@ -45,6 +45,8 @@ Route::prefix('auth')->group(function () {
         Route::post('logout', [AuthController::class, 'logout']);
         Route::get('companies', [AuthController::class, 'companies']);
         Route::post('company', [AuthController::class, 'selectCompany']);
+        Route::get('contexts', [AuthController::class, 'contexts']);
+        Route::post('station', [AuthController::class, 'selectStation']);
     });
 });
 
