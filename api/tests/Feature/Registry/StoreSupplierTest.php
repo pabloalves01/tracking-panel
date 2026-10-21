@@ -86,6 +86,18 @@ class StoreSupplierTest extends TestCase
         $this->assertSame('Maria Silva', CommonEntity::query()->first()->name);
     }
 
+    public function test_editar_fornecedor_atualiza_os_dados_da_pessoa(): void
+    {
+        $this->postJson('/api/registry/suppliers', $this->payload())->assertCreated();
+        $supplier = Supplier::query()->first()->uuid;
+
+        $this->putJson("/api/registry/suppliers/{$supplier}", $this->payload([
+            'entity' => ['name' => 'Maria Corrigida'],
+        ]))->assertOk();
+
+        $this->assertSame('Maria Corrigida', CommonEntity::query()->first()->name);
+    }
+
     /**
      * @param  array<string, mixed>  $overrides
      * @return array<string, mixed>
