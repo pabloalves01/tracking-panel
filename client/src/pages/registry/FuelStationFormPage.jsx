@@ -3,6 +3,7 @@ import { TriangleAlert } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { InputCity } from '@/components/common/inputs/InputCity'
 import { InputCpfCnpj } from '@/components/common/inputs/InputCpfCnpj'
+import { InputMoney } from '@/components/common/inputs/InputMoney'
 import { InputPassword } from '@/components/common/inputs/InputPassword'
 import { InputPhone } from '@/components/common/inputs/InputPhone'
 import { InputPix } from '@/components/common/inputs/InputPix'
@@ -492,14 +493,10 @@ export default function FuelStationFormPage() {
                             </Field>
                             <Field className="col-span-12 md:col-span-4">
                                 <FieldLabel htmlFor="credit-limit">Limite de crédito</FieldLabel>
-                                <Input
+                                <InputMoney
                                     id="credit-limit"
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
                                     value={formData.credit_limit}
-                                    onChange={(event) => setField('credit_limit', event.target.value)}
-                                    placeholder="Ex: 1.500,00"
+                                    onChange={(amount) => setField('credit_limit', amount)}
                                 />
                             </Field>
                             <Field className="col-span-12 md:col-span-4">
@@ -561,14 +558,10 @@ export default function FuelStationFormPage() {
                             ].map(([field, label]) => (
                                 <Field key={field} className="col-span-12 md:col-span-3">
                                     <FieldLabel htmlFor={field}>{label}</FieldLabel>
-                                    <Input
+                                    <InputMoney
                                         id={field}
-                                        type="number"
-                                        min="0"
-                                        step="0.001"
                                         value={formData[field]}
-                                        onChange={(event) => setField(field, event.target.value)}
-                                        placeholder="Ex: 6,199"
+                                        onChange={(amount) => setField(field, amount)}
                                     />
                                 </Field>
                             ))}
