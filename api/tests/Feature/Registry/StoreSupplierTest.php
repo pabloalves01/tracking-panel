@@ -8,6 +8,7 @@ use App\Models\Registry\Supplier;
 use App\Models\User;
 use App\Support\CurrentCompany;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -121,6 +122,32 @@ class StoreSupplierTest extends TestCase
         $entity->refresh();
         $this->assertSame('Maria Corrigida', $entity->name);
         $this->assertSame('corrigida@example.com', $entity->email);
+    }
+
+    public function test_senha_e_gravada_com_hash_e_nao_volta_na_resposta(): void
+    {
+        $this->postJson('/api/registry/suppliers', $this->payload([
+            'login' => 'fornecedor',
+            'password' => 'senha1234',
+            'password_confirmation' => 'senha1234',
+        ]))->assertCreated();
+
+        $supplier = Supplier::query()->first();
+        $this->assertTrue(Hash::check('senha1234', $supplier->password));
+
+        $this->getJson("/api/registry/suppliers/{$supplier->uuid}")
+            ->assertOk()
+            ->assertJsonPath('data.login', 'fornecedor')
+            ->assertJsonMissingPath('data.password');
+
+        $this->putJson("/api/registry/suppliers/{$supplier->uuid}", [
+            'pix_key_type' => 'email',
+            'pix_key' => 'maria@example.com',
+            'login' => 'fornecedor',
+        ])->assertOk();
+
+        $this->assertTrue(Hash::check('senha1234', $supplier->fresh()->password));
+        $this->assertSame('Maria Silva', $supplier->entity->name);
     }
 
     /**

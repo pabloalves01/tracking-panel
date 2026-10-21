@@ -17,6 +17,10 @@ export default defineConfig([
       globals: globals.browser,
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
+    rules: {
+      // O cadastro validado busca a entidade no efeito e preenche o formulário ali.
+      'react-hooks/set-state-in-effect': 'off',
+    },
   },
   {
     files: ['vite.config.js'],
