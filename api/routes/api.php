@@ -54,6 +54,11 @@ Route::middleware(['auth:sanctum', 'ensure.company'])->group(function () {
     Route::prefix('registry')->group(function () {
         Route::get('entities/by-document/{document}', [CommonEntityController::class, 'byDocument']);
 
+        # 02
+        Route::get('entities', [CommonEntityController::class, 'index']);
+        Route::get('entities/{uuid}', [CommonEntityController::class, 'show']);
+        Route::put('entities/{uuid}', [CommonEntityController::class, 'update']);
+
         Route::prefix('employees')->group(function () {
             Route::get('/', [EmployeeController::class, 'index']);
             Route::post('/', [EmployeeController::class, 'store']);

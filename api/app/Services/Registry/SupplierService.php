@@ -29,22 +29,19 @@ class SupplierService
     public function store(array $data): Supplier
     {
         return DB::transaction(function () use ($data) {
-
-            $existSupplier = Supplier::where('entity_id', $data['entity']['id'])->first();
-            if ($existSupplier) {
-                throw new DomainException('Fornecedor já existe', );
-            }
-
-
             $entity = $this->commonEntityService->findOrCreate($data['entity']);
 
-            $supplier = Supplier::firstOrCreate(
-                ['entity_id' => $entity->id],
-                [
-                    'pix_key_type' => $data['pix_key_type'] ?? null,
-                    'pix_key' => $data['pix_key'] ?? null,
-                ]
-            );
+            $existSupplier = Supplier::where('entity_id', $entity->id)->first();
+
+            if ($existSupplier) {
+                throw new DomainException('Já existe um fornecedor com este documento');
+            }
+
+            $supplier = Supplier::create([
+                'entity_id' => $entity->id,
+                'pix_key_type' => $data['pix_key_type'] ?? null,
+                'pix_key' => $data['pix_key'] ?? null,
+            ]);
 
             return $supplier->load('entity');
         });
@@ -73,7 +70,6 @@ class SupplierService
         return DB::transaction(function () use ($uuid, $data) {
             $supplier = $this->get($uuid);
 
-            $supplier->entity->update($data['entity']);
             $supplier->update([
                 'pix_key_type' => $data['pix_key_type'] ?? null,
                 'pix_key' => $data['pix_key'] ?? null,

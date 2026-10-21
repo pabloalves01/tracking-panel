@@ -18,7 +18,7 @@ import { notifyError } from '@/lib/notify'
  * `value` é o id da tabela `cities`, ou null.
  * `onChange` recebe esse id, ou null quando o campo é limpo.
  */
-export function InputCity({ id, stateId = null, value = null, onChange }) {
+export function InputCity({ id, stateId = null, value = null, onChange, disabled = false }) {
     const [cities, setCities] = useState([])
     const [loading, setLoading] = useState(false)
     const selectedStateId = toId(stateId)
@@ -81,7 +81,7 @@ export function InputCity({ id, stateId = null, value = null, onChange }) {
                 id={id}
                 className="w-full"
                 placeholder={placeholder}
-                disabled={!selectedStateId}
+                disabled={disabled || !selectedStateId}
                 showClear={selectedCityId != null}
                 autoComplete="off"
             />
