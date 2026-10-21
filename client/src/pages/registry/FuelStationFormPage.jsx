@@ -455,6 +455,9 @@ export default function FuelStationFormPage() {
 
                     <FieldSet>
                         <FieldLegend variant="label">Preços</FieldLegend>
+                        <FieldDescription>
+                            Preço por litro de cada combustível. Os campos podem ficar em branco.
+                        </FieldDescription>
                         <FieldGroup className="md:grid grid-cols-1 md:grid-cols-12">
                             {[
                                 ['diesel_s10_price', 'Diesel S10'],
