@@ -318,7 +318,7 @@ export default function SupplierFormPage() {
                                     disabled={entityLocked}
                                 >
                                     <SelectTrigger id="person-type" className="w-full" disabled={entityLocked}>
-                                        <SelectValue />
+                                        <SelectValue placeholder="Ex: Pessoa jurídica" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectGroup>

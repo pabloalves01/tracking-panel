@@ -308,7 +308,7 @@ export default function CustomerFormPage() {
                                     disabled={entityLocked}
                                 >
                                     <SelectTrigger id="person-type" className="w-full" disabled={entityLocked}>
-                                        <SelectValue />
+                                        <SelectValue placeholder="Ex: Pessoa jurídica" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectGroup>
@@ -386,6 +386,7 @@ export default function CustomerFormPage() {
                                     name="rg_ie"
                                     value={formData.rg_ie}
                                     onChange={(event) => setField('rg_ie', event.target.value)}
+                                    placeholder={isCompany ? 'Ex: 123.456.789.012' : 'Ex: 12.345.678-9'}
                                     disabled={entityLocked}
                                 />
                             </Field>

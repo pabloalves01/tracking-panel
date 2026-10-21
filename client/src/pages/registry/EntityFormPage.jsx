@@ -152,7 +152,7 @@ export default function EntityFormPage() {
                                     onValueChange={(value) => setField('person_type', value)}
                                 >
                                     <SelectTrigger id="person-type" className="w-full">
-                                        <SelectValue />
+                                        <SelectValue placeholder="Ex: Pessoa jurídica" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectGroup>
@@ -224,6 +224,7 @@ export default function EntityFormPage() {
                                     name="rg_ie"
                                     value={formData.rg_ie}
                                     onChange={(event) => setField('rg_ie', event.target.value)}
+                                    placeholder={isCompany ? 'Ex: 123.456.789.012' : 'Ex: 12.345.678-9'}
                                 />
                             </Field>
                             <Field className="col-span-12 md:col-span-6">

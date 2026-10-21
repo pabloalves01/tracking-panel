@@ -339,7 +339,7 @@ export default function DriverFormPage() {
                                     disabled={entityLocked}
                                 >
                                     <SelectTrigger id="person-type" className="w-full" disabled={entityLocked}>
-                                        <SelectValue />
+                                        <SelectValue placeholder="Ex: Pessoa jurídica" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectGroup>
@@ -417,6 +417,7 @@ export default function DriverFormPage() {
                                     name="rg_ie"
                                     value={formData.rg_ie}
                                     onChange={(event) => setField('rg_ie', event.target.value)}
+                                    placeholder={isCompany ? 'Ex: 123.456.789.012' : 'Ex: 12.345.678-9'}
                                     disabled={entityLocked}
                                 />
                             </Field>
@@ -459,6 +460,7 @@ export default function DriverFormPage() {
                                     name="license_number"
                                     value={formData.license_number}
                                     onChange={(event) => setField('license_number', event.target.value)}
+                                    placeholder="Ex: 12345678900"
                                     required
                                 />
                             </Field>
@@ -470,7 +472,7 @@ export default function DriverFormPage() {
                                     onValueChange={(value) => setField('license_category', value)}
                                 >
                                     <SelectTrigger id="license-category" className="w-full">
-                                        <SelectValue />
+                                        <SelectValue placeholder="Ex: AB" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectGroup>

@@ -360,7 +360,7 @@ export default function FuelStationFormPage() {
                                     disabled={entityLocked}
                                 >
                                     <SelectTrigger id="person-type" className="w-full" disabled={entityLocked}>
-                                        <SelectValue />
+                                        <SelectValue placeholder="Ex: Pessoa jurídica" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectGroup>
@@ -487,6 +487,7 @@ export default function FuelStationFormPage() {
                                     id="contact-name"
                                     value={formData.contact_name}
                                     onChange={(event) => setField('contact_name', event.target.value)}
+                                    placeholder="Ex: Maria da Silva"
                                 />
                             </Field>
                             <Field className="col-span-12 md:col-span-4">
@@ -498,6 +499,7 @@ export default function FuelStationFormPage() {
                                     step="0.01"
                                     value={formData.credit_limit}
                                     onChange={(event) => setField('credit_limit', event.target.value)}
+                                    placeholder="Ex: 1.500,00"
                                 />
                             </Field>
                             <Field className="col-span-12 md:col-span-4">
@@ -508,7 +510,7 @@ export default function FuelStationFormPage() {
                                     onValueChange={(value) => setField('default_payment_method', value)}
                                 >
                                     <SelectTrigger id="payment-method" className="w-full">
-                                        <SelectValue placeholder="Selecione" />
+                                        <SelectValue placeholder="Ex: PIX" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectGroup>
@@ -530,7 +532,7 @@ export default function FuelStationFormPage() {
                                     onValueChange={(value) => setField('status', value)}
                                 >
                                     <SelectTrigger id="station-status" className="w-full">
-                                        <SelectValue />
+                                        <SelectValue placeholder="Ex: Ativo" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectGroup>
@@ -566,6 +568,7 @@ export default function FuelStationFormPage() {
                                         step="0.001"
                                         value={formData[field]}
                                         onChange={(event) => setField(field, event.target.value)}
+                                        placeholder="Ex: 6,199"
                                     />
                                 </Field>
                             ))}
