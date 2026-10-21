@@ -108,7 +108,8 @@ Route::middleware(['auth:sanctum', 'ensure.company'])->group(function () {
             Route::post('/', [DriverController::class, 'store']);
             Route::get('/{uuid}', [DriverController::class, 'show']);
             Route::put('/{uuid}', [DriverController::class, 'update']);
-            Route::delete('/{uuid}', [DriverController::class, 'destroy']);
+            Route::post('/{uuid}/deactivate', [DriverController::class, 'deactivate']);
+            Route::post('/{uuid}/activate', [DriverController::class, 'activate']);
         });
 
         Route::prefix('vehicle-owners')->group(function () {

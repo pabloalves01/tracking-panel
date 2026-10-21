@@ -19,8 +19,29 @@ class Driver extends Model
     protected $fillable = [
         'company_id',
         'entity_id',
+        'license_number',
+        'license_category',
+        'license_expires_on',
+        'license_issued_state',
+        'residence_proof_path',
+        'app_password',
         'status',
     ];
+
+    protected $hidden = [
+        'app_password',
+    ];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'license_expires_on' => 'date:Y-m-d',
+            'app_password' => 'hashed',
+        ];
+    }
 
     // ================================ BELONGS TO RELATIONS ================================
 
