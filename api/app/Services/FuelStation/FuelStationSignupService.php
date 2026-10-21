@@ -11,11 +11,10 @@ use App\Models\Location\State;
 use App\Models\User;
 use App\Rules\Cnpj;
 use App\Services\External\BrasilApiService;
-use Illuminate\Database\QueryException;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\RateLimiter;
 
 class FuelStationSignupService
 {
@@ -48,7 +47,7 @@ class FuelStationSignupService
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
-    public function start(array $data, string $ip): array
+    public function start(array $data): array
     {
         $digits = $this->availableCnpj((string) $data['cnpj']);
         $payload = $this->brasilApi->cnpj($digits);
@@ -56,7 +55,7 @@ class FuelStationSignupService
         $user = User::where('email', $email)->first();
 
         if ($user) {
-            $this->checkPassword($user, (string) $data['password'], $email, $ip);
+            $this->checkPassword($user, (string) $data['password']);
             $this->createStation($digits, $payload, $user);
 
             return [
@@ -75,8 +74,6 @@ class FuelStationSignupService
             'receita_payload' => $payload,
             'code_hash' => $code,
             'code_expires_at' => $expiresAt,
-            'attempts' => 0,
-            'last_sent_at' => now(),
         ]);
 
         Mail::to($email)->send(new FuelStationSignupCodeMail($code));
@@ -93,21 +90,12 @@ class FuelStationSignupService
      */
     public function resend(FuelStationSignup $signup): array
     {
-        $availableAt = $signup->last_sent_at->copy()->addSeconds(60);
-
-        if (now()->lt($availableAt)) {
-            $seconds = max(1, $availableAt->getTimestamp() - now()->getTimestamp());
-            abort(429, 'Aguarde '.$seconds.' segundos para reenviar o código');
-        }
-
         $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
         $expiresAt = now()->addMinutes(10);
 
         $signup->forceFill([
             'code_hash' => $code,
             'code_expires_at' => $expiresAt,
-            'attempts' => 0,
-            'last_sent_at' => now(),
         ])->save();
 
         Mail::to($signup->email)->send(new FuelStationSignupCodeMail($code));
@@ -127,14 +115,6 @@ class FuelStationSignupService
         }
 
         if (! Hash::check($code, $signup->code_hash)) {
-            $signup->increment('attempts');
-            $signup->refresh();
-
-            if ($signup->attempts >= 5) {
-                $signup->delete();
-                abort(422, 'Número de tentativas esgotado. Comece o cadastro novamente');
-            }
-
             abort(422, 'Código inválido');
         }
 
@@ -160,20 +140,11 @@ class FuelStationSignupService
         return $digits;
     }
 
-    private function checkPassword(User $user, string $password, string $email, string $ip): void
+    private function checkPassword(User $user, string $password): void
     {
-        $key = 'fuel-station-signup-password:'.$email.'|'.$ip;
-
-        if (RateLimiter::tooManyAttempts($key, 5)) {
-            abort(429, 'Muitas tentativas de senha. Tente novamente em alguns minutos');
-        }
-
         if (! Hash::check($password, $user->password)) {
-            RateLimiter::hit($key, 15 * 60);
             abort(422, 'Senha incorreta');
         }
-
-        RateLimiter::clear($key);
     }
 
     /**
@@ -185,10 +156,6 @@ class FuelStationSignupService
 
         try {
             DB::transaction(function () use ($cnpj, $address, $owner, $signup) {
-                if (FuelStation::withTrashed()->where('cnpj', $cnpj)->lockForUpdate()->exists()) {
-                    abort(422, 'Este posto já está cadastrado. Fale com o responsável');
-                }
-
                 $station = FuelStation::create([
                     'cnpj' => $cnpj,
                     'corporate_name' => $address['corporate_name'],
@@ -226,12 +193,8 @@ class FuelStationSignupService
 
                 $signup?->delete();
             });
-        } catch (QueryException $exception) {
-            if (str_contains($exception->getMessage(), 'fuel_stations')) {
-                abort(422, 'Este posto já está cadastrado. Fale com o responsável');
-            }
-
-            throw $exception;
+        } catch (UniqueConstraintViolationException) {
+            abort(422, 'Este posto já está cadastrado. Fale com o responsável');
         }
     }
 

@@ -37,12 +37,9 @@ Route::prefix('auth')->group(function () {
             ->middleware('throttle:10,1,station-signup-cnpj');
         Route::post('check-email', [FuelStationSignupController::class, 'checkEmail'])
             ->middleware('throttle:5,1,station-signup-email');
-        Route::post('/', [FuelStationSignupController::class, 'store'])
-            ->middleware('throttle:5,1,station-signup-start');
-        Route::post('{signup}/resend', [FuelStationSignupController::class, 'resend'])
-            ->middleware('throttle:3,1,station-signup-resend');
-        Route::post('{signup}/verify', [FuelStationSignupController::class, 'verify'])
-            ->middleware('throttle:10,1,station-signup-verify');
+        Route::post('/', [FuelStationSignupController::class, 'store']);
+        Route::post('{signup}/resend', [FuelStationSignupController::class, 'resend']);
+        Route::post('{signup}/verify', [FuelStationSignupController::class, 'verify']);
     });
 
     Route::middleware('auth:sanctum')->group(function () {

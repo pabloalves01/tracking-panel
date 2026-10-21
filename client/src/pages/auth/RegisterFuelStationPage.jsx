@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { Link, useNavigate } from "react-router"
 
 import { InputCity } from "@/components/common/inputs/InputCity"
@@ -34,17 +34,6 @@ export default function RegisterFuelStationPage() {
   const [signupUuid, setSignupUuid] = useState("")
   const [maskedEmail, setMaskedEmail] = useState("")
   const [code, setCode] = useState("")
-  const [resendIn, setResendIn] = useState(0)
-
-  useEffect(() => {
-    if (resendIn <= 0) return undefined
-
-    const timer = setTimeout(() => {
-      setResendIn((current) => Math.max(current - 1, 0))
-    }, 1000)
-
-    return () => clearTimeout(timer)
-  }, [resendIn])
 
   const cnpjReady = station?.cnpj === cnpj
 
@@ -136,7 +125,6 @@ export default function RegisterFuelStationPage() {
       if (result.signup_uuid) {
         setSignupUuid(result.signup_uuid)
         setMaskedEmail(result.email_masked ?? normalizedEmail)
-        setResendIn(60)
         setStep(3)
         return
       }
@@ -176,7 +164,6 @@ export default function RegisterFuelStationPage() {
 
     try {
       await resendStationSignupCode(signupUuid)
-      setResendIn(60)
       setCode("")
       notifySuccess({ message: "Enviamos um novo código." })
     } catch (error) {
@@ -413,13 +400,8 @@ export default function RegisterFuelStationPage() {
                         Verificar
                       </Button>
                     </Field>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={loading || resendIn > 0}
-                      onClick={handleResend}
-                    >
-                      {resendIn > 0 ? `Reenviar código (${resendIn}s)` : "Reenviar código"}
+                    <Button type="button" variant="outline" disabled={loading} onClick={handleResend}>
+                      Reenviar código
                     </Button>
                     <p className="text-center text-sm text-muted-foreground">
                       <Link to="/auth/login" className="underline underline-offset-4 hover:text-foreground">

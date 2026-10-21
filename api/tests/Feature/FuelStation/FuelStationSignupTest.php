@@ -223,7 +223,7 @@ class FuelStationSignupTest extends TestCase
         $this->assertSame(1, FuelStationUser::query()->count());
     }
 
-    public function test_codigo_errado_incrementa_as_tentativas(): void
+    public function test_codigo_errado_nao_cria_o_posto(): void
     {
         $code = $this->startSignup();
         $signup = FuelStationSignup::query()->first();
@@ -234,7 +234,7 @@ class FuelStationSignupTest extends TestCase
         ])->assertUnprocessable()
             ->assertJsonPath('message', 'Código inválido');
 
-        $this->assertSame(1, $signup->fresh()->attempts);
+        $this->assertNotNull($signup->fresh());
         $this->assertSame(0, FuelStation::query()->count());
     }
 
@@ -254,7 +254,7 @@ class FuelStationSignupTest extends TestCase
         $this->assertSame(0, FuelStation::query()->count());
     }
 
-    public function test_cinco_codigos_errados_invalidam_o_cadastro(): void
+    public function test_codigos_errados_nao_invalidam_o_cadastro(): void
     {
         $code = $this->startSignup();
         $signup = FuelStationSignup::query()->first();
@@ -263,34 +263,27 @@ class FuelStationSignupTest extends TestCase
         for ($attempt = 0; $attempt < 5; $attempt++) {
             $this->postJson("/api/auth/station-signup/{$signup->uuid}/verify", [
                 'code' => $wrong,
-            ])->assertUnprocessable();
+            ])->assertUnprocessable()
+                ->assertJsonPath('message', 'Código inválido');
         }
 
-        $this->assertSame(0, FuelStationSignup::query()->count());
-        $this->assertSame(0, User::query()->count());
+        $this->assertNotNull($signup->fresh());
 
         $this->postJson("/api/auth/station-signup/{$signup->uuid}/verify", [
             'code' => $code,
-        ])->assertNotFound();
+        ])->assertCreated();
     }
 
-    public function test_reenvio_antes_de_60_segundos_retorna_429_e_depois_troca_o_codigo(): void
+    public function test_reenvio_troca_o_codigo(): void
     {
         $code = $this->startSignup();
         $signup = FuelStationSignup::query()->first();
-        $signup->forceFill(['attempts' => 4])->save();
-
-        $this->postJson("/api/auth/station-signup/{$signup->uuid}/resend")
-            ->assertStatus(429);
-
-        $this->travel(61)->seconds();
 
         $this->postJson("/api/auth/station-signup/{$signup->uuid}/resend")
             ->assertOk()
             ->assertJsonStructure(['expires_at']);
 
         $signup->refresh();
-        $this->assertSame(0, $signup->attempts);
         $this->assertFalse(Hash::check($code, $signup->code_hash));
 
         $resent = null;
@@ -342,14 +335,14 @@ class FuelStationSignupTest extends TestCase
         Mail::assertNothingSent();
     }
 
-    public function test_email_existente_com_senha_errada_bloqueia_na_sexta_tentativa(): void
+    public function test_email_existente_com_senha_errada_nao_cadastra(): void
     {
         User::factory()->create([
             'email' => 'dono@posto.com',
             'password' => 'senha-atual',
         ]);
 
-        for ($attempt = 0; $attempt < 5; $attempt++) {
+        for ($attempt = 0; $attempt < 6; $attempt++) {
             $this->postJson('/api/auth/station-signup', [
                 'cnpj' => self::CNPJ,
                 'email' => 'dono@posto.com',
@@ -358,23 +351,17 @@ class FuelStationSignupTest extends TestCase
                 ->assertJsonPath('message', 'Senha incorreta');
         }
 
-        $this->travel(61)->seconds();
-
-        $this->postJson('/api/auth/station-signup', [
-            'cnpj' => self::CNPJ,
-            'email' => 'dono@posto.com',
-            'password' => 'errada',
-        ])->assertStatus(429)
-            ->assertJsonPath('message', 'Muitas tentativas de senha. Tente novamente em alguns minutos');
+        $this->assertSame(0, FuelStation::query()->count());
+        $this->assertSame(0, FuelStationSignup::query()->count());
 
         $this->postJson('/api/auth/station-signup', [
             'cnpj' => self::CNPJ,
             'email' => 'dono@posto.com',
             'password' => 'senha-atual',
-        ])->assertStatus(429);
+        ])->assertCreated()
+            ->assertJsonPath('message', 'Posto cadastrado com sucesso');
 
-        $this->assertSame(0, FuelStation::query()->count());
-        $this->assertSame(0, FuelStationSignup::query()->count());
+        $this->assertSame(1, FuelStation::query()->count());
     }
 
     public function test_segundo_cadastro_do_mesmo_cnpj_nao_conclui(): void

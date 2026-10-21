@@ -28,7 +28,7 @@ class FuelStationSignupController extends Controller
 
     public function store(StartFuelStationSignupRequest $request)
     {
-        $result = $this->fuelStationSignupService->start($request->validated(), (string) $request->ip());
+        $result = $this->fuelStationSignupService->start($request->validated());
         $status = isset($result['signup_uuid']) ? 200 : 201;
 
         return response()->json($result, $status);

@@ -19,8 +19,6 @@ class FuelStationSignup extends Model
         'receita_payload',
         'code_hash',
         'code_expires_at',
-        'attempts',
-        'last_sent_at',
     ];
 
     protected $hidden = [
@@ -38,8 +36,6 @@ class FuelStationSignup extends Model
             'password' => 'hashed',
             'code_hash' => 'hashed',
             'code_expires_at' => 'datetime',
-            'last_sent_at' => 'datetime',
-            'attempts' => 'integer',
         ];
     }
 

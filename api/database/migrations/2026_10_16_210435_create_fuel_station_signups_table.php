@@ -21,8 +21,6 @@ return new class extends Migration
             $table->json('receita_payload');
             $table->string('code_hash');
             $table->timestamp('code_expires_at');
-            $table->unsignedTinyInteger('attempts')->default(0);
-            $table->timestamp('last_sent_at');
             $table->timestamps();
 
             $table->index('cnpj');
