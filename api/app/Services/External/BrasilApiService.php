@@ -2,7 +2,6 @@
 
 namespace App\Services\External;
 
-use App\Exceptions\BrasilApiException;
 use App\Rules\Cnpj;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
@@ -10,103 +9,56 @@ use Illuminate\Support\Facades\Http;
 
 class BrasilApiService
 {
-    private const TIMEOUT_SECONDS = 5;
-
-    private const CACHE_HOURS = 24;
-
     /**
      * Consulta o CNPJ na BrasilAPI.
-     * Só devolve empresa com situação ATIVA. A resposta fica em cache por 24 horas.
+     * Só devolve empresa ATIVA. A resposta fica em cache por 24 horas.
      *
-     * @return array{payload: array<string, mixed>, checked_at: string}
+     * @return array<string, mixed>
      */
     public function cnpj(string $cnpj): array
     {
         $digits = Cnpj::digits($cnpj);
 
         if (! Cnpj::isValid($digits)) {
-            throw new BrasilApiException('Informe um CNPJ válido');
+            abort(422, 'Informe um CNPJ válido');
         }
 
-        $cached = Cache::get($this->cacheKey($digits));
+        $payload = Cache::remember('brasilapi:cnpj:'.$digits, now()->addHours(24), function () use ($digits) {
+            return $this->fetch($digits);
+        });
 
-        if (! is_array($cached) || ! is_array($cached['payload'] ?? null)) {
-            $cached = $this->fetch($digits);
-            Cache::put($this->cacheKey($digits), $cached, now()->addHours(self::CACHE_HOURS));
+        $status = mb_strtoupper(trim((string) ($payload['descricao_situacao_cadastral'] ?? '')));
+
+        if ($status !== 'ATIVA') {
+            abort(422, 'O CNPJ não está com situação cadastral ATIVA');
         }
 
-        if (! $this->isActive($cached['payload'])) {
-            throw new BrasilApiException('O CNPJ não está com situação cadastral ATIVA');
-        }
-
-        return [
-            'payload' => $cached['payload'],
-            'checked_at' => (string) $cached['checked_at'],
-        ];
+        return $payload;
     }
 
     /**
-     * @param  array<string, mixed>  $payload
-     */
-    public function isActive(array $payload): bool
-    {
-        $description = mb_strtoupper(trim((string) ($payload['descricao_situacao_cadastral'] ?? '')));
-
-        if ($description !== '') {
-            return $description === 'ATIVA';
-        }
-
-        return (int) ($payload['situacao_cadastral'] ?? 0) === 2;
-    }
-
-    /**
-     * @return array{payload: array<string, mixed>, checked_at: string}
+     * @return array<string, mixed>
      */
     private function fetch(string $digits): array
     {
         try {
-            $response = Http::timeout(self::TIMEOUT_SECONDS)
+            $response = Http::timeout(5)
                 ->acceptJson()
-                ->get($this->url($digits));
+                ->get('https://brasilapi.com.br/api/cnpj/v1/'.$digits);
         } catch (ConnectionException) {
-            throw $this->unavailable();
+            abort(503, 'A consulta de CNPJ está indisponível. Tente novamente em instantes');
         }
 
         if (in_array($response->status(), [400, 404], true)) {
-            throw new BrasilApiException('CNPJ não encontrado na Receita Federal');
-        }
-
-        if (! $response->successful()) {
-            throw $this->unavailable();
+            abort(422, 'CNPJ não encontrado na Receita Federal');
         }
 
         $payload = $response->json();
 
-        if (! is_array($payload)) {
-            throw $this->unavailable();
+        if (! $response->successful() || ! is_array($payload)) {
+            abort(503, 'A consulta de CNPJ está indisponível. Tente novamente em instantes');
         }
 
-        return [
-            'payload' => $payload,
-            'checked_at' => now()->toIso8601String(),
-        ];
-    }
-
-    private function url(string $digits): string
-    {
-        return 'https://brasilapi.com.br/api/cnpj/v1/'.$digits;
-    }
-
-    private function cacheKey(string $digits): string
-    {
-        return 'brasilapi:cnpj:'.$digits;
-    }
-
-    private function unavailable(): BrasilApiException
-    {
-        return new BrasilApiException(
-            'A consulta de CNPJ está indisponível. Tente novamente em instantes',
-            503,
-        );
+        return $payload;
     }
 }

@@ -57,7 +57,7 @@ export default function RegisterFuelStationPage() {
     }
 
     if (cnpj.length !== 14) {
-      notifyError(validationError("Informe um CNPJ válido"))
+      notifyError({ response: { status: 422, data: { message: "Informe um CNPJ válido" } } })
       return
     }
 
@@ -78,7 +78,7 @@ export default function RegisterFuelStationPage() {
     const normalizedEmail = email.trim().toLowerCase()
 
     if (!normalizedEmail) {
-      notifyError(validationError("O e-mail é obrigatório"))
+      notifyError({ response: { status: 422, data: { message: "O e-mail é obrigatório" } } })
       return
     }
 
@@ -96,19 +96,24 @@ export default function RegisterFuelStationPage() {
       }
 
       if (!emailExists && (!name.trim() || password.length < 8)) {
-        notifyError(validationError(
-          !name.trim() ? "O nome é obrigatório" : "A senha deve ter no mínimo 8 caracteres",
-        ))
+        notifyError({
+          response: {
+            status: 422,
+            data: {
+              message: !name.trim() ? "O nome é obrigatório" : "A senha deve ter no mínimo 8 caracteres",
+            },
+          },
+        })
         return
       }
 
       if (!emailExists && password !== passwordConfirmation) {
-        notifyError(validationError("A confirmação da senha não confere"))
+        notifyError({ response: { status: 422, data: { message: "A confirmação da senha não confere" } } })
         return
       }
 
       if (emailExists && !password) {
-        notifyError(validationError("A senha é obrigatória"))
+        notifyError({ response: { status: 422, data: { message: "A senha é obrigatória" } } })
         return
       }
 
@@ -149,7 +154,7 @@ export default function RegisterFuelStationPage() {
     event.preventDefault()
 
     if (code.length !== 6) {
-      notifyError(validationError("O código deve ter 6 dígitos"))
+      notifyError({ response: { status: 422, data: { message: "O código deve ter 6 dígitos" } } })
       return
     }
 
@@ -197,10 +202,12 @@ export default function RegisterFuelStationPage() {
               {step === 1 ? (
                 <form className="flex flex-col gap-6" onSubmit={handleCnpjSubmit}>
                   <FieldGroup>
-                    <StepHeader
-                      title="Cadastrar posto"
-                      description="Informe o CNPJ. Os dados da Receita Federal aparecem travados."
-                    />
+                    <div className="flex flex-col items-center gap-1 text-center">
+                      <h1 className="text-2xl font-bold">Cadastrar posto</h1>
+                      <p className="text-sm text-balance text-muted-foreground">
+                        Informe o CNPJ. Os dados da Receita Federal aparecem travados.
+                      </p>
+                    </div>
                     <Field>
                       <FieldLabel htmlFor="station-cnpj">CNPJ</FieldLabel>
                       <InputCpfCnpj
@@ -214,13 +221,75 @@ export default function RegisterFuelStationPage() {
                         autoFocus
                       />
                     </Field>
-                    {cnpjReady ? <LockedStation station={station} /> : null}
+                    {cnpjReady ? (
+                      <>
+                        <Field>
+                          <FieldLabel htmlFor="station-corporate-name">Razão social</FieldLabel>
+                          <Input id="station-corporate-name" value={station.corporate_name ?? ""} disabled />
+                        </Field>
+                        <Field>
+                          <FieldLabel htmlFor="station-trade-name">Nome fantasia</FieldLabel>
+                          <Input id="station-trade-name" value={station.trade_name ?? ""} disabled />
+                        </Field>
+                        <Field>
+                          <FieldLabel htmlFor="station-receita-status">Situação cadastral</FieldLabel>
+                          <Input id="station-receita-status" value={station.receita_status ?? ""} disabled />
+                        </Field>
+                        <FieldDescription>Endereço informado pela Receita Federal.</FieldDescription>
+                        <Field>
+                          <FieldLabel htmlFor="station-zip-code">CEP</FieldLabel>
+                          <InputPostalCode id="station-zip-code" value={station.zip_code ?? ""} disabled />
+                        </Field>
+                        <Field>
+                          <FieldLabel htmlFor="station-street">Rua</FieldLabel>
+                          <Input id="station-street" value={station.street ?? ""} disabled />
+                        </Field>
+                        <Field>
+                          <FieldLabel htmlFor="station-number">Número</FieldLabel>
+                          <Input id="station-number" value={station.number ?? ""} disabled />
+                        </Field>
+                        <Field>
+                          <FieldLabel htmlFor="station-complement">Complemento</FieldLabel>
+                          <Input id="station-complement" value={station.complement ?? ""} disabled />
+                        </Field>
+                        <Field>
+                          <FieldLabel htmlFor="station-district">Bairro</FieldLabel>
+                          <Input id="station-district" value={station.district ?? ""} disabled />
+                        </Field>
+                        <Field>
+                          <FieldLabel htmlFor="station-state">Estado</FieldLabel>
+                          {station.state_id ? (
+                            <SelectState id="station-state" value={station.state_id} disabled onChange={() => {}} />
+                          ) : (
+                            <Input id="station-state" value={station.state_name || station.uf || ""} disabled />
+                          )}
+                        </Field>
+                        <Field data-disabled>
+                          <FieldLabel htmlFor="station-city">Cidade</FieldLabel>
+                          {station.state_id ? (
+                            <InputCity
+                              id="station-city"
+                              stateId={station.state_id}
+                              value={station.city_id}
+                              disabled
+                              onChange={() => {}}
+                            />
+                          ) : (
+                            <Input id="station-city" value={station.city_name ?? ""} disabled />
+                          )}
+                        </Field>
+                      </>
+                    ) : null}
                     <Field>
                       <Button type="submit" disabled={loading || cnpj.length !== 14}>
                         {cnpjReady ? "Continuar" : "Consultar CNPJ"}
                       </Button>
                     </Field>
-                    <LoginLink />
+                    <p className="text-center text-sm text-muted-foreground">
+                      <Link to="/auth/login" className="underline underline-offset-4 hover:text-foreground">
+                        Voltar para o login
+                      </Link>
+                    </p>
                   </FieldGroup>
                 </form>
               ) : null}
@@ -228,14 +297,14 @@ export default function RegisterFuelStationPage() {
               {step === 2 ? (
                 <form className="flex flex-col gap-6" onSubmit={handleAccountSubmit}>
                   <FieldGroup>
-                    <StepHeader
-                      title="Acesso do responsável"
-                      description={
-                        emailExists
+                    <div className="flex flex-col items-center gap-1 text-center">
+                      <h1 className="text-2xl font-bold">Acesso do responsável</h1>
+                      <p className="text-sm text-balance text-muted-foreground">
+                        {emailExists
                           ? "Este e-mail já tem conta. Informe a senha atual para vincular o posto."
-                          : "Informe o e-mail de quem vai administrar o posto."
-                      }
-                    />
+                          : "Informe o e-mail de quem vai administrar o posto."}
+                      </p>
+                    </div>
                     <Field>
                       <FieldLabel htmlFor="station-email">E-mail</FieldLabel>
                       <Input
@@ -309,7 +378,11 @@ export default function RegisterFuelStationPage() {
                     <Button type="button" variant="outline" onClick={() => setStep(1)}>
                       Voltar
                     </Button>
-                    <LoginLink />
+                    <p className="text-center text-sm text-muted-foreground">
+                      <Link to="/auth/login" className="underline underline-offset-4 hover:text-foreground">
+                        Voltar para o login
+                      </Link>
+                    </p>
                   </FieldGroup>
                 </form>
               ) : null}
@@ -317,10 +390,12 @@ export default function RegisterFuelStationPage() {
               {step === 3 ? (
                 <form className="flex flex-col gap-6" onSubmit={handleVerify}>
                   <FieldGroup>
-                    <StepHeader
-                      title="Confirme o código"
-                      description={`Enviamos um código de 6 dígitos para ${maskedEmail}. Ele expira em 10 minutos.`}
-                    />
+                    <div className="flex flex-col items-center gap-1 text-center">
+                      <h1 className="text-2xl font-bold">Confirme o código</h1>
+                      <p className="text-sm text-balance text-muted-foreground">
+                        {`Enviamos um código de 6 dígitos para ${maskedEmail}. Ele expira em 10 minutos.`}
+                      </p>
+                    </div>
                     <Field>
                       <FieldLabel htmlFor="station-code">Código</FieldLabel>
                       <Input
@@ -346,7 +421,11 @@ export default function RegisterFuelStationPage() {
                     >
                       {resendIn > 0 ? `Reenviar código (${resendIn}s)` : "Reenviar código"}
                     </Button>
-                    <LoginLink />
+                    <p className="text-center text-sm text-muted-foreground">
+                      <Link to="/auth/login" className="underline underline-offset-4 hover:text-foreground">
+                        Voltar para o login
+                      </Link>
+                    </p>
                   </FieldGroup>
                 </form>
               ) : null}
@@ -363,94 +442,4 @@ export default function RegisterFuelStationPage() {
       </div>
     </LoadingWrapper>
   )
-}
-
-function LockedStation({ station }) {
-  return (
-    <>
-      <Field>
-        <FieldLabel htmlFor="station-corporate-name">Razão social</FieldLabel>
-        <Input id="station-corporate-name" value={station.corporate_name ?? ""} disabled />
-      </Field>
-      <Field>
-        <FieldLabel htmlFor="station-trade-name">Nome fantasia</FieldLabel>
-        <Input id="station-trade-name" value={station.trade_name ?? ""} disabled />
-      </Field>
-      <Field>
-        <FieldLabel htmlFor="station-receita-status">Situação cadastral</FieldLabel>
-        <Input id="station-receita-status" value={station.receita_status ?? ""} disabled />
-      </Field>
-      <FieldDescription>Endereço informado pela Receita Federal.</FieldDescription>
-      <Field>
-        <FieldLabel htmlFor="station-zip-code">CEP</FieldLabel>
-        <InputPostalCode id="station-zip-code" value={station.zip_code ?? ""} disabled />
-      </Field>
-      <Field>
-        <FieldLabel htmlFor="station-street">Rua</FieldLabel>
-        <Input id="station-street" value={station.street ?? ""} disabled />
-      </Field>
-      <Field>
-        <FieldLabel htmlFor="station-number">Número</FieldLabel>
-        <Input id="station-number" value={station.number ?? ""} disabled />
-      </Field>
-      <Field>
-        <FieldLabel htmlFor="station-complement">Complemento</FieldLabel>
-        <Input id="station-complement" value={station.complement ?? ""} disabled />
-      </Field>
-      <Field>
-        <FieldLabel htmlFor="station-district">Bairro</FieldLabel>
-        <Input id="station-district" value={station.district ?? ""} disabled />
-      </Field>
-      <Field>
-        <FieldLabel htmlFor="station-state">Estado</FieldLabel>
-        {station.state_id ? (
-          <SelectState id="station-state" value={station.state_id} disabled onChange={() => {}} />
-        ) : (
-          <Input id="station-state" value={station.state_name || station.uf || ""} disabled />
-        )}
-      </Field>
-      <Field data-disabled>
-        <FieldLabel htmlFor="station-city">Cidade</FieldLabel>
-        {station.state_id ? (
-          <InputCity
-            id="station-city"
-            stateId={station.state_id}
-            value={station.city_id}
-            disabled
-            onChange={() => {}}
-          />
-        ) : (
-          <Input id="station-city" value={station.city_name ?? ""} disabled />
-        )}
-      </Field>
-    </>
-  )
-}
-
-function StepHeader({ title, description }) {
-  return (
-    <div className="flex flex-col items-center gap-1 text-center">
-      <h1 className="text-2xl font-bold">{title}</h1>
-      <p className="text-sm text-balance text-muted-foreground">{description}</p>
-    </div>
-  )
-}
-
-function LoginLink() {
-  return (
-    <p className="text-center text-sm text-muted-foreground">
-      <Link to="/auth/login" className="underline underline-offset-4 hover:text-foreground">
-        Voltar para o login
-      </Link>
-    </p>
-  )
-}
-
-function validationError(message) {
-  return {
-    response: {
-      status: 422,
-      data: { message },
-    },
-  }
 }

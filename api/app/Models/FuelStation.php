@@ -7,7 +7,6 @@ use App\Models\Location\State;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -62,16 +61,9 @@ class FuelStation extends Model
 
     // ===================== HAS MANY RELATIONS =====================
 
-    public function memberships(): HasMany
+    public function users(): HasMany
     {
         return $this->hasMany(FuelStationUser::class);
-    }
-
-    public function users(): BelongsToMany
-    {
-        return $this->belongsToMany(User::class, 'fuel_station_user')
-            ->withPivot('role', 'status')
-            ->wherePivotNull('deleted_at');
     }
 
     // ===================== UNIQUE IDS =====================
