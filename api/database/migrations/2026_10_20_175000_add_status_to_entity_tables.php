@@ -18,7 +18,6 @@ return new class extends Migration
         'drivers',
         'customers',
         'carriers',
-        'fuel_stations',
         'vehicles',
         'vehicle_owners',
         'vehicle_responsibles',

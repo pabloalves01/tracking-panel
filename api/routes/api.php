@@ -8,7 +8,6 @@ use App\Http\Controllers\Registry\CommonEntityController;
 use App\Http\Controllers\Registry\CustomerController;
 use App\Http\Controllers\Registry\DriverController;
 use App\Http\Controllers\Registry\EmployeeController;
-use App\Http\Controllers\Registry\FuelStationController;
 use App\Http\Controllers\Registry\SupplierController;
 use App\Http\Controllers\Registry\VehicleController;
 use App\Http\Controllers\Registry\VehicleOwnerController;
@@ -94,15 +93,6 @@ Route::middleware(['auth:sanctum', 'ensure.company'])->group(function () {
             Route::put('/{uuid}', [CustomerController::class, 'update']);
             Route::post('/{uuid}/deactivate', [CustomerController::class, 'deactivate']);
             Route::post('/{uuid}/activate', [CustomerController::class, 'activate']);
-        });
-
-        Route::prefix('fuel-stations')->group(function () {
-            Route::get('/', [FuelStationController::class, 'index']);
-            Route::post('/', [FuelStationController::class, 'store']);
-            Route::get('/{uuid}', [FuelStationController::class, 'show']);
-            Route::put('/{uuid}', [FuelStationController::class, 'update']);
-            Route::post('/{uuid}/deactivate', [FuelStationController::class, 'deactivate']);
-            Route::post('/{uuid}/activate', [FuelStationController::class, 'activate']);
         });
 
         Route::prefix('drivers')->group(function () {

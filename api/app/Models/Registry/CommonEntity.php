@@ -75,14 +75,6 @@ class CommonEntity extends Model
     // ================================ HAS ONE RELATIONS ================================
 
     /**
-     * The fuel station that the entity belongs to.
-     */
-    public function fuelStation()
-    {
-        return $this->hasOne(FuelStation::class, 'entity_id');
-    }
-
-    /**
      * The supplier that the entity belongs to.
      */
     public function supplier()
