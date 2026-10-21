@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { useNavigate } from "react-router"
+import { Link, useNavigate } from "react-router"
 
 import { ThemeToggle } from "@/components/layout/ThemeToggle"
 import { LoadingWrapper } from "@/components/common/LoadingWrapper"
@@ -144,6 +144,14 @@ export default function LoginPage() {
                     {loading ? "Entrando..." : "Entrar"}
                   </Button>
                 </Field>
+                <p className="text-center text-sm text-muted-foreground">
+                  <Link
+                    to="/auth/register/posto"
+                    className="underline underline-offset-4 hover:text-foreground"
+                  >
+                    Sou posto, quero me cadastrar
+                  </Link>
+                </p>
               </FieldGroup>
             </form>
           </div>
