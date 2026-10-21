@@ -52,7 +52,7 @@ class UpdateFuelStationRequest extends FormRequest
         return [
             'pix_key_type' => ['nullable', 'in:cpf,cnpj,email,phone,random'],
             'pix_key' => ['nullable', 'string', 'max:255', 'bail', new PixKeyForType],
-            'login' => ['required', 'email', 'max:255', Rule::unique('fuel_stations', 'login')->ignore($this->fuelStationId())],
+            'login' => ['nullable', 'string', 'max:255', Rule::unique('fuel_stations', 'login')->ignore($this->fuelStationId())],
             'password' => ['nullable', 'string', 'min:8', 'confirmed'],
             ...$this->stationRules(),
         ];
@@ -63,10 +63,8 @@ class UpdateFuelStationRequest extends FormRequest
         return [
             'pix_key_type.in' => 'O tipo da chave PIX é inválido',
             'pix_key.max' => 'A chave PIX deve ter no máximo 255 caracteres',
-            'login.required' => 'O e-mail de acesso é obrigatório',
-            'login.email' => 'Informe um e-mail de acesso válido',
-            'login.max' => 'O e-mail de acesso deve ter no máximo 255 caracteres',
-            'login.unique' => 'Este e-mail de acesso já está em uso',
+            'login.max' => 'O login deve ter no máximo 255 caracteres',
+            'login.unique' => 'Este login já está em uso',
             'password.min' => 'A senha deve ter no mínimo 8 caracteres',
             'password.confirmed' => 'A confirmação da senha não confere',
             ...$this->stationMessages(),

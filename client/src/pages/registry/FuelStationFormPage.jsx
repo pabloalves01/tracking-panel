@@ -216,7 +216,7 @@ export default function FuelStationFormPage() {
         const role = {
             pix_key_type: formData.pix_key ? formData.pix_key_type : null,
             pix_key: formData.pix_key || null,
-            login: formData.login,
+            login: formData.login || null,
             password: formData.password || null,
             password_confirmation: formData.password ? formData.password_confirmation : null,
             diesel_s10_price: emptyToNull(formData.diesel_s10_price),
@@ -417,15 +417,13 @@ export default function FuelStationFormPage() {
                                 />
                             </Field>
                             <Field className="col-span-12 md:col-span-6">
-                                <FieldLabel htmlFor="fuelStation-login">E-mail de acesso</FieldLabel>
+                                <FieldLabel htmlFor="fuelStation-login">Login</FieldLabel>
                                 <Input
                                     id="fuelStation-login"
-                                    type="email"
                                     value={formData.login}
                                     onChange={(event) => setField('login', event.target.value)}
-                                    placeholder="Ex: posto@empresa.com.br"
+                                    placeholder="E-mail ou usuário de acesso"
                                     autoComplete="off"
-                                    required
                                 />
                                 <FieldDescription>Fica no posto, para um acesso futuro. Não entra na entidade.</FieldDescription>
                             </Field>

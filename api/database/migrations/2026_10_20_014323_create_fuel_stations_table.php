@@ -16,7 +16,7 @@ return new class extends Migration
             $table->uuid('uuid')->unique();
             $table->foreignId('company_id')->constrained('companies');
             $table->foreignId('entity_id')->constrained('common_entities');
-            $table->string('login')->unique();
+            $table->string('login')->nullable()->unique();
             $table->string('password');
             $table->string('pix_key_type')->nullable();
             $table->string('pix_key')->nullable();

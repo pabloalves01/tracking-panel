@@ -114,7 +114,7 @@ class FuelStationService
     private function stationAttributes(array $data): array
     {
         $attributes = [
-            'login' => $data['login'],
+            'login' => $data['login'] ?? null,
             'pix_key_type' => $data['pix_key_type'] ?? null,
             'pix_key' => $data['pix_key'] ?? null,
             'diesel_s10_price' => $data['diesel_s10_price'] ?? null,
