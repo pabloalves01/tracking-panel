@@ -469,6 +469,7 @@ export default function FuelStationFormPage() {
                                     <FieldLabel htmlFor={field}>{label}</FieldLabel>
                                     <InputMoney
                                         id={field}
+                                        decimals={3}
                                         value={formData[field]}
                                         onChange={(amount) => setField(field, amount)}
                                     />

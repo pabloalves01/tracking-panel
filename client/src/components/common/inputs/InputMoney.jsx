@@ -4,14 +4,16 @@ import { formatMoney } from '@/helpers/formatters'
 /**
  * Dinheiro em real, no mesmo campo visual dos outros inputs.
  *
- * A digitação entra pelos centavos: 1, 2, 3, 4 mostra
- * R$ 0,01, R$ 0,12, R$ 1,23 e R$ 12,34.
+ * A digitação entra pela menor casa: com 2 casas, 1, 2, 3, 4 mostra
+ * R$ 0,01, R$ 0,12, R$ 1,23 e R$ 12,34. Com 3 casas, o mesmo
+ * percurso termina em R$ 1,234.
+ * `decimals` é 2 por padrão. O preço do combustível usa 3.
  * `value` e `onChange` usam o número cru que a API grava, por exemplo 12.34.
  * A máscara existe só na tela e reaproveita `formatMoney`.
  */
 const maxDigits = 12
 
-function centsFromValue(value) {
+function digitsFromValue(value, decimals) {
     if (value === null || value === undefined || value === '') {
         return ''
     }
@@ -22,15 +24,17 @@ function centsFromValue(value) {
         return ''
     }
 
-    return String(Math.round(Math.abs(amount) * 100))
+    return Math.abs(amount).toFixed(decimals).replace('.', '')
 }
 
-function amountFromCents(cents) {
-    if (!cents) {
+function amountFromDigits(digits, decimals) {
+    if (!digits) {
         return ''
     }
 
-    return Number((Number(cents) / 100).toFixed(2))
+    const scale = 10 ** decimals
+
+    return Number((Number(digits) / scale).toFixed(decimals))
 }
 
 export function InputMoney({
@@ -38,11 +42,14 @@ export function InputMoney({
     value = '',
     onChange,
     disabled = false,
-    placeholder = 'R$ 0,00',
+    decimals = 2,
+    placeholder,
     name,
 }) {
-    const cents = centsFromValue(value).replace(/^0+(?=\d)/, '')
-    const display = cents ? formatMoney(amountFromCents(cents)) : ''
+    const places = Number.isInteger(decimals) && decimals >= 0 ? decimals : 2
+    const digits = digitsFromValue(value, places).replace(/^0+(?=\d)/, '')
+    const display = digits ? formatMoney(amountFromDigits(digits, places), places) : ''
+    const resolvedPlaceholder = placeholder ?? `R$ 0,${'0'.repeat(places) || '00'}`
 
     function handleChange(event) {
         const typed = event.target.value
@@ -52,8 +59,8 @@ export function InputMoney({
             return
         }
 
-        const nextCents = typed.replace(/\D/g, '').replace(/^0+/, '').slice(0, maxDigits)
-        onChange?.(amountFromCents(nextCents))
+        const nextDigits = typed.replace(/\D/g, '').replace(/^0+/, '').slice(0, maxDigits)
+        onChange?.(amountFromDigits(nextDigits, places))
     }
 
     return (
@@ -63,7 +70,7 @@ export function InputMoney({
             type="text"
             inputMode="numeric"
             autoComplete="off"
-            placeholder={placeholder}
+            placeholder={resolvedPlaceholder}
             value={display}
             onChange={handleChange}
             disabled={disabled}
