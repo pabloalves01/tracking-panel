@@ -1,8 +1,8 @@
 import { Outlet } from 'react-router'
 
-import { AppFooter } from '@/components/layout/AppFooter'
-import { AppHeader } from '@/components/layout/AppHeader'
-import { AppSidebar } from '@/components/layout/AppSidebar'
+import { AppFooter } from '@/components/layout/app/AppFooter'
+import { AppHeader } from '@/components/layout/app/AppHeader'
+import { AppSidebar } from '@/components/layout/app/AppSidebar'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { TooltipProvider } from '@/components/ui/tooltip'
 
