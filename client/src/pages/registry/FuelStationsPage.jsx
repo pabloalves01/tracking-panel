@@ -8,11 +8,26 @@ import { LoadingWrapper } from '@/components/common/LoadingWrapper'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
-import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
+import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { formatCpfCnpj } from '@/helpers/formatters'
 import { deleteCompanyFuelStation, getCompanyFuelStations, storeCompanyFuelStation } from '@/lib/registry/fuelStations'
 import { notifyError, notifySuccess } from '@/lib/notify'
+
+function fieldError(error, field) {
+    const data = error?.response?.data
+    const message = data?.errors?.[field]?.find((item) => typeof item === 'string' && item.trim())
+
+    if (message) {
+        return message
+    }
+
+    if (error?.response?.status === 422 && typeof data?.message === 'string' && data.message.trim()) {
+        return data.message
+    }
+
+    return ''
+}
 
 const statusLabel = {
     pending: 'Pendente',
@@ -24,6 +39,7 @@ export default function FuelStationsPage() {
     const [links, setLinks] = useState([])
     const [loading, setLoading] = useState(false)
     const [cnpj, setCnpj] = useState('')
+    const [cnpjError, setCnpjError] = useState('')
 
     useEffect(() => {
         loadLinks()
@@ -37,9 +53,15 @@ export default function FuelStationsPage() {
             .finally(() => setLoading(false))
     }
 
+    function handleCnpjChange(value) {
+        setCnpj(value)
+        setCnpjError('')
+    }
+
     async function handleSubmit(event) {
         event.preventDefault()
         setLoading(true)
+        setCnpjError('')
 
         try {
             const response = await storeCompanyFuelStation(cnpj)
@@ -47,7 +69,14 @@ export default function FuelStationsPage() {
             setCnpj('')
             loadLinks()
         } catch (error) {
-            notifyError(error)
+            const message = fieldError(error, 'cnpj')
+
+            if (message) {
+                setCnpjError(message)
+            } else {
+                notifyError(error)
+            }
+
             setLoading(false)
         }
     }
@@ -78,14 +107,17 @@ export default function FuelStationsPage() {
 
             <form onSubmit={handleSubmit} className="mb-6 max-w-md">
                 <FieldGroup>
-                    <Field>
+                    <Field data-invalid={cnpjError ? true : undefined}>
                         <FieldLabel htmlFor="posto-cnpj">CNPJ do posto</FieldLabel>
                         <InputCpfCnpj
                             id="posto-cnpj"
                             type="cnpj"
                             value={cnpj}
-                            onChange={setCnpj}
+                            onChange={handleCnpjChange}
+                            aria-invalid={cnpjError ? true : undefined}
+                            aria-describedby={cnpjError ? 'posto-cnpj-error' : undefined}
                         />
+                        <FieldError id="posto-cnpj-error">{cnpjError}</FieldError>
                     </Field>
                     <Button type="submit" disabled={loading || cnpj.length !== 14}>
                         Pedir vínculo
@@ -102,7 +134,7 @@ export default function FuelStationsPage() {
                             </EmptyMedia>
                             <EmptyTitle>Nenhum posto</EmptyTitle>
                             <EmptyDescription>
-                                Peça o vínculo informando só o CNPJ. O posto aceita ou recusa do lado dele.
+                                Informe o CNPJ de um posto já cadastrado no Logiv. O posto aceita ou recusa o pedido.
                             </EmptyDescription>
                         </EmptyHeader>
                     </Empty>
@@ -121,8 +153,7 @@ export default function FuelStationsPage() {
                                 <TableRow key={link.cnpj}>
                                     <TableCell>
                                         {link.fuel_station?.trade_name
-                                            || link.fuel_station?.corporate_name
-                                            || 'Ainda não cadastrado'}
+                                            || link.fuel_station?.corporate_name}
                                     </TableCell>
                                     <TableCell>{formatCpfCnpj(link.cnpj)}</TableCell>
                                     <TableCell>
