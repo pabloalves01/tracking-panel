@@ -3,6 +3,16 @@ import { Building2 } from "lucide-react"
 
 import { LayoutToolbar } from "@/components/common/LayoutToolbar"
 import { LoadingWrapper } from "@/components/common/LoadingWrapper"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
@@ -12,15 +22,20 @@ import { acceptStationCompany, disconnectStationCompany, getStationCompanies, re
 import { notifyError, notifySuccess } from "@/lib/notify"
 
 const statusLabel = {
-    request_send: "Solicitação enviada",
+    request_sent: "Solicitação enviada",
     active: "Ativo",
     rejected: "Recusado",
     disconnected: "Conexão encerrada",
 }
 
+function companyLabel(link) {
+    return link?.company?.trade_name || link?.company?.legal_name || "esta empresa"
+}
+
 export default function StationCompaniesPage() {
     const [links, setLinks] = useState([])
     const [loading, setLoading] = useState(true)
+    const [linkToUndo, setLinkToUndo] = useState(null)
 
     useEffect(() => {
         getStationCompanies()
@@ -43,13 +58,30 @@ export default function StationCompaniesPage() {
         try {
             const response = action === "accept"
                 ? await acceptStationCompany(link.company.uuid)
-                : action === "disconnect"
-                    ? await disconnectStationCompany(link.company.uuid)
-                    : await rejectStationCompany(link.company.uuid)
+                : await rejectStationCompany(link.company.uuid)
             notifySuccess(response)
             loadLinks()
         } catch (error) {
             notifyError(error)
+            setLoading(false)
+        }
+    }
+
+    async function handleDisconnect() {
+        if (!linkToUndo) {
+            return
+        }
+
+        setLoading(true)
+
+        try {
+            const response = await disconnectStationCompany(linkToUndo.company.uuid)
+            notifySuccess(response)
+            loadLinks()
+        } catch (error) {
+            notifyError(error)
+        } finally {
+            setLinkToUndo(null)
             setLoading(false)
         }
     }
@@ -95,12 +127,12 @@ export default function StationCompaniesPage() {
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex gap-2">
-                                            {link.status === "request_send" ? (
+                                            {link.status === "request_sent" ? (
                                                 <Button type="button" size="sm" onClick={() => handleStatus(link, "accept")}>
                                                     Aceitar
                                                 </Button>
                                             ) : null}
-                                            {link.status === "request_send" ? (
+                                            {link.status === "request_sent" ? (
                                                 <Button
                                                     type="button"
                                                     size="sm"
@@ -115,7 +147,7 @@ export default function StationCompaniesPage() {
                                                     type="button"
                                                     size="sm"
                                                     variant="outline"
-                                                    onClick={() => handleStatus(link, "disconnect")}
+                                                    onClick={() => setLinkToUndo(link)}
                                                 >
                                                     Desfazer
                                                 </Button>
@@ -128,6 +160,23 @@ export default function StationCompaniesPage() {
                     </Table>
                 )}
             </LoadingWrapper>
+
+            <AlertDialog open={!!linkToUndo} onOpenChange={(open) => !open && setLinkToUndo(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Desfazer vínculo</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {`Tem certeza que deseja desfazer o vínculo com ${companyLabel(linkToUndo)}?`}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction variant="destructive" onClick={handleDisconnect}>
+                            Desfazer
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </>
     )
 }

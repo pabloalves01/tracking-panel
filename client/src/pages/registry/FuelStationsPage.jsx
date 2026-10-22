@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Fuel, PlusIcon, RefreshCw, Trash2Icon } from 'lucide-react'
+import { Fuel, Link2Off, PlusIcon, RefreshCw, Trash2Icon } from 'lucide-react'
 
 import { ActionButton } from '@/components/common/button/ActionButton'
 import { LayoutToolbar } from '@/components/common/LayoutToolbar'
@@ -24,7 +24,7 @@ import { notifyError, notifySuccess } from '@/lib/notify'
 const listPath = '/app/cadastros/entidades/postos'
 
 const statusLabel = {
-    request_send: 'Solicitação enviada',
+    request_sent: 'Solicitação enviada',
     active: 'Ativo',
     rejected: 'Recusado',
     disconnected: 'Conexão encerrada',
@@ -131,12 +131,14 @@ export default function FuelStationsPage() {
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-2">
-                                            <ActionButton
-                                                icon={Trash2Icon}
-                                                tooltip="Remover"
-                                                variant="destructive"
-                                                onClick={() => setLinkToRemove(link)}
-                                            />
+                                            {(link.status === 'request_sent' || link.status === 'rejected' || link.status === 'active') && (
+                                                <ActionButton
+                                                    icon={link.status === 'active' ? Link2Off : Trash2Icon}
+                                                    tooltip={link.status === 'active' ? 'Encerrar conexão' : 'Remover pedido'}
+                                                    variant="destructive"
+                                                    onClick={() => setLinkToRemove(link)}
+                                                />
+                                            )}
                                             {(link.status === 'rejected' || link.status === 'disconnected') && (
                                                 <ActionButton
                                                     icon={RefreshCw}
@@ -158,15 +160,19 @@ export default function FuelStationsPage() {
             <AlertDialog open={!!linkToRemove} onOpenChange={(open) => !open && setLinkToRemove(null)}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Remover vínculo</AlertDialogTitle>
+                        <AlertDialogTitle>
+                            {linkToRemove?.status === 'active' ? 'Encerrar conexão' : 'Remover pedido'}
+                        </AlertDialogTitle>
                         <AlertDialogDescription>
-                            {`Tem certeza que deseja remover o vínculo com ${stationLabel(linkToRemove)}?`}
+                            {linkToRemove?.status === 'active'
+                                ? `Tem certeza que deseja encerrar a conexão com ${stationLabel(linkToRemove)}?`
+                                : `Tem certeza que deseja remover o pedido de ${stationLabel(linkToRemove)}?`}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancelar</AlertDialogCancel>
                         <AlertDialogAction variant="destructive" onClick={handleRemove}>
-                            Remover
+                            {linkToRemove?.status === 'active' ? 'Encerrar conexão' : 'Remover pedido'}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
