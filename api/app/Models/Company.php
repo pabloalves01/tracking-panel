@@ -4,11 +4,12 @@ namespace App\Models;
 
 use App\Models\Location\City;
 use App\Models\Location\State;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Company extends Model
 {
@@ -57,6 +58,15 @@ class Company extends Model
         return $this->hasMany(CompanyUser::class);
     }
 
+    /**
+     * Postos que a empresa já pode usar: só o vínculo aceito.
+     */
+    public function fuelStations(): BelongsToMany
+    {
+        return $this->belongsToMany(FuelStation::class, 'company_fuel_station')
+            ->wherePivot('status', 'accepted');
+    }
+
     // ===================== UNIQUE IDS =====================
 
     public function uniqueIds(): array
@@ -65,7 +75,7 @@ class Company extends Model
     }
 
     // ===================== ROUTE KEY NAME =====================
-    
+
     public function getRouteKeyName(): string
     {
         return 'uuid';
