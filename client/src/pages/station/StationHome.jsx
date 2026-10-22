@@ -32,7 +32,6 @@ export default function StationHome() {
                     <Item label="Razão social" value={station.corporate_name} />
                     <Item label="Nome fantasia" value={station.trade_name} />
                     <Item label="CNPJ" value={formatCpfCnpj(station.cnpj)} />
-                    <Item label="Situação na Receita" value={station.receita_status} />
                     <Item label="Endereço" value={addressOf(station)} className="sm:col-span-2" />
                 </dl>
             </section>

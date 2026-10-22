@@ -20,7 +20,6 @@ class FuelStationResource extends JsonResource
             'cnpj' => $this->cnpj,
             'corporate_name' => $this->corporate_name,
             'trade_name' => $this->trade_name,
-            'receita_status' => $this->receita_status,
             'zip_code' => $this->zip_code,
             'street' => $this->street,
             'number' => $this->number,

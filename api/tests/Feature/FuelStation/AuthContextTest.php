@@ -258,7 +258,6 @@ class AuthContextTest extends TestCase
             'cnpj' => $cnpj,
             'corporate_name' => $tradeName.' LTDA',
             'trade_name' => $tradeName,
-            'receita_status' => 'ATIVA',
             'zip_code' => '01001000',
             'street' => 'Praça da Sé',
             'number' => '100',
