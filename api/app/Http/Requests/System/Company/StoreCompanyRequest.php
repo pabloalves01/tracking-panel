@@ -12,6 +12,21 @@ class StoreCompanyRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $user = $this->input('user');
+
+        if (! is_array($user) || ! is_string($user['email'] ?? null)) {
+            return;
+        }
+
+        $user['email'] = strtolower(trim($user['email']));
+
+        $this->merge([
+            'user' => $user,
+        ]);
+    }
+
     public function rules(): array
     {
         $email = $this->input('user.email');

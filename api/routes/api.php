@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Auth\FuelStationSignupController;
 use App\Http\Controllers\Location\LocationController;
 use App\Http\Controllers\Operations\ShipOperationPerimeterController;
 use App\Http\Controllers\Registry\CarrierController;
@@ -30,6 +31,14 @@ Route::post('/ship-operation-perimeters', [ShipOperationPerimeterController::cla
 
 Route::prefix('auth')->group(function () {
     Route::post('login', [AuthController::class, 'login']);
+
+    Route::prefix('station-signup')->group(function () {
+        Route::get('cnpj/{cnpj}', [FuelStationSignupController::class, 'cnpj'])
+            ->middleware('throttle:10,1,station-signup-cnpj');
+        Route::post('check-email', [FuelStationSignupController::class, 'checkEmail'])
+            ->middleware('throttle:5,1,station-signup-email');
+        Route::post('/', [FuelStationSignupController::class, 'store']);
+    });
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('me', [AuthController::class, 'me']);

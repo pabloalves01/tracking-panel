@@ -39,4 +39,10 @@ class User extends Authenticatable
             ->withPivot('role')
             ->wherePivotNull('deleted_at');
     }
+
+    public function fuelStations(): BelongsToMany
+    {
+        return $this->belongsToMany(FuelStation::class, 'fuel_station_user')
+            ->withPivot('role');
+    }
 }
