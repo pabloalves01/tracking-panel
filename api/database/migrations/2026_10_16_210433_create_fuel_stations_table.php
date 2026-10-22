@@ -17,7 +17,6 @@ return new class extends Migration
             $table->string('cnpj', 14)->unique();
             $table->string('corporate_name');
             $table->string('trade_name')->nullable();
-            $table->string('receita_status');
             $table->timestamp('receita_checked_at')->nullable();
             $table->string('zip_code', 8)->nullable();
             $table->string('street')->nullable();

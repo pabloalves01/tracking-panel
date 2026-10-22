@@ -59,7 +59,6 @@ class FuelStationSignupTest extends TestCase
         FuelStation::query()->create([
             'cnpj' => self::CNPJ,
             'corporate_name' => 'Posto Existente',
-            'receita_status' => 'ATIVA',
             'status' => 'active',
         ]);
 

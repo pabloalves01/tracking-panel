@@ -121,7 +121,6 @@ export default function RegisterFuelStationPage() {
                       <div className="space-y-1 text-sm text-muted-foreground">
                         <p className="font-medium text-foreground">{station.corporate_name}</p>
                         {station.trade_name ? <p>{station.trade_name}</p> : null}
-                        <p>{station.receita_status}</p>
                         <p>
                           {[station.street, station.number, station.complement, station.district, station.zip_code]
                             .filter(Boolean)
