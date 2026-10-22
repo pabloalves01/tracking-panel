@@ -158,7 +158,6 @@ class FuelStationSignupService
         return [
             'corporate_name' => $corporateName,
             'trade_name' => $this->text($payload['nome_fantasia'] ?? null),
-            'receita_status' => $this->text($payload['descricao_situacao_cadastral'] ?? null) ?? 'ATIVA',
             'zip_code' => $cep === '' ? null : substr($cep, 0, 8),
             'street' => $fullStreet === '' ? null : $fullStreet,
             'number' => $this->text($payload['numero'] ?? null),

@@ -21,7 +21,6 @@ class FuelStation extends Model
         'cnpj',
         'corporate_name',
         'trade_name',
-        'receita_status',
         'receita_checked_at',
         'zip_code',
         'street',
