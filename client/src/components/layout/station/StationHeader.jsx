@@ -1,15 +1,14 @@
-import { LogOut, User } from 'lucide-react'
+import { LogOut } from 'lucide-react'
 import { useNavigate } from 'react-router'
 
-import { CompanySwitcher } from '@/components/layout/CompanySwitcher'
 import { ThemeToggle } from '@/components/layout/ThemeToggle'
+import { StationSwitcher } from '@/components/layout/station/StationSwitcher'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuGroup,
     DropdownMenuItem,
-    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Separator } from '@/components/ui/separator'
@@ -26,7 +25,7 @@ function getInitials(name) {
     return (first + last).toUpperCase()
 }
 
-export function AppHeader() {
+export function StationHeader() {
     const { user } = useSession()
     const navigate = useNavigate()
 
@@ -47,7 +46,7 @@ export function AppHeader() {
             </div>
 
             <div className="ml-auto flex items-center gap-3">
-                <CompanySwitcher />
+                <StationSwitcher />
                 <ThemeToggle />
                 <DropdownMenu>
                     <DropdownMenuTrigger
@@ -70,11 +69,6 @@ export function AppHeader() {
                     />
                     <DropdownMenuContent align="end" className="w-56">
                         <DropdownMenuGroup>
-                            <DropdownMenuItem onClick={() => navigate('/app/perfil')}>
-                                <User />
-                                Meu perfil
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
                             <DropdownMenuItem variant="destructive" onClick={handleLogout}>
                                 <LogOut />
                                 Sair

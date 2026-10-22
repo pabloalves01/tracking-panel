@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\FuelStationSignupController;
+use App\Http\Controllers\FuelStation\StationController;
 use App\Http\Controllers\Location\LocationController;
 use App\Http\Controllers\Operations\ShipOperationPerimeterController;
 use App\Http\Controllers\Registry\CarrierController;
@@ -45,6 +46,8 @@ Route::prefix('auth')->group(function () {
         Route::post('logout', [AuthController::class, 'logout']);
         Route::get('companies', [AuthController::class, 'companies']);
         Route::post('company', [AuthController::class, 'selectCompany']);
+        Route::get('contexts', [AuthController::class, 'contexts']);
+        Route::post('station', [AuthController::class, 'selectStation']);
     });
 });
 
@@ -139,6 +142,12 @@ Route::middleware(['auth:sanctum', 'ensure.company'])->group(function () {
             Route::delete('/{uuid}', [VehicleController::class, 'destroy']);
         });
     });
+});
+
+// =============================== API STATION ROUTES ===============================
+
+Route::middleware(['auth:sanctum', 'ensure.station'])->prefix('station')->group(function () {
+    Route::get('me', [StationController::class, 'me']);
 });
 
 // =============================== ADMIN SYSTEM ROUTES ===============================

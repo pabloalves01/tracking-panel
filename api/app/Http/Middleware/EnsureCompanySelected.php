@@ -16,15 +16,21 @@ class EnsureCompanySelected
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $companyId = $request->user()->currentAccessToken()->company_id;
+        $token = $request->user()->currentAccessToken();
 
-        if (!$companyId) {
+        if ($token->fuel_station_id) {
+            abort(409, 'Selecione uma empresa');
+        }
+
+        $companyId = $token->company_id;
+
+        if (! $companyId) {
             abort(409, 'Selecione uma empresa');
         }
 
         $belongs = $request->user()->companies()->whereKey($companyId)->exists();
 
-        if (!$belongs) {
+        if (! $belongs) {
             abort(409, 'Você não tem permissão para acessar esta empresa');
         }
 

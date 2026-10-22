@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->morphs('tokenable');
             $table->foreignId('company_id')->nullable()->constrained('companies');
+            $table->foreignId('fuel_station_id')->nullable()->constrained('fuel_stations');
             $table->text('name');
             $table->string('token', 64)->unique();
             $table->text('abilities')->nullable();
