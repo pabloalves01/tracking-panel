@@ -1,33 +1,17 @@
 import { useEffect, useState } from 'react'
-import { Fuel, Trash2Icon } from 'lucide-react'
+import { Fuel, PlusIcon, Trash2Icon } from 'lucide-react'
 
 import { ActionButton } from '@/components/common/button/ActionButton'
-import { InputCpfCnpj } from '@/components/common/inputs/InputCpfCnpj'
 import { LayoutToolbar } from '@/components/common/LayoutToolbar'
 import { LoadingWrapper } from '@/components/common/LoadingWrapper'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
-import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { formatCpfCnpj } from '@/helpers/formatters'
-import { deleteCompanyFuelStation, getCompanyFuelStations, storeCompanyFuelStation } from '@/lib/registry/fuelStations'
+import { deleteCompanyFuelStation, getCompanyFuelStations } from '@/lib/registry/fuelStations'
 import { notifyError, notifySuccess } from '@/lib/notify'
 
-function fieldError(error, field) {
-    const data = error?.response?.data
-    const message = data?.errors?.[field]?.find((item) => typeof item === 'string' && item.trim())
-
-    if (message) {
-        return message
-    }
-
-    if (error?.response?.status === 422 && typeof data?.message === 'string' && data.message.trim()) {
-        return data.message
-    }
-
-    return ''
-}
+const listPath = '/app/cadastros/entidades/postos'
 
 const statusLabel = {
     pending: 'Pendente',
@@ -38,8 +22,6 @@ const statusLabel = {
 export default function FuelStationsPage() {
     const [links, setLinks] = useState([])
     const [loading, setLoading] = useState(false)
-    const [cnpj, setCnpj] = useState('')
-    const [cnpjError, setCnpjError] = useState('')
 
     useEffect(() => {
         loadLinks()
@@ -51,34 +33,6 @@ export default function FuelStationsPage() {
             .then(setLinks)
             .catch(notifyError)
             .finally(() => setLoading(false))
-    }
-
-    function handleCnpjChange(value) {
-        setCnpj(value)
-        setCnpjError('')
-    }
-
-    async function handleSubmit(event) {
-        event.preventDefault()
-        setLoading(true)
-        setCnpjError('')
-
-        try {
-            const response = await storeCompanyFuelStation(cnpj)
-            notifySuccess(response)
-            setCnpj('')
-            loadLinks()
-        } catch (error) {
-            const message = fieldError(error, 'cnpj')
-
-            if (message) {
-                setCnpjError(message)
-            } else {
-                notifyError(error)
-            }
-
-            setLoading(false)
-        }
     }
 
     async function handleRemove(link) {
@@ -103,27 +57,10 @@ export default function FuelStationsPage() {
                     { text: 'Entidades', to: '/app/cadastros/entidades' },
                     { text: 'Postos' },
                 ]}
+                buttons={[
+                    { title: 'Novo posto', icon: PlusIcon, to: `${listPath}/novo` },
+                ]}
             />
-
-            <form onSubmit={handleSubmit} className="mb-6 max-w-md">
-                <FieldGroup>
-                    <Field data-invalid={cnpjError ? true : undefined}>
-                        <FieldLabel htmlFor="posto-cnpj">CNPJ do posto</FieldLabel>
-                        <InputCpfCnpj
-                            id="posto-cnpj"
-                            type="cnpj"
-                            value={cnpj}
-                            onChange={handleCnpjChange}
-                            aria-invalid={cnpjError ? true : undefined}
-                            aria-describedby={cnpjError ? 'posto-cnpj-error' : undefined}
-                        />
-                        <FieldError id="posto-cnpj-error">{cnpjError}</FieldError>
-                    </Field>
-                    <Button type="submit" disabled={loading || cnpj.length !== 14}>
-                        Pedir vínculo
-                    </Button>
-                </FieldGroup>
-            </form>
 
             <LoadingWrapper loading={loading}>
                 {!loading && links.length === 0 ? (
@@ -133,9 +70,7 @@ export default function FuelStationsPage() {
                                 <Fuel />
                             </EmptyMedia>
                             <EmptyTitle>Nenhum posto</EmptyTitle>
-                            <EmptyDescription>
-                                Informe o CNPJ de um posto já cadastrado no Logiv. O posto aceita ou recusa o pedido.
-                            </EmptyDescription>
+                            <EmptyDescription>Peça o vínculo do primeiro posto para começar.</EmptyDescription>
                         </EmptyHeader>
                     </Empty>
                 ) : (
@@ -153,7 +88,8 @@ export default function FuelStationsPage() {
                                 <TableRow key={link.cnpj}>
                                     <TableCell>
                                         {link.fuel_station?.trade_name
-                                            || link.fuel_station?.corporate_name}
+                                            || link.fuel_station?.corporate_name
+                                            || 'Posto excluído'}
                                     </TableCell>
                                     <TableCell>{formatCpfCnpj(link.cnpj)}</TableCell>
                                     <TableCell>
@@ -162,12 +98,14 @@ export default function FuelStationsPage() {
                                         </Badge>
                                     </TableCell>
                                     <TableCell>
-                                        <ActionButton
-                                            icon={Trash2Icon}
-                                            tooltip="Remover"
-                                            variant="destructive"
-                                            onClick={() => handleRemove(link)}
-                                        />
+                                        <div className="flex items-center gap-2">
+                                            <ActionButton
+                                                icon={Trash2Icon}
+                                                tooltip="Remover"
+                                                variant="destructive"
+                                                onClick={() => handleRemove(link)}
+                                            />
+                                        </div>
                                     </TableCell>
                                 </TableRow>
                             ))}
