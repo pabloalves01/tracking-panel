@@ -110,6 +110,19 @@ class CompanyFuelStationTest extends TestCase
             ->assertJsonMissingPath('data.id');
     }
 
+    public function test_consulta_de_posto_por_cnpj_respeita_o_limite(): void
+    {
+        $this->actAsCompany();
+
+        for ($attempt = 0; $attempt < 20; $attempt++) {
+            $this->getJson('/api/registry/fuel-stations/by-cnpj?cnpj='.self::CNPJ)
+                ->assertUnprocessable();
+        }
+
+        $this->getJson('/api/registry/fuel-stations/by-cnpj?cnpj='.self::CNPJ)
+            ->assertStatus(429);
+    }
+
     public function test_consulta_cnpj_sem_cadastro(): void
     {
         $this->actAsCompany();
