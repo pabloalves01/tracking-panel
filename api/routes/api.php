@@ -10,6 +10,7 @@ use App\Http\Controllers\Registry\CommonEntityController;
 use App\Http\Controllers\Registry\CustomerController;
 use App\Http\Controllers\Registry\DriverController;
 use App\Http\Controllers\Registry\EmployeeController;
+use App\Http\Controllers\Registry\FuelStationLinkController;
 use App\Http\Controllers\Registry\SupplierController;
 use App\Http\Controllers\Registry\VehicleController;
 use App\Http\Controllers\Registry\VehicleOwnerController;
@@ -132,6 +133,12 @@ Route::middleware(['auth:sanctum', 'ensure.company'])->group(function () {
             Route::put('/{uuid}', [VehicleResponsibleController::class, 'update']);
             Route::post('/{uuid}/deactivate', [VehicleResponsibleController::class, 'deactivate']);
             Route::post('/{uuid}/activate', [VehicleResponsibleController::class, 'activate']);
+        });
+
+        Route::prefix('fuel-stations')->group(function () {
+            Route::get('/', [FuelStationLinkController::class, 'index']);
+            Route::post('/', [FuelStationLinkController::class, 'store']);
+            Route::delete('/{cnpj}', [FuelStationLinkController::class, 'destroy']);
         });
 
         Route::prefix('vehicles')->group(function () {
