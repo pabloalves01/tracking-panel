@@ -58,6 +58,107 @@ class CompanyFuelStationTest extends TestCase
         $this->assertSame(0, FuelStation::query()->count());
     }
 
+    public function test_cnpj_mascarado_sem_cadastro_nao_cria_pedido(): void
+    {
+        $this->actAsCompany();
+
+        $this->postJson('/api/registry/fuel-stations', [
+            'cnpj' => '19.131.243/0001-97',
+        ])->assertUnprocessable()
+            ->assertJsonPath('message', 'Este posto não possui cadastro no Logiv')
+            ->assertJsonPath('errors.cnpj.0', 'Este posto não possui cadastro no Logiv');
+
+        $this->assertSame(0, CompanyFuelStation::query()->count());
+    }
+
+    public function test_posto_excluido_nao_cria_pedido(): void
+    {
+        $this->actAsCompany();
+        $this->station(self::CNPJ)->delete();
+
+        $this->postJson('/api/registry/fuel-stations', [
+            'cnpj' => self::CNPJ,
+        ])->assertUnprocessable()
+            ->assertJsonPath('errors.cnpj.0', 'Este posto não possui cadastro no Logiv');
+
+        $this->assertSame(0, CompanyFuelStation::query()->count());
+    }
+
+    public function test_consulta_posto_por_cnpj(): void
+    {
+        $this->actAsCompany();
+        $station = $this->station(self::CNPJ);
+        $station->update([
+            'zip_code' => '01310100',
+            'street' => 'Avenida Paulista',
+            'number' => '1000',
+            'complement' => 'Loja 1',
+            'district' => 'Bela Vista',
+        ]);
+
+        $this->getJson('/api/registry/fuel-stations/by-cnpj?cnpj='.urlencode('19.131.243/0001-97'))
+            ->assertOk()
+            ->assertJsonPath('data.cnpj', self::CNPJ)
+            ->assertJsonPath('data.corporate_name', 'POSTO EXEMPLO LTDA')
+            ->assertJsonPath('data.trade_name', 'Posto Exemplo')
+            ->assertJsonPath('data.zip_code', '01310100')
+            ->assertJsonPath('data.street', 'Avenida Paulista')
+            ->assertJsonPath('data.number', '1000')
+            ->assertJsonPath('data.complement', 'Loja 1')
+            ->assertJsonPath('data.district', 'Bela Vista')
+            ->assertJsonPath('data.status', 'active')
+            ->assertJsonMissingPath('data.id');
+    }
+
+    public function test_consulta_cnpj_sem_cadastro(): void
+    {
+        $this->actAsCompany();
+
+        $this->getJson('/api/registry/fuel-stations/by-cnpj?cnpj='.urlencode('19.131.243/0001-97'))
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.cnpj.0', 'Este posto não possui cadastro no Logiv');
+    }
+
+    public function test_consulta_posto_excluido(): void
+    {
+        $this->actAsCompany();
+        $this->station(self::CNPJ)->delete();
+
+        $this->getJson('/api/registry/fuel-stations/by-cnpj?cnpj='.self::CNPJ)
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.cnpj.0', 'Este posto não possui cadastro no Logiv');
+    }
+
+    public function test_posto_inativo_pode_ser_consultado_e_vinculado(): void
+    {
+        $this->actAsCompany();
+        $this->station(self::CNPJ, 'POSTO EXEMPLO LTDA', 'inactive');
+
+        $this->getJson('/api/registry/fuel-stations/by-cnpj?cnpj='.self::CNPJ)
+            ->assertOk()
+            ->assertJsonPath('data.status', 'inactive')
+            ->assertJsonPath('data.corporate_name', 'POSTO EXEMPLO LTDA');
+
+        $this->postJson('/api/registry/fuel-stations', ['cnpj' => self::CNPJ])
+            ->assertCreated();
+
+        $this->assertSame(1, CompanyFuelStation::query()->count());
+    }
+
+    public function test_listagem_mostra_o_nome_do_posto_excluido(): void
+    {
+        $this->actAsCompany();
+        $station = $this->station(self::CNPJ);
+        $this->postJson('/api/registry/fuel-stations', ['cnpj' => self::CNPJ])->assertCreated();
+        $station->delete();
+
+        $this->getJson('/api/registry/fuel-stations')
+            ->assertOk()
+            ->assertJsonPath('data.0.cnpj', self::CNPJ)
+            ->assertJsonPath('data.0.fuel_station.corporate_name', 'POSTO EXEMPLO LTDA')
+            ->assertJsonPath('data.0.fuel_station.trade_name', 'Posto Exemplo');
+    }
+
     public function test_cnpj_duplicado_nao_cria_outro_pedido(): void
     {
         $this->actAsCompany();
@@ -230,6 +331,10 @@ class CompanyFuelStationTest extends TestCase
             ->getJson('/api/registry/fuel-stations')
             ->assertStatus(409)
             ->assertJsonPath('message', 'Selecione uma empresa');
+
+        $this->getJson('/api/registry/fuel-stations/by-cnpj?cnpj='.self::CNPJ)
+            ->assertStatus(409)
+            ->assertJsonPath('message', 'Selecione uma empresa');
     }
 
     private function actAsCompany(string $cnpj = '00000000000191', string $tradeName = 'Empresa Teste'): Company
@@ -280,13 +385,13 @@ class CompanyFuelStationTest extends TestCase
         $this->withToken($token->plainTextToken);
     }
 
-    private function station(string $cnpj, string $corporateName = 'POSTO EXEMPLO LTDA'): FuelStation
+    private function station(string $cnpj, string $corporateName = 'POSTO EXEMPLO LTDA', string $status = 'active'): FuelStation
     {
         return FuelStation::query()->create([
             'cnpj' => $cnpj,
             'corporate_name' => $corporateName,
             'trade_name' => 'Posto Exemplo',
-            'status' => 'active',
+            'status' => $status,
         ]);
     }
 }

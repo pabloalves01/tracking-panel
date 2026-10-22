@@ -36,6 +36,7 @@ class CompanyFuelStation extends Model
 
     public function fuelStation(): BelongsTo
     {
-        return $this->belongsTo(FuelStation::class);
+        // Posto excluído ainda tem nome para a lista da empresa.
+        return $this->belongsTo(FuelStation::class)->withTrashed();
     }
 }

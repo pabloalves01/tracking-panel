@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Registry;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Registry\StoreCompanyFuelStationRequest;
 use App\Http\Resources\FuelStation\CompanyFuelStationResource;
+use App\Http\Resources\FuelStation\FuelStationResource;
 use App\Rules\Cnpj;
 use App\Services\FuelStation\CompanyFuelStationService;
+use Illuminate\Http\Request;
 
 class FuelStationLinkController extends Controller
 {
@@ -16,6 +18,13 @@ class FuelStationLinkController extends Controller
     {
         return CompanyFuelStationResource::collection(
             $this->companyFuelStationService->listForCompany(),
+        );
+    }
+
+    public function show(Request $request)
+    {
+        return new FuelStationResource(
+            $this->companyFuelStationService->findByCnpj(Cnpj::digits($request->query('cnpj'))),
         );
     }
 

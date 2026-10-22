@@ -138,6 +138,7 @@ Route::middleware(['auth:sanctum', 'ensure.company'])->group(function () {
 
         Route::prefix('fuel-stations')->group(function () {
             Route::get('/', [FuelStationLinkController::class, 'index']);
+            Route::get('/by-cnpj', [FuelStationLinkController::class, 'show']);
             Route::post('/', [FuelStationLinkController::class, 'store']);
             Route::delete('/{cnpj}', [FuelStationLinkController::class, 'destroy']);
         });

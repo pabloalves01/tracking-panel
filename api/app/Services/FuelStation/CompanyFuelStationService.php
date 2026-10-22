@@ -4,6 +4,7 @@ namespace App\Services\FuelStation;
 
 use App\Models\CompanyFuelStation;
 use App\Models\FuelStation;
+use App\Rules\Cnpj;
 use App\Support\CurrentCompany;
 use App\Support\CurrentFuelStation;
 use Illuminate\Database\Eloquent\Collection;
@@ -22,6 +23,37 @@ class CompanyFuelStationService
             ->with(['fuelStation', 'company'])
             ->latest()
             ->get();
+    }
+
+    /**
+     * Posto inativo continua na consulta. Bloquear inativo ainda não foi decidido.
+     */
+    public function findByCnpj(string $cnpj): FuelStation
+    {
+        if ($cnpj === '') {
+            throw ValidationException::withMessages([
+                'cnpj' => 'O CNPJ é obrigatório',
+            ]);
+        }
+
+        if (! Cnpj::isValid($cnpj)) {
+            throw ValidationException::withMessages([
+                'cnpj' => 'Informe um CNPJ válido',
+            ]);
+        }
+
+        $station = FuelStation::query()
+            ->with(['city', 'state'])
+            ->where('cnpj', $cnpj)
+            ->first();
+
+        if (! $station) {
+            throw ValidationException::withMessages([
+                'cnpj' => 'Este posto não possui cadastro no Logiv',
+            ]);
+        }
+
+        return $station;
     }
 
     public function store(string $cnpj): void
