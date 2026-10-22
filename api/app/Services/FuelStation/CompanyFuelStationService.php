@@ -71,16 +71,30 @@ class CompanyFuelStationService
                 'company_id' => app(CurrentCompany::class)->id,
                 'fuel_station_id' => $station->id,
                 'cnpj' => $cnpj,
-                'status' => 'request_send',
+                'status' => 'request_sent',
             ]);
         } catch (UniqueConstraintViolationException) {
             abort(422, 'Este CNPJ já foi solicitado');
         }
     }
 
-    public function destroy(string $cnpj): void
+    public function destroy(string $cnpj): string
     {
-        $this->companyLink($cnpj)->delete();
+        $link = $this->companyLink($cnpj);
+
+        if ($link->status === 'active') {
+            $link->update(['status' => 'disconnected']);
+
+            return 'Conexão encerrada';
+        }
+
+        if (in_array($link->status, ['request_sent', 'rejected'], true)) {
+            $link->delete();
+
+            return 'Pedido removido';
+        }
+
+        abort(422, 'Este pedido não pode ser removido');
     }
 
     /**
@@ -99,7 +113,7 @@ class CompanyFuelStationService
     {
         $link = $this->stationLink($companyUuid);
 
-        if ($link->status !== 'request_send') {
+        if ($link->status !== 'request_sent') {
             abort(422, 'Este pedido não está pendente');
         }
 
@@ -114,7 +128,7 @@ class CompanyFuelStationService
             abort(422, 'Este pedido já foi recusado');
         }
 
-        if ($link->status !== 'request_send') {
+        if ($link->status !== 'request_sent') {
             abort(422, 'Este pedido não está pendente');
         }
 
@@ -168,6 +182,12 @@ class CompanyFuelStationService
             abort(422, 'Esta solicitação não pode ser reenviada');
         }
 
-        $link->update(['status' => 'request_send']);
+        if (! FuelStation::query()->where('cnpj', $link->cnpj)->exists()) {
+            throw ValidationException::withMessages([
+                'cnpj' => 'Este posto não possui cadastro no Logiv',
+            ]);
+        }
+
+        $link->update(['status' => 'request_sent']);
     }
 }

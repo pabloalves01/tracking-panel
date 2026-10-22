@@ -39,10 +39,8 @@ class FuelStationLinkController extends Controller
 
     public function destroy(string $cnpj)
     {
-        $this->companyFuelStationService->destroy(Cnpj::digits($cnpj));
-
         return response()->json([
-            'message' => 'Pedido removido',
+            'message' => $this->companyFuelStationService->destroy(Cnpj::digits($cnpj)),
         ]);
     }
 
