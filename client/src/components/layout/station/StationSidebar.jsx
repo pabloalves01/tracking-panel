@@ -1,4 +1,4 @@
-import { LayoutDashboardIcon } from 'lucide-react'
+import { Building2, LayoutDashboardIcon } from 'lucide-react'
 import { Link, useLocation } from 'react-router'
 
 import {
@@ -16,6 +16,7 @@ import {
 export function StationSidebar() {
     const { pathname } = useLocation()
     const home = pathname === '/posto'
+    const companies = pathname === '/posto/empresas'
 
     return (
         <Sidebar collapsible="icon">
@@ -38,6 +39,16 @@ export function StationSidebar() {
                             >
                                 <LayoutDashboardIcon />
                                 <span>Início</span>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                        <SidebarMenuItem>
+                            <SidebarMenuButton
+                                isActive={companies}
+                                tooltip="Empresas"
+                                render={<Link to="/posto/empresas" />}
+                            >
+                                <Building2 />
+                                <span>Empresas</span>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
                     </SidebarMenu>

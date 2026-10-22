@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\FuelStationSignupController;
+use App\Http\Controllers\FuelStation\StationCompanyController;
 use App\Http\Controllers\FuelStation\StationController;
 use App\Http\Controllers\Location\LocationController;
 use App\Http\Controllers\Operations\ShipOperationPerimeterController;
@@ -10,6 +11,7 @@ use App\Http\Controllers\Registry\CommonEntityController;
 use App\Http\Controllers\Registry\CustomerController;
 use App\Http\Controllers\Registry\DriverController;
 use App\Http\Controllers\Registry\EmployeeController;
+use App\Http\Controllers\Registry\FuelStationLinkController;
 use App\Http\Controllers\Registry\SupplierController;
 use App\Http\Controllers\Registry\VehicleController;
 use App\Http\Controllers\Registry\VehicleOwnerController;
@@ -22,7 +24,6 @@ Route::get('/health', function () {
         'status' => 'up',
     ]);
 });
-
 
 // todo:: migrar depois para dentro do company routes
 Route::get('/ship-operation-perimeters/{shipOperationId}', [ShipOperationPerimeterController::class, 'get']);
@@ -65,7 +66,7 @@ Route::middleware(['auth:sanctum', 'ensure.company'])->group(function () {
     Route::prefix('registry')->group(function () {
         Route::get('entities/by-document/{document}', [CommonEntityController::class, 'byDocument']);
 
-        # 02
+        // 02
         Route::get('entities', [CommonEntityController::class, 'index']);
         Route::get('entities/{uuid}', [CommonEntityController::class, 'show']);
         Route::put('entities/{uuid}', [CommonEntityController::class, 'update']);
@@ -134,6 +135,15 @@ Route::middleware(['auth:sanctum', 'ensure.company'])->group(function () {
             Route::post('/{uuid}/activate', [VehicleResponsibleController::class, 'activate']);
         });
 
+        Route::prefix('fuel-stations')->group(function () {
+            Route::get('/', [FuelStationLinkController::class, 'index']);
+            Route::get('/by-cnpj', [FuelStationLinkController::class, 'show'])
+                ->middleware('throttle:20,1,company-fuel-station-cnpj');
+            Route::post('/', [FuelStationLinkController::class, 'store']);
+            Route::delete('/{cnpj}', [FuelStationLinkController::class, 'destroy']);
+            Route::post('/{cnpj}/resend-request', [FuelStationLinkController::class, 'resendRequest']);
+        });
+
         Route::prefix('vehicles')->group(function () {
             Route::get('/', [VehicleController::class, 'index']);
             Route::post('/', [VehicleController::class, 'store']);
@@ -148,6 +158,10 @@ Route::middleware(['auth:sanctum', 'ensure.company'])->group(function () {
 
 Route::middleware(['auth:sanctum', 'ensure.station'])->prefix('station')->group(function () {
     Route::get('me', [StationController::class, 'me']);
+    Route::get('companies', [StationCompanyController::class, 'index']);
+    Route::post('companies/{uuid}/accept', [StationCompanyController::class, 'accept']);
+    Route::post('companies/{uuid}/reject', [StationCompanyController::class, 'reject']);
+    Route::post('companies/{uuid}/disconnect', [StationCompanyController::class, 'disconnect']);
 });
 
 // =============================== ADMIN SYSTEM ROUTES ===============================
