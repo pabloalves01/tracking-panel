@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Fuel, PlusIcon, Trash2Icon } from 'lucide-react'
+import { Fuel, PlusIcon, RefreshCw, Trash2Icon } from 'lucide-react'
 
 import { ActionButton } from '@/components/common/button/ActionButton'
 import { LayoutToolbar } from '@/components/common/LayoutToolbar'
@@ -8,15 +8,16 @@ import { Badge } from '@/components/ui/badge'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { formatCpfCnpj } from '@/helpers/formatters'
-import { deleteCompanyFuelStation, getCompanyFuelStations } from '@/lib/registry/fuelStations'
+import { deleteCompanyFuelStation, getCompanyFuelStations, resendCompanyFuelStationRequest } from '@/lib/registry/fuelStations'
 import { notifyError, notifySuccess } from '@/lib/notify'
 
 const listPath = '/app/cadastros/entidades/postos'
 
 const statusLabel = {
-    pending: 'Pendente',
-    accepted: 'Aceito',
+    request_send: 'Solicitação enviada',
+    active: 'Ativo',
     rejected: 'Recusado',
+    disconnected: 'Conexão encerrada',
 }
 
 export default function FuelStationsPage() {
@@ -40,6 +41,19 @@ export default function FuelStationsPage() {
 
         try {
             const response = await deleteCompanyFuelStation(link.cnpj)
+            notifySuccess(response)
+            loadLinks()
+        } catch (error) {
+            notifyError(error)
+            setLoading(false)
+        }
+    }
+
+    async function handleResendRequest(link) {
+        setLoading(true)
+
+        try {
+            const response = await resendCompanyFuelStationRequest(link.cnpj)
             notifySuccess(response)
             loadLinks()
         } catch (error) {
@@ -93,7 +107,7 @@ export default function FuelStationsPage() {
                                     </TableCell>
                                     <TableCell>{formatCpfCnpj(link.cnpj)}</TableCell>
                                     <TableCell>
-                                        <Badge variant={link.status === 'accepted' ? 'secondary' : 'outline'}>
+                                        <Badge variant={link.status === 'active' ? 'secondary' : 'outline'}>
                                             {statusLabel[link.status] ?? link.status}
                                         </Badge>
                                     </TableCell>
@@ -105,7 +119,16 @@ export default function FuelStationsPage() {
                                                 variant="destructive"
                                                 onClick={() => handleRemove(link)}
                                             />
+                                            {(link.status === 'rejected' || link.status === 'disconnected') && (
+                                                <ActionButton
+                                                    icon={RefreshCw}
+                                                    tooltip="Reenviar solicitação"
+                                                    variant="outline"
+                                                    onClick={() => handleResendRequest(link)}
+                                                />
+                                            )}
                                         </div>
+
                                     </TableCell>
                                 </TableRow>
                             ))}

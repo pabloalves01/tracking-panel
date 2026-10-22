@@ -11,3 +11,7 @@ export function acceptStationCompany(uuid) {
 export function rejectStationCompany(uuid) {
     return api.post(`/station/companies/${uuid}/reject`).then((response) => response.data)
 }
+
+export function disconnectStationCompany(uuid) {
+    return api.post(`/station/companies/${uuid}/disconnect`).then((response) => response.data)
+}

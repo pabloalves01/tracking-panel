@@ -13,8 +13,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Company extends Model
 {
-    use SoftDeletes;
     use HasUuids;
+    use SoftDeletes;
 
     protected $table = 'companies';
 
@@ -59,12 +59,12 @@ class Company extends Model
     }
 
     /**
-     * Postos que a empresa já pode usar: só o vínculo aceito.
+     * Postos que a empresa já pode usar: só o vínculo ativo.
      */
     public function fuelStations(): BelongsToMany
     {
         return $this->belongsToMany(FuelStation::class, 'company_fuel_station')
-            ->wherePivot('status', 'accepted');
+            ->wherePivot('status', 'active');
     }
 
     // ===================== UNIQUE IDS =====================

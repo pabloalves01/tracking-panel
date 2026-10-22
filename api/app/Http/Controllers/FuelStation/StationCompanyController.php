@@ -34,4 +34,13 @@ class StationCompanyController extends Controller
             'message' => 'Pedido recusado',
         ]);
     }
+
+    public function disconnect(string $uuid)
+    {
+        $this->companyFuelStationService->disconnect($uuid);
+
+        return response()->json([
+            'message' => 'Conexão encerrada',
+        ]);
+    }
 }

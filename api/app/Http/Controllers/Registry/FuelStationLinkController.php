@@ -45,4 +45,13 @@ class FuelStationLinkController extends Controller
             'message' => 'Pedido removido',
         ]);
     }
+
+    public function resendRequest(string $cnpj)
+    {
+        $this->companyFuelStationService->resendRequest($cnpj);
+
+        return response()->json([
+            'message' => 'Pedido reenviado',
+        ]);
+    }
 }

@@ -8,13 +8,14 @@ import { Button } from "@/components/ui/button"
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { formatCpfCnpj } from "@/helpers/formatters"
-import { acceptStationCompany, getStationCompanies, rejectStationCompany } from "@/lib/station/companies"
+import { acceptStationCompany, disconnectStationCompany, getStationCompanies, rejectStationCompany } from "@/lib/station/companies"
 import { notifyError, notifySuccess } from "@/lib/notify"
 
 const statusLabel = {
-    pending: "Pendente",
-    accepted: "Aceito",
+    request_send: "Solicitação enviada",
+    active: "Ativo",
     rejected: "Recusado",
+    disconnected: "Conexão encerrada",
 }
 
 export default function StationCompaniesPage() {
@@ -42,7 +43,9 @@ export default function StationCompaniesPage() {
         try {
             const response = action === "accept"
                 ? await acceptStationCompany(link.company.uuid)
-                : await rejectStationCompany(link.company.uuid)
+                : action === "disconnect"
+                    ? await disconnectStationCompany(link.company.uuid)
+                    : await rejectStationCompany(link.company.uuid)
             notifySuccess(response)
             loadLinks()
         } catch (error) {
@@ -86,25 +89,35 @@ export default function StationCompaniesPage() {
                                     </TableCell>
                                     <TableCell>{formatCpfCnpj(link.company.cnpj)}</TableCell>
                                     <TableCell>
-                                        <Badge variant={link.status === "accepted" ? "secondary" : "outline"}>
+                                        <Badge variant={link.status === "active" ? "secondary" : "outline"}>
                                             {statusLabel[link.status] ?? link.status}
                                         </Badge>
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex gap-2">
-                                            {link.status === "pending" ? (
+                                            {link.status === "request_send" ? (
                                                 <Button type="button" size="sm" onClick={() => handleStatus(link, "accept")}>
                                                     Aceitar
                                                 </Button>
                                             ) : null}
-                                            {link.status === "pending" || link.status === "accepted" ? (
+                                            {link.status === "request_send" ? (
                                                 <Button
                                                     type="button"
                                                     size="sm"
                                                     variant="outline"
                                                     onClick={() => handleStatus(link, "reject")}
                                                 >
-                                                    {link.status === "accepted" ? "Desfazer" : "Recusar"}
+                                                    Recusar
+                                                </Button>
+                                            ) : null}
+                                            {link.status === "active" ? (
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => handleStatus(link, "disconnect")}
+                                                >
+                                                    Desfazer
                                                 </Button>
                                             ) : null}
                                         </div>

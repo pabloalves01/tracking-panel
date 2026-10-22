@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignId('company_id')->constrained('companies');
             $table->foreignId('fuel_station_id')->constrained('fuel_stations');
             $table->string('cnpj', 14);
-            $table->string('status')->default('pending');
+            $table->string('status')->default('request_send');
             $table->timestamps();
 
             $table->unique(['company_id', 'cnpj']);

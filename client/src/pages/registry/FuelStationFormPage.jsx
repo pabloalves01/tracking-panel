@@ -150,7 +150,7 @@ export default function FuelStationFormPage() {
                             Informe o CNPJ de um posto já cadastrado no Logiv. Os dados aparecem para conferência antes do pedido.
                         </FieldDescription>
                         <FieldGroup className="md:grid grid-cols-1 md:grid-cols-12">
-                            <Field className="col-span-12 md:col-span-6" data-invalid={cnpjError ? true : undefined}>
+                            <Field className="col-span-12 md:col-span-12" data-invalid={cnpjError ? true : undefined}>
                                 <FieldLabel htmlFor="posto-cnpj">CNPJ</FieldLabel>
                                 <InputCpfCnpj
                                     id="posto-cnpj"
@@ -165,7 +165,7 @@ export default function FuelStationFormPage() {
                             </Field>
                             {station ? (
                                 <>
-                                    <Field className="col-span-12 md:col-span-6">
+                                    <Field className="col-span-12 md:col-span-4">
                                         <FieldLabel htmlFor="posto-status">Situação</FieldLabel>
                                         <Input
                                             id="posto-status"
@@ -173,11 +173,11 @@ export default function FuelStationFormPage() {
                                             disabled
                                         />
                                     </Field>
-                                    <Field className="col-span-12 md:col-span-6">
+                                    <Field className="col-span-12 md:col-span-4">
                                         <FieldLabel htmlFor="posto-corporate-name">Razão social</FieldLabel>
                                         <Input id="posto-corporate-name" value={station.corporate_name ?? ''} disabled />
                                     </Field>
-                                    <Field className="col-span-12 md:col-span-6">
+                                    <Field className="col-span-12 md:col-span-4">
                                         <FieldLabel htmlFor="posto-trade-name">Nome fantasia</FieldLabel>
                                         <Input id="posto-trade-name" value={station.trade_name ?? ''} disabled />
                                     </Field>

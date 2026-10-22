@@ -71,7 +71,7 @@ class CompanyFuelStationService
                 'company_id' => app(CurrentCompany::class)->id,
                 'fuel_station_id' => $station->id,
                 'cnpj' => $cnpj,
-                'status' => 'pending',
+                'status' => 'request_send',
             ]);
         } catch (UniqueConstraintViolationException) {
             abort(422, 'Este CNPJ já foi solicitado');
@@ -99,22 +99,37 @@ class CompanyFuelStationService
     {
         $link = $this->stationLink($companyUuid);
 
-        if ($link->status !== 'pending') {
+        if ($link->status !== 'request_send') {
             abort(422, 'Este pedido não está pendente');
         }
 
-        $link->update(['status' => 'accepted']);
+        $link->update(['status' => 'active']);
     }
 
     public function reject(string $companyUuid): void
     {
         $link = $this->stationLink($companyUuid);
 
-        if (! in_array($link->status, ['pending', 'accepted'], true)) {
+        if ($link->status === 'rejected') {
             abort(422, 'Este pedido já foi recusado');
         }
 
+        if ($link->status !== 'request_send') {
+            abort(422, 'Este pedido não está pendente');
+        }
+
         $link->update(['status' => 'rejected']);
+    }
+
+    public function disconnect(string $companyUuid): void
+    {
+        $link = $this->stationLink($companyUuid);
+
+        if ($link->status !== 'active') {
+            abort(422, 'Este vínculo não está ativo');
+        }
+
+        $link->update(['status' => 'disconnected']);
     }
 
     private function companyLink(string $cnpj): CompanyFuelStation
@@ -143,5 +158,16 @@ class CompanyFuelStationService
         }
 
         return $link;
+    }
+
+    public function resendRequest(string $cnpj): void
+    {
+        $link = $this->companyLink($cnpj);
+
+        if (! in_array($link->status, ['rejected', 'disconnected'], true)) {
+            abort(422, 'Esta solicitação não pode ser reenviada');
+        }
+
+        $link->update(['status' => 'request_send']);
     }
 }

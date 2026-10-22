@@ -31,7 +31,7 @@ class CompanyFuelStationTest extends TestCase
             'company_id' => $company->id,
             'fuel_station_id' => $station->id,
             'cnpj' => self::CNPJ,
-            'status' => 'pending',
+            'status' => 'request_send',
         ]);
         $this->assertSame(1, User::query()->count());
         $this->assertSame(1, FuelStation::query()->count());
@@ -39,7 +39,7 @@ class CompanyFuelStationTest extends TestCase
         $this->getJson('/api/registry/fuel-stations')
             ->assertOk()
             ->assertJsonPath('data.0.cnpj', self::CNPJ)
-            ->assertJsonPath('data.0.status', 'pending')
+            ->assertJsonPath('data.0.status', 'request_send')
             ->assertJsonPath('data.0.fuel_station.corporate_name', 'POSTO EXEMPLO LTDA')
             ->assertJsonPath('data.0.company.uuid', $company->uuid);
     }
@@ -223,7 +223,7 @@ class CompanyFuelStationTest extends TestCase
         $this->assertSame(0, CompanyFuelStation::query()->where('company_id', $other->id)->count());
     }
 
-    public function test_posto_aceita_e_recusa_pedido(): void
+    public function test_posto_aceita_e_desfaz_o_vinculo(): void
     {
         $company = $this->actAsCompany();
         $station = $this->station(self::CNPJ);
@@ -235,15 +235,23 @@ class CompanyFuelStationTest extends TestCase
             ->assertOk()
             ->assertJsonPath('message', 'Vínculo aceito');
 
-        $this->assertSame('accepted', CompanyFuelStation::query()->first()->status);
+        $this->assertSame('active', CompanyFuelStation::query()->first()->status);
         $this->assertTrue($company->fuelStations()->whereKey($station->id)->exists());
 
         $this->postJson('/api/station/companies/'.$company->uuid.'/reject')
-            ->assertOk()
-            ->assertJsonPath('message', 'Pedido recusado');
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Este pedido não está pendente');
 
-        $this->assertSame('rejected', CompanyFuelStation::query()->first()->status);
+        $this->postJson('/api/station/companies/'.$company->uuid.'/disconnect')
+            ->assertOk()
+            ->assertJsonPath('message', 'Conexão encerrada');
+
+        $this->assertSame('disconnected', CompanyFuelStation::query()->first()->status);
         $this->assertFalse($company->fuelStations()->whereKey($station->id)->exists());
+
+        $this->postJson('/api/station/companies/'.$company->uuid.'/disconnect')
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Este vínculo não está ativo');
     }
 
     public function test_posto_recusa_pedido_pendente(): void
@@ -268,6 +276,34 @@ class CompanyFuelStationTest extends TestCase
         $this->postJson('/api/station/companies/'.$company->uuid.'/reject')
             ->assertUnprocessable()
             ->assertJsonPath('message', 'Este pedido já foi recusado');
+
+        $this->actAsExistingCompany($company);
+
+        $this->postJson('/api/registry/fuel-stations/'.self::CNPJ.'/resend-request')
+            ->assertOk()
+            ->assertJsonPath('message', 'Pedido reenviado');
+
+        $this->assertSame('request_send', CompanyFuelStation::query()->first()->status);
+    }
+
+    public function test_empresa_reenvia_vinculo_desconectado(): void
+    {
+        $company = $this->actAsCompany();
+        $station = $this->station(self::CNPJ);
+        $this->postJson('/api/registry/fuel-stations', ['cnpj' => self::CNPJ])->assertCreated();
+
+        $this->actAsStation($station);
+        $this->postJson('/api/station/companies/'.$company->uuid.'/accept')->assertOk();
+        $this->postJson('/api/station/companies/'.$company->uuid.'/disconnect')->assertOk();
+
+        $this->actAsExistingCompany($company);
+
+        $this->postJson('/api/registry/fuel-stations/'.self::CNPJ.'/resend-request')
+            ->assertOk()
+            ->assertJsonPath('message', 'Pedido reenviado');
+
+        $this->assertSame('request_send', CompanyFuelStation::query()->first()->status);
+        $this->assertFalse($company->fuelStations()->whereKey($station->id)->exists());
     }
 
     public function test_posto_so_ve_e_responde_os_proprios_pedidos(): void
@@ -297,7 +333,7 @@ class CompanyFuelStationTest extends TestCase
             ->assertNotFound()
             ->assertJsonPath('message', 'Pedido não encontrado');
 
-        $this->assertSame('accepted', CompanyFuelStation::query()->where('cnpj', self::CNPJ)->value('status'));
+        $this->assertSame('active', CompanyFuelStation::query()->where('cnpj', self::CNPJ)->value('status'));
     }
 
     public function test_token_de_empresa_nao_acessa_os_pedidos_do_posto(): void
@@ -361,6 +397,23 @@ class CompanyFuelStationTest extends TestCase
         $this->withToken($token->plainTextToken);
 
         return $company;
+    }
+
+    private function actAsExistingCompany(Company $company): void
+    {
+        $this->app['auth']->forgetGuards();
+
+        $user = User::query()
+            ->whereHas('companies', fn ($query) => $query->whereKey($company->id))
+            ->first();
+
+        $token = $user->createToken('web');
+        $token->accessToken->forceFill([
+            'company_id' => $company->id,
+            'fuel_station_id' => null,
+        ])->save();
+
+        $this->withToken($token->plainTextToken);
     }
 
     private function actAsStation(FuelStation $station): void
