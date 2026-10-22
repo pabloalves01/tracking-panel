@@ -168,6 +168,92 @@ class CompanyFuelStationTest extends TestCase
         $this->assertSame(0, CompanyFuelStation::query()->where('company_id', $other->id)->count());
     }
 
+    public function test_posto_aceita_e_recusa_pedido(): void
+    {
+        $company = $this->actAsCompany();
+        $station = $this->station(self::CNPJ);
+        $this->postJson('/api/registry/fuel-stations', ['cnpj' => self::CNPJ])->assertCreated();
+
+        $this->actAsStation($station);
+
+        $this->postJson('/api/station/companies/'.$company->uuid.'/accept')
+            ->assertOk()
+            ->assertJsonPath('message', 'Vínculo aceito');
+
+        $this->assertSame('accepted', CompanyFuelStation::query()->first()->status);
+        $this->assertTrue($company->fuelStations()->whereKey($station->id)->exists());
+
+        $this->postJson('/api/station/companies/'.$company->uuid.'/reject')
+            ->assertOk()
+            ->assertJsonPath('message', 'Pedido recusado');
+
+        $this->assertSame('rejected', CompanyFuelStation::query()->first()->status);
+        $this->assertFalse($company->fuelStations()->whereKey($station->id)->exists());
+    }
+
+    public function test_posto_recusa_pedido_pendente(): void
+    {
+        $company = $this->actAsCompany();
+        $station = $this->station(self::CNPJ);
+        $this->postJson('/api/registry/fuel-stations', ['cnpj' => self::CNPJ])->assertCreated();
+
+        $this->actAsStation($station);
+
+        $this->postJson('/api/station/companies/'.$company->uuid.'/reject')
+            ->assertOk()
+            ->assertJsonPath('message', 'Pedido recusado');
+
+        $this->assertSame('rejected', CompanyFuelStation::query()->first()->status);
+        $this->assertFalse($company->fuelStations()->whereKey($station->id)->exists());
+
+        $this->postJson('/api/station/companies/'.$company->uuid.'/accept')
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Este pedido não está pendente');
+
+        $this->postJson('/api/station/companies/'.$company->uuid.'/reject')
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Este pedido já foi recusado');
+    }
+
+    public function test_posto_so_ve_e_responde_os_proprios_pedidos(): void
+    {
+        $company = $this->actAsCompany();
+        $station = $this->station(self::CNPJ, 'POSTO EXEMPLO LTDA');
+        $other = $this->station('34028316000103', 'OUTRO POSTO LTDA');
+        $this->postJson('/api/registry/fuel-stations', ['cnpj' => self::CNPJ])->assertCreated();
+
+        $this->actAsStation($station);
+
+        $this->getJson('/api/station/companies')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.cnpj', self::CNPJ)
+            ->assertJsonPath('data.0.company.uuid', $company->uuid);
+
+        $this->postJson('/api/station/companies/'.$company->uuid.'/accept')->assertOk();
+
+        $this->actAsStation($other);
+
+        $this->getJson('/api/station/companies')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+
+        $this->postJson('/api/station/companies/'.$company->uuid.'/reject')
+            ->assertNotFound()
+            ->assertJsonPath('message', 'Pedido não encontrado');
+
+        $this->assertSame('accepted', CompanyFuelStation::query()->where('cnpj', self::CNPJ)->value('status'));
+    }
+
+    public function test_token_de_empresa_nao_acessa_os_pedidos_do_posto(): void
+    {
+        $this->actAsCompany();
+
+        $this->getJson('/api/station/companies')
+            ->assertStatus(409)
+            ->assertJsonPath('message', 'Selecione um posto');
+    }
+
     public function test_token_de_posto_nao_acessa_os_pedidos_da_empresa(): void
     {
         $station = $this->station(self::CNPJ);
@@ -232,11 +318,33 @@ class CompanyFuelStationTest extends TestCase
         ]);
     }
 
-    private function station(string $cnpj): FuelStation
+    private function actAsStation(FuelStation $station): void
+    {
+        $this->app['auth']->forgetGuards();
+
+        $user = User::factory()->create([
+            'email' => 'posto-'.Str::uuid().'@example.com',
+        ]);
+        FuelStationUser::query()->create([
+            'fuel_station_id' => $station->id,
+            'user_id' => $user->id,
+            'role' => 'owner',
+        ]);
+
+        $token = $user->createToken('web');
+        $token->accessToken->forceFill([
+            'company_id' => null,
+            'fuel_station_id' => $station->id,
+        ])->save();
+
+        $this->withToken($token->plainTextToken);
+    }
+
+    private function station(string $cnpj, string $corporateName = 'POSTO EXEMPLO LTDA'): FuelStation
     {
         return FuelStation::query()->create([
             'cnpj' => $cnpj,
-            'corporate_name' => 'POSTO EXEMPLO LTDA',
+            'corporate_name' => $corporateName,
             'trade_name' => 'Posto Exemplo',
             'status' => 'active',
         ]);
