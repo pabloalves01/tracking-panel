@@ -1,5 +1,6 @@
 import EntityFormPage from '@/pages/registry/EntityFormPage'
 import EntityPage from '@/pages/registry/EntityPage'
+import FuelStationsPage from '@/pages/registry/FuelStationsPage'
 import FleetPage from '@/pages/registry/FleetPage'
 import RegistryPage from '@/pages/registry/RegistryPage'
 
@@ -29,6 +30,7 @@ export default [
                     ...driverRoutes,
                     ...vehicleOwnerRoutes,
                     ...vehicleResponsibleRoutes,
+                    { path: 'postos', element: <FuelStationsPage /> },
                 ],
             },
             {
