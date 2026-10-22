@@ -8,8 +8,6 @@ use App\Models\FuelStation;
 use App\Models\FuelStationUser;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\Client\Factory;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -46,30 +44,24 @@ class CompanyFuelStationTest extends TestCase
             ->assertJsonPath('data.0.company.uuid', $company->uuid);
     }
 
-    public function test_empresa_pede_vinculo_antes_do_posto_existir(): void
+    public function test_cnpj_sem_cadastro_no_logiv_nao_cria_pedido(): void
     {
-        $company = $this->actAsCompany();
+        $this->actAsCompany();
 
         $this->postJson('/api/registry/fuel-stations', [
             'cnpj' => self::CNPJ,
-        ])->assertCreated();
+        ])->assertUnprocessable()
+            ->assertJsonPath('message', 'Este posto não possui cadastro no Logiv')
+            ->assertJsonPath('errors.cnpj.0', 'Este posto não possui cadastro no Logiv');
 
-        $this->assertDatabaseHas('company_fuel_station', [
-            'company_id' => $company->id,
-            'fuel_station_id' => null,
-            'cnpj' => self::CNPJ,
-            'status' => 'pending',
-        ]);
+        $this->assertSame(0, CompanyFuelStation::query()->count());
         $this->assertSame(0, FuelStation::query()->count());
-
-        $this->getJson('/api/registry/fuel-stations')
-            ->assertOk()
-            ->assertJsonPath('data.0.fuel_station', null);
     }
 
     public function test_cnpj_duplicado_nao_cria_outro_pedido(): void
     {
         $this->actAsCompany();
+        $this->station(self::CNPJ);
 
         $this->postJson('/api/registry/fuel-stations', ['cnpj' => self::CNPJ])->assertCreated();
 
@@ -94,6 +86,7 @@ class CompanyFuelStationTest extends TestCase
     public function test_empresa_remove_o_pedido_e_pode_pedir_de_novo(): void
     {
         $this->actAsCompany();
+        $this->station(self::CNPJ);
         $this->postJson('/api/registry/fuel-stations', ['cnpj' => self::CNPJ])->assertCreated();
 
         $this->deleteJson('/api/registry/fuel-stations/'.self::CNPJ)
@@ -106,49 +99,10 @@ class CompanyFuelStationTest extends TestCase
         $this->assertSame(1, CompanyFuelStation::query()->count());
     }
 
-    public function test_cadastro_do_posto_anexa_os_pedidos_pendentes_daquele_cnpj(): void
-    {
-        $first = $this->actAsCompany('00000000000191', 'Empresa A');
-        $this->postJson('/api/registry/fuel-stations', ['cnpj' => self::CNPJ])->assertCreated();
-
-        $second = $this->actAsCompany('11222333000181', 'Empresa B');
-        $this->postJson('/api/registry/fuel-stations', ['cnpj' => self::CNPJ])->assertCreated();
-        $this->postJson('/api/registry/fuel-stations', ['cnpj' => '34028316000103'])->assertCreated();
-
-        $third = Company::query()->create([
-            'legal_name' => 'Empresa C LTDA',
-            'trade_name' => 'Empresa C',
-            'cnpj' => '11444777000161',
-        ]);
-        CompanyFuelStation::query()->create([
-            'company_id' => $third->id,
-            'cnpj' => self::CNPJ,
-            'status' => 'rejected',
-        ]);
-
-        $this->fakeReceita();
-
-        $this->postJson('/api/auth/station-signup', [
-            'cnpj' => self::CNPJ,
-            'name' => 'Dona do Posto',
-            'email' => 'nova@posto.com',
-            'password' => 'senha1234',
-            'password_confirmation' => 'senha1234',
-        ])->assertCreated();
-
-        $stationId = FuelStation::query()->where('cnpj', self::CNPJ)->value('id');
-
-        $this->assertSame($stationId, CompanyFuelStation::query()->where('company_id', $first->id)->value('fuel_station_id'));
-        $this->assertSame('pending', CompanyFuelStation::query()->where('company_id', $first->id)->value('status'));
-        $this->assertSame($stationId, CompanyFuelStation::query()->where('company_id', $second->id)->where('cnpj', self::CNPJ)->value('fuel_station_id'));
-        $this->assertNull(CompanyFuelStation::query()->where('cnpj', '34028316000103')->value('fuel_station_id'));
-        $this->assertNull(CompanyFuelStation::query()->where('company_id', $third->id)->value('fuel_station_id'));
-        $this->assertSame('rejected', CompanyFuelStation::query()->where('company_id', $third->id)->value('status'));
-    }
-
     public function test_empresa_so_ve_e_remove_os_proprios_pedidos(): void
     {
         $company = $this->actAsCompany('00000000000191', 'Empresa A');
+        $this->station(self::CNPJ);
         $this->postJson('/api/registry/fuel-stations', ['cnpj' => self::CNPJ])->assertCreated();
 
         $other = $this->actAsCompany('11222333000181', 'Empresa B');
@@ -302,20 +256,6 @@ class CompanyFuelStationTest extends TestCase
         $this->withToken($token->plainTextToken);
 
         return $company;
-    }
-
-    private function fakeReceita(): void
-    {
-        Http::swap(new Factory);
-        Http::preventStrayRequests();
-        Http::fake([
-            'brasilapi.com.br/api/cnpj/v1/*' => Http::response([
-                'cnpj' => self::CNPJ,
-                'razao_social' => 'POSTO EXEMPLO LTDA',
-                'nome_fantasia' => 'POSTO EXEMPLO',
-                'descricao_situacao_cadastral' => 'ATIVA',
-            ], 200),
-        ]);
     }
 
     private function actAsStation(FuelStation $station): void

@@ -8,6 +8,7 @@ use App\Support\CurrentCompany;
 use App\Support\CurrentFuelStation;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Validation\ValidationException;
 
 class CompanyFuelStationService
 {
@@ -27,10 +28,16 @@ class CompanyFuelStationService
     {
         $station = FuelStation::query()->where('cnpj', $cnpj)->first();
 
+        if (! $station) {
+            throw ValidationException::withMessages([
+                'cnpj' => 'Este posto não possui cadastro no Logiv',
+            ]);
+        }
+
         try {
             CompanyFuelStation::query()->create([
                 'company_id' => app(CurrentCompany::class)->id,
-                'fuel_station_id' => $station?->id,
+                'fuel_station_id' => $station->id,
                 'cnpj' => $cnpj,
                 'status' => 'pending',
             ]);

@@ -4,6 +4,7 @@ namespace App\Http\Requests\Registry;
 
 use App\Rules\Cnpj;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreCompanyFuelStationRequest extends FormRequest
 {
@@ -22,7 +23,13 @@ class StoreCompanyFuelStationRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'cnpj' => ['required', 'string', new Cnpj],
+            'cnpj' => [
+                'bail',
+                'required',
+                'string',
+                new Cnpj,
+                Rule::exists('fuel_stations', 'cnpj')->whereNull('deleted_at'),
+            ],
         ];
     }
 
@@ -30,6 +37,7 @@ class StoreCompanyFuelStationRequest extends FormRequest
     {
         return [
             'cnpj.required' => 'O CNPJ é obrigatório',
+            'cnpj.exists' => 'Este posto não possui cadastro no Logiv',
         ];
     }
 }

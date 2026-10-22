@@ -2,7 +2,6 @@
 
 namespace App\Services\FuelStation;
 
-use App\Models\CompanyFuelStation;
 use App\Models\FuelStation;
 use App\Models\FuelStationUser;
 use App\Models\Location\City;
@@ -121,12 +120,6 @@ class FuelStationSignupService
                     'user_id' => $owner->id,
                     'role' => 'owner',
                 ]);
-
-                CompanyFuelStation::query()
-                    ->where('cnpj', $cnpj)
-                    ->where('status', 'pending')
-                    ->whereNull('fuel_station_id')
-                    ->update(['fuel_station_id' => $station->id]);
             });
         } catch (UniqueConstraintViolationException) {
             if (FuelStation::withTrashed()->where('cnpj', $cnpj)->exists()) {
