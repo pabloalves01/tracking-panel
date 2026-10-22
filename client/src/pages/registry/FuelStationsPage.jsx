@@ -4,6 +4,16 @@ import { Fuel, PlusIcon, Trash2Icon } from 'lucide-react'
 import { ActionButton } from '@/components/common/button/ActionButton'
 import { LayoutToolbar } from '@/components/common/LayoutToolbar'
 import { LoadingWrapper } from '@/components/common/LoadingWrapper'
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -19,9 +29,16 @@ const statusLabel = {
     rejected: 'Recusado',
 }
 
+function stationLabel(link) {
+    return link?.fuel_station?.trade_name
+        || link?.fuel_station?.corporate_name
+        || 'Posto excluído'
+}
+
 export default function FuelStationsPage() {
     const [links, setLinks] = useState([])
     const [loading, setLoading] = useState(false)
+    const [linkToRemove, setLinkToRemove] = useState(null)
 
     useEffect(() => {
         loadLinks()
@@ -35,15 +52,20 @@ export default function FuelStationsPage() {
             .finally(() => setLoading(false))
     }
 
-    async function handleRemove(link) {
+    async function handleRemove() {
+        if (!linkToRemove) {
+            return
+        }
         setLoading(true)
 
         try {
-            const response = await deleteCompanyFuelStation(link.cnpj)
+            const response = await deleteCompanyFuelStation(linkToRemove.cnpj)
             notifySuccess(response)
             loadLinks()
         } catch (error) {
             notifyError(error)
+        } finally {
+            setLinkToRemove(null)
             setLoading(false)
         }
     }
@@ -86,11 +108,7 @@ export default function FuelStationsPage() {
                         <TableBody>
                             {links.map((link) => (
                                 <TableRow key={link.cnpj}>
-                                    <TableCell>
-                                        {link.fuel_station?.trade_name
-                                            || link.fuel_station?.corporate_name
-                                            || 'Posto excluído'}
-                                    </TableCell>
+                                    <TableCell>{stationLabel(link)}</TableCell>
                                     <TableCell>{formatCpfCnpj(link.cnpj)}</TableCell>
                                     <TableCell>
                                         <Badge variant={link.status === 'accepted' ? 'secondary' : 'outline'}>
@@ -103,7 +121,7 @@ export default function FuelStationsPage() {
                                                 icon={Trash2Icon}
                                                 tooltip="Remover"
                                                 variant="destructive"
-                                                onClick={() => handleRemove(link)}
+                                                onClick={() => setLinkToRemove(link)}
                                             />
                                         </div>
                                     </TableCell>
@@ -113,6 +131,23 @@ export default function FuelStationsPage() {
                     </Table>
                 )}
             </LoadingWrapper>
+
+            <AlertDialog open={!!linkToRemove} onOpenChange={(open) => !open && setLinkToRemove(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Remover vínculo</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {`Tem certeza que deseja remover o vínculo com ${stationLabel(linkToRemove)}?`}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction variant="destructive" onClick={handleRemove}>
+                            Remover
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </>
     )
 }
