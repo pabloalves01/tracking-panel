@@ -139,6 +139,15 @@ class FuelStationSignupTest extends TestCase
         ])->assertStatus(429);
     }
 
+    public function test_cadastro_respeita_o_limite(): void
+    {
+        for ($attempt = 0; $attempt < 20; $attempt++) {
+            $this->postJson('/api/auth/station-signup', [])->assertUnprocessable();
+        }
+
+        $this->postJson('/api/auth/station-signup', [])->assertStatus(429);
+    }
+
     public function test_check_email_diz_se_a_conta_existe_sem_criar_nada(): void
     {
         User::factory()->create([
