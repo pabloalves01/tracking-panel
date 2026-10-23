@@ -64,22 +64,28 @@ class CompanyFuelStationService
     {
         $link = $this->companyLink($stationUuid);
 
-        if ($link->status !== 'request_sent') {
+        $deleted = CompanyFuelStation::query()
+            ->whereKey($link->id)
+            ->where('status', 'request_sent')
+            ->delete();
+
+        if ($deleted === 0) {
             abort(422, 'Só é possível cancelar um convite pendente');
         }
-
-        $link->delete();
     }
 
     public function disconnectForCompany(string $stationUuid): void
     {
         $link = $this->companyLink($stationUuid);
 
-        if ($link->status !== 'active') {
+        $updated = CompanyFuelStation::query()
+            ->whereKey($link->id)
+            ->where('status', 'active')
+            ->update(['status' => 'disconnected']);
+
+        if ($updated === 0) {
             abort(422, 'Este vínculo não está ativo');
         }
-
-        $link->update(['status' => 'disconnected']);
     }
 
     /**
@@ -99,33 +105,42 @@ class CompanyFuelStationService
     {
         $link = $this->stationLink($companyUuid);
 
-        if ($link->status !== 'request_sent') {
+        $updated = CompanyFuelStation::query()
+            ->whereKey($link->id)
+            ->where('status', 'request_sent')
+            ->update(['status' => 'active']);
+
+        if ($updated === 0) {
             abort(422, 'Este convite não está pendente');
         }
-
-        $link->update(['status' => 'active']);
     }
 
     public function reject(string $companyUuid): void
     {
         $link = $this->stationLink($companyUuid);
 
-        if ($link->status !== 'request_sent') {
+        $updated = CompanyFuelStation::query()
+            ->whereKey($link->id)
+            ->where('status', 'request_sent')
+            ->update(['status' => 'rejected']);
+
+        if ($updated === 0) {
             abort(422, 'Este convite não está pendente');
         }
-
-        $link->update(['status' => 'rejected']);
     }
 
     public function disconnect(string $companyUuid): void
     {
         $link = $this->stationLink($companyUuid);
 
-        if ($link->status !== 'active') {
+        $updated = CompanyFuelStation::query()
+            ->whereKey($link->id)
+            ->where('status', 'active')
+            ->update(['status' => 'disconnected']);
+
+        if ($updated === 0) {
             abort(422, 'Este vínculo não está ativo');
         }
-
-        $link->update(['status' => 'disconnected']);
     }
 
     private function companyLink(string $stationUuid): CompanyFuelStation
@@ -170,6 +185,13 @@ class CompanyFuelStationService
             ]);
         }
 
-        $link->update(['status' => 'request_sent']);
+        $updated = CompanyFuelStation::query()
+            ->whereKey($link->id)
+            ->whereIn('status', ['rejected', 'disconnected'])
+            ->update(['status' => 'request_sent']);
+
+        if ($updated === 0) {
+            abort(422, 'Este convite não pode ser reenviado');
+        }
     }
 }

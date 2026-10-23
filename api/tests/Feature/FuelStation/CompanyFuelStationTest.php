@@ -502,6 +502,39 @@ class CompanyFuelStationTest extends TestCase
         $this->assertSame('request_sent', CompanyFuelStation::query()->first()->status);
     }
 
+    public function test_transicao_falha_quando_a_situacao_muda_no_meio(): void
+    {
+        $company = $this->actAsCompany();
+        $station = $this->station(self::CNPJ);
+        $this->postJson('/api/registry/fuel-stations', ['cnpj' => self::CNPJ])->assertCreated();
+
+        // Simula outra requisição mudando a situação entre a leitura e a gravação.
+        $changeTo = 'rejected';
+        CompanyFuelStation::retrieved(function (CompanyFuelStation $link) use (&$changeTo) {
+            if ($changeTo) {
+                CompanyFuelStation::query()->whereKey($link->id)->update(['status' => $changeTo]);
+                $changeTo = null;
+            }
+        });
+
+        $this->actAsStation($station);
+        $this->postJson('/api/station/companies/'.$company->uuid.'/accept')
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Este convite não está pendente');
+
+        $this->assertSame('rejected', CompanyFuelStation::query()->first()->status);
+
+        CompanyFuelStation::query()->update(['status' => 'request_sent']);
+        $changeTo = 'active';
+
+        $this->actAsExistingCompany($company);
+        $this->deleteJson('/api/registry/fuel-stations/'.$station->uuid)
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Só é possível cancelar um convite pendente');
+
+        $this->assertSame('active', CompanyFuelStation::query()->first()->status);
+    }
+
     public function test_ciclo_completo_usa_sempre_o_mesmo_registro(): void
     {
         $company = $this->actAsCompany();
