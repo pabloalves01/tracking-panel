@@ -36,9 +36,9 @@ Route::prefix('auth')->group(function () {
 
     Route::prefix('station-signup')->group(function () {
         Route::get('cnpj/{cnpj}', [FuelStationSignupController::class, 'cnpj'])
-            ->middleware('throttle:10,1,station-signup-cnpj');
+            ->middleware('throttle:20,1,station-signup-cnpj');
         Route::post('check-email', [FuelStationSignupController::class, 'checkEmail'])
-            ->middleware('throttle:5,1,station-signup-email');
+            ->middleware('throttle:20,1,station-signup-email');
         Route::post('/', [FuelStationSignupController::class, 'store']);
     });
 

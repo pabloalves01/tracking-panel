@@ -118,11 +118,24 @@ class FuelStationSignupTest extends TestCase
 
     public function test_consulta_de_cnpj_respeita_o_limite(): void
     {
-        for ($attempt = 0; $attempt < 10; $attempt++) {
+        for ($attempt = 0; $attempt < 20; $attempt++) {
             $this->getJson('/api/auth/station-signup/cnpj/'.self::CNPJ)->assertOk();
         }
 
         $this->getJson('/api/auth/station-signup/cnpj/'.self::CNPJ)->assertStatus(429);
+    }
+
+    public function test_check_email_respeita_o_limite(): void
+    {
+        for ($attempt = 0; $attempt < 20; $attempt++) {
+            $this->postJson('/api/auth/station-signup/check-email', [
+                'email' => 'novo@posto.com',
+            ])->assertOk();
+        }
+
+        $this->postJson('/api/auth/station-signup/check-email', [
+            'email' => 'novo@posto.com',
+        ])->assertStatus(429);
     }
 
     public function test_check_email_diz_se_a_conta_existe_sem_criar_nada(): void
