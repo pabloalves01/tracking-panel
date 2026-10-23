@@ -8,6 +8,7 @@ use App\Support\CurrentCompany;
 use App\Support\CurrentFuelStation;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class CompanyFuelStationService
@@ -41,11 +42,13 @@ class CompanyFuelStationService
     public function store(string $cnpj): void
     {
         try {
-            CompanyFuelStation::query()->create([
-                'company_id' => app(CurrentCompany::class)->id,
-                'fuel_station_id' => FuelStation::query()->where('cnpj', $cnpj)->value('id'),
-                'status' => 'request_sent',
-            ]);
+            DB::transaction(function () use ($cnpj) {
+                CompanyFuelStation::query()->create([
+                    'company_id' => app(CurrentCompany::class)->id,
+                    'fuel_station_id' => FuelStation::query()->where('cnpj', $cnpj)->value('id'),
+                    'status' => 'request_sent',
+                ]);
+            });
         } catch (UniqueConstraintViolationException) {
             abort(422, 'Este CNPJ já foi solicitado');
         }

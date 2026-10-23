@@ -11,6 +11,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -188,11 +189,13 @@ class FuelStationSignupTest extends TestCase
         ]);
 
         try {
-            FuelStationUser::query()->create([
-                'fuel_station_id' => $station->id,
-                'user_id' => $other->id,
-                'role' => 'owner',
-            ]);
+            DB::transaction(function () use ($station, $other) {
+                FuelStationUser::query()->create([
+                    'fuel_station_id' => $station->id,
+                    'user_id' => $other->id,
+                    'role' => 'owner',
+                ]);
+            });
             $this->fail('O posto aceitou um segundo usuário.');
         } catch (QueryException $exception) {
             $this->assertStringContainsString('fuel_station_id', $exception->getMessage());
