@@ -40,7 +40,7 @@ export default function StationCompaniesPage() {
 
     function loadLinks() {
         setLoading(true)
-        getStationCompanies()
+        return getStationCompanies()
             .then(setLinks)
             .catch(notifyError)
             .finally(() => setLoading(false))
@@ -54,7 +54,7 @@ export default function StationCompaniesPage() {
                 ? await acceptStationCompany(link.company.uuid)
                 : await rejectStationCompany(link.company.uuid)
             notifySuccess(response)
-            loadLinks()
+            await loadLinks()
         } catch (error) {
             notifyError(error)
             setLoading(false)
@@ -71,7 +71,7 @@ export default function StationCompaniesPage() {
         try {
             const response = await disconnectStationCompany(linkToUndo.company.uuid)
             notifySuccess(response)
-            loadLinks()
+            await loadLinks()
         } catch (error) {
             notifyError(error)
         } finally {

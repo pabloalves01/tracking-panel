@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Registry;
 
+use App\Models\Company;
 use App\Rules\Cnpj;
+use App\Support\CurrentCompany;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -28,6 +30,7 @@ class StoreCompanyFuelStationRequest extends FormRequest
                 'required',
                 'string',
                 new Cnpj,
+                Rule::notIn([Company::query()->whereKey(app(CurrentCompany::class)->id)->value('cnpj')]),
                 Rule::exists('fuel_stations', 'cnpj')->whereNull('deleted_at'),
             ],
         ];
@@ -37,6 +40,7 @@ class StoreCompanyFuelStationRequest extends FormRequest
     {
         return [
             'cnpj.required' => 'O CNPJ é obrigatório',
+            'cnpj.not_in' => 'Você não pode convidar o próprio CNPJ.',
             'cnpj.exists' => 'Este posto não está cadastrado na Logiv.',
         ];
     }

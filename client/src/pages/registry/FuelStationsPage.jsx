@@ -46,7 +46,7 @@ export default function FuelStationsPage() {
 
     function loadLinks() {
         setLoading(true)
-        getCompanyFuelStations()
+        return getCompanyFuelStations()
             .then(setLinks)
             .catch(notifyError)
             .finally(() => setLoading(false))
@@ -63,7 +63,7 @@ export default function FuelStationsPage() {
                 ? await disconnectCompanyFuelStation(linkToRemove.fuel_station.uuid)
                 : await deleteCompanyFuelStation(linkToRemove.fuel_station.uuid)
             notifySuccess(response)
-            loadLinks()
+            await loadLinks()
         } catch (error) {
             notifyError(error)
         } finally {
@@ -78,7 +78,7 @@ export default function FuelStationsPage() {
         try {
             const response = await resendCompanyFuelStationRequest(link.fuel_station.uuid)
             notifySuccess(response)
-            loadLinks()
+            await loadLinks()
         } catch (error) {
             notifyError(error)
             setLoading(false)

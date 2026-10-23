@@ -112,6 +112,7 @@ class CompanyFuelStationService
     {
         return CompanyFuelStation::query()
             ->where('fuel_station_id', app(CurrentFuelStation::class)->id)
+            ->whereHas('company')
             ->with(['fuelStation', 'company'])
             ->latest()
             ->get();

@@ -588,6 +588,63 @@ class CompanyFuelStationTest extends TestCase
         $this->assertSame('active', CompanyFuelStation::query()->where('fuel_station_id', $station->id)->value('status'));
     }
 
+    public function test_empresa_excluida_nao_aparece_nem_pode_ser_aceita_pelo_posto(): void
+    {
+        $company = $this->actAsCompany();
+        $station = $this->station(self::CNPJ);
+        $this->postJson('/api/registry/fuel-stations', ['cnpj' => self::CNPJ])->assertCreated();
+        $company->delete();
+
+        $this->actAsStation($station);
+
+        $this->getJson('/api/station/companies')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+
+        $this->postJson('/api/station/companies/'.$company->uuid.'/accept')
+            ->assertNotFound()
+            ->assertJsonPath('message', 'Pedido não encontrado');
+
+        $this->assertSame('request_sent', CompanyFuelStation::query()->first()->status);
+    }
+
+    public function test_empresa_nao_convida_o_proprio_cnpj(): void
+    {
+        $this->actAsCompany(self::CNPJ);
+        $this->station(self::CNPJ);
+
+        $this->postJson('/api/registry/fuel-stations', ['cnpj' => '19.131.243/0001-97'])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.cnpj.0', 'Você não pode convidar o próprio CNPJ.');
+
+        $this->assertSame(0, CompanyFuelStation::query()->count());
+    }
+
+    public function test_uuid_invalido_nas_rotas_da_empresa_retorna_404(): void
+    {
+        $this->actAsCompany();
+
+        $this->deleteJson('/api/registry/fuel-stations/'.self::CNPJ)->assertNotFound();
+        $this->postJson('/api/registry/fuel-stations/nao-e-uuid/disconnect')->assertNotFound();
+        $this->postJson('/api/registry/fuel-stations/nao-e-uuid/resend-request')->assertNotFound();
+    }
+
+    public function test_posto_sem_vinculo_com_a_empresa_retorna_404(): void
+    {
+        $this->actAsCompany();
+        $station = $this->station(self::CNPJ);
+
+        $this->deleteJson('/api/registry/fuel-stations/'.$station->uuid)
+            ->assertNotFound()
+            ->assertJsonPath('message', 'Pedido não encontrado');
+        $this->postJson('/api/registry/fuel-stations/'.$station->uuid.'/disconnect')
+            ->assertNotFound()
+            ->assertJsonPath('message', 'Pedido não encontrado');
+        $this->postJson('/api/registry/fuel-stations/'.$station->uuid.'/resend-request')
+            ->assertNotFound()
+            ->assertJsonPath('message', 'Pedido não encontrado');
+    }
+
     public function test_token_de_empresa_nao_acessa_os_pedidos_do_posto(): void
     {
         $this->actAsCompany();
