@@ -3,12 +3,11 @@
 namespace App\Http\Controllers\Registry;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Registry\ShowCompanyFuelStationRequest;
 use App\Http\Requests\Registry\StoreCompanyFuelStationRequest;
 use App\Http\Resources\FuelStation\CompanyFuelStationResource;
 use App\Http\Resources\FuelStation\FuelStationResource;
-use App\Rules\Cnpj;
 use App\Services\FuelStation\CompanyFuelStationService;
-use Illuminate\Http\Request;
 
 class FuelStationLinkController extends Controller
 {
@@ -21,10 +20,10 @@ class FuelStationLinkController extends Controller
         );
     }
 
-    public function show(Request $request)
+    public function show(ShowCompanyFuelStationRequest $request)
     {
         return new FuelStationResource(
-            $this->companyFuelStationService->findByCnpj(Cnpj::digits($request->query('cnpj'))),
+            $this->companyFuelStationService->findByCnpj($request->validated('cnpj')),
         );
     }
 
@@ -33,23 +32,34 @@ class FuelStationLinkController extends Controller
         $this->companyFuelStationService->store($request->validated('cnpj'));
 
         return response()->json([
-            'message' => 'Pedido de vínculo enviado',
+            'message' => 'Convite enviado',
         ], 201);
     }
 
-    public function destroy(string $cnpj)
+    public function destroy(string $uuid)
     {
+        $this->companyFuelStationService->destroy($uuid);
+
         return response()->json([
-            'message' => $this->companyFuelStationService->destroy(Cnpj::digits($cnpj)),
+            'message' => 'Convite cancelado',
         ]);
     }
 
-    public function resendRequest(string $cnpj)
+    public function disconnect(string $uuid)
     {
-        $this->companyFuelStationService->resendRequest($cnpj);
+        $this->companyFuelStationService->disconnectForCompany($uuid);
 
         return response()->json([
-            'message' => 'Pedido reenviado',
+            'message' => 'Conexão encerrada',
+        ]);
+    }
+
+    public function resendRequest(string $uuid)
+    {
+        $this->companyFuelStationService->resendRequest($uuid);
+
+        return response()->json([
+            'message' => 'Convite reenviado',
         ]);
     }
 }

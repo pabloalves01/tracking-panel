@@ -11,6 +11,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -118,11 +119,33 @@ class FuelStationSignupTest extends TestCase
 
     public function test_consulta_de_cnpj_respeita_o_limite(): void
     {
-        for ($attempt = 0; $attempt < 10; $attempt++) {
+        for ($attempt = 0; $attempt < 20; $attempt++) {
             $this->getJson('/api/auth/station-signup/cnpj/'.self::CNPJ)->assertOk();
         }
 
         $this->getJson('/api/auth/station-signup/cnpj/'.self::CNPJ)->assertStatus(429);
+    }
+
+    public function test_check_email_respeita_o_limite(): void
+    {
+        for ($attempt = 0; $attempt < 20; $attempt++) {
+            $this->postJson('/api/auth/station-signup/check-email', [
+                'email' => 'novo@posto.com',
+            ])->assertOk();
+        }
+
+        $this->postJson('/api/auth/station-signup/check-email', [
+            'email' => 'novo@posto.com',
+        ])->assertStatus(429);
+    }
+
+    public function test_cadastro_respeita_o_limite(): void
+    {
+        for ($attempt = 0; $attempt < 20; $attempt++) {
+            $this->postJson('/api/auth/station-signup', [])->assertUnprocessable();
+        }
+
+        $this->postJson('/api/auth/station-signup', [])->assertStatus(429);
     }
 
     public function test_check_email_diz_se_a_conta_existe_sem_criar_nada(): void
@@ -175,11 +198,13 @@ class FuelStationSignupTest extends TestCase
         ]);
 
         try {
-            FuelStationUser::query()->create([
-                'fuel_station_id' => $station->id,
-                'user_id' => $other->id,
-                'role' => 'owner',
-            ]);
+            DB::transaction(function () use ($station, $other) {
+                FuelStationUser::query()->create([
+                    'fuel_station_id' => $station->id,
+                    'user_id' => $other->id,
+                    'role' => 'owner',
+                ]);
+            });
             $this->fail('O posto aceitou um segundo usuário.');
         } catch (QueryException $exception) {
             $this->assertStringContainsString('fuel_station_id', $exception->getMessage());

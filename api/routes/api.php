@@ -36,10 +36,11 @@ Route::prefix('auth')->group(function () {
 
     Route::prefix('station-signup')->group(function () {
         Route::get('cnpj/{cnpj}', [FuelStationSignupController::class, 'cnpj'])
-            ->middleware('throttle:10,1,station-signup-cnpj');
+            ->middleware('throttle:20,1,station-signup-cnpj');
         Route::post('check-email', [FuelStationSignupController::class, 'checkEmail'])
-            ->middleware('throttle:5,1,station-signup-email');
-        Route::post('/', [FuelStationSignupController::class, 'store']);
+            ->middleware('throttle:20,1,station-signup-email');
+        Route::post('/', [FuelStationSignupController::class, 'store'])
+            ->middleware('throttle:20,1,station-signup');
     });
 
     Route::middleware('auth:sanctum')->group(function () {
@@ -140,8 +141,9 @@ Route::middleware(['auth:sanctum', 'ensure.company'])->group(function () {
             Route::get('/by-cnpj', [FuelStationLinkController::class, 'show'])
                 ->middleware('throttle:20,1,company-fuel-station-cnpj');
             Route::post('/', [FuelStationLinkController::class, 'store']);
-            Route::delete('/{cnpj}', [FuelStationLinkController::class, 'destroy']);
-            Route::post('/{cnpj}/resend-request', [FuelStationLinkController::class, 'resendRequest']);
+            Route::delete('/{uuid}', [FuelStationLinkController::class, 'destroy'])->whereUuid('uuid');
+            Route::post('/{uuid}/disconnect', [FuelStationLinkController::class, 'disconnect'])->whereUuid('uuid');
+            Route::post('/{uuid}/resend-request', [FuelStationLinkController::class, 'resendRequest'])->whereUuid('uuid');
         });
 
         Route::prefix('vehicles')->group(function () {
@@ -159,9 +161,9 @@ Route::middleware(['auth:sanctum', 'ensure.company'])->group(function () {
 Route::middleware(['auth:sanctum', 'ensure.station'])->prefix('station')->group(function () {
     Route::get('me', [StationController::class, 'me']);
     Route::get('companies', [StationCompanyController::class, 'index']);
-    Route::post('companies/{uuid}/accept', [StationCompanyController::class, 'accept']);
-    Route::post('companies/{uuid}/reject', [StationCompanyController::class, 'reject']);
-    Route::post('companies/{uuid}/disconnect', [StationCompanyController::class, 'disconnect']);
+    Route::post('companies/{uuid}/accept', [StationCompanyController::class, 'accept'])->whereUuid('uuid');
+    Route::post('companies/{uuid}/reject', [StationCompanyController::class, 'reject'])->whereUuid('uuid');
+    Route::post('companies/{uuid}/disconnect', [StationCompanyController::class, 'disconnect'])->whereUuid('uuid');
 });
 
 // =============================== ADMIN SYSTEM ROUTES ===============================

@@ -31,7 +31,7 @@ class StationCompanyController extends Controller
         $this->companyFuelStationService->reject($uuid);
 
         return response()->json([
-            'message' => 'Pedido recusado',
+            'message' => 'Convite recusado',
         ]);
     }
 

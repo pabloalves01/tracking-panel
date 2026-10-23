@@ -18,17 +18,16 @@ import { Badge } from '@/components/ui/badge'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { formatCpfCnpj } from '@/helpers/formatters'
-import { deleteCompanyFuelStation, getCompanyFuelStations, resendCompanyFuelStationRequest } from '@/lib/registry/fuelStations'
+import { linkStatusLabel } from '@/helpers/labels'
+import {
+    deleteCompanyFuelStation,
+    disconnectCompanyFuelStation,
+    getCompanyFuelStations,
+    resendCompanyFuelStationRequest,
+} from '@/lib/registry/fuelStations'
 import { notifyError, notifySuccess } from '@/lib/notify'
 
 const listPath = '/app/cadastros/entidades/postos'
-
-const statusLabel = {
-    request_sent: 'Solicitação enviada',
-    active: 'Ativo',
-    rejected: 'Recusado',
-    disconnected: 'Conexão encerrada',
-}
 
 function stationLabel(link) {
     return link?.fuel_station?.trade_name
@@ -47,7 +46,7 @@ export default function FuelStationsPage() {
 
     function loadLinks() {
         setLoading(true)
-        getCompanyFuelStations()
+        return getCompanyFuelStations()
             .then(setLinks)
             .catch(notifyError)
             .finally(() => setLoading(false))
@@ -60,9 +59,11 @@ export default function FuelStationsPage() {
         setLoading(true)
 
         try {
-            const response = await deleteCompanyFuelStation(linkToRemove.cnpj)
+            const response = linkToRemove.status === 'active'
+                ? await disconnectCompanyFuelStation(linkToRemove.fuel_station.uuid)
+                : await deleteCompanyFuelStation(linkToRemove.fuel_station.uuid)
             notifySuccess(response)
-            loadLinks()
+            await loadLinks()
         } catch (error) {
             notifyError(error)
         } finally {
@@ -75,9 +76,9 @@ export default function FuelStationsPage() {
         setLoading(true)
 
         try {
-            const response = await resendCompanyFuelStationRequest(link.cnpj)
+            const response = await resendCompanyFuelStationRequest(link.fuel_station.uuid)
             notifySuccess(response)
-            loadLinks()
+            await loadLinks()
         } catch (error) {
             notifyError(error)
             setLoading(false)
@@ -121,20 +122,20 @@ export default function FuelStationsPage() {
                         </TableHeader>
                         <TableBody>
                             {links.map((link) => (
-                                <TableRow key={link.cnpj}>
+                                <TableRow key={link.fuel_station.uuid}>
                                     <TableCell>{stationLabel(link)}</TableCell>
-                                    <TableCell>{formatCpfCnpj(link.cnpj)}</TableCell>
+                                    <TableCell>{formatCpfCnpj(link.fuel_station.cnpj)}</TableCell>
                                     <TableCell>
                                         <Badge variant={link.status === 'active' ? 'secondary' : 'outline'}>
-                                            {statusLabel[link.status] ?? link.status}
+                                            {linkStatusLabel[link.status] ?? link.status}
                                         </Badge>
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-2">
-                                            {(link.status === 'request_sent' || link.status === 'rejected' || link.status === 'active') && (
+                                            {(link.status === 'request_sent' || link.status === 'active') && (
                                                 <ActionButton
                                                     icon={link.status === 'active' ? Link2Off : Trash2Icon}
-                                                    tooltip={link.status === 'active' ? 'Encerrar conexão' : 'Remover pedido'}
+                                                    tooltip={link.status === 'active' ? 'Desconectar' : 'Cancelar convite'}
                                                     variant="destructive"
                                                     onClick={() => setLinkToRemove(link)}
                                                 />
@@ -142,7 +143,7 @@ export default function FuelStationsPage() {
                                             {(link.status === 'rejected' || link.status === 'disconnected') && (
                                                 <ActionButton
                                                     icon={RefreshCw}
-                                                    tooltip="Reenviar solicitação"
+                                                    tooltip="Reenviar convite"
                                                     variant="outline"
                                                     onClick={() => handleResendRequest(link)}
                                                 />
@@ -161,18 +162,18 @@ export default function FuelStationsPage() {
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>
-                            {linkToRemove?.status === 'active' ? 'Encerrar conexão' : 'Remover pedido'}
+                            {linkToRemove?.status === 'active' ? 'Desconectar' : 'Cancelar convite'}
                         </AlertDialogTitle>
                         <AlertDialogDescription>
                             {linkToRemove?.status === 'active'
-                                ? `Tem certeza que deseja encerrar a conexão com ${stationLabel(linkToRemove)}?`
-                                : `Tem certeza que deseja remover o pedido de ${stationLabel(linkToRemove)}?`}
+                                ? `Tem certeza que deseja desconectar ${stationLabel(linkToRemove)}?`
+                                : `Tem certeza que deseja cancelar o convite para ${stationLabel(linkToRemove)}?`}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogCancel>Voltar</AlertDialogCancel>
                         <AlertDialogAction variant="destructive" onClick={handleRemove}>
-                            {linkToRemove?.status === 'active' ? 'Encerrar conexão' : 'Remover pedido'}
+                            {linkToRemove?.status === 'active' ? 'Desconectar' : 'Cancelar convite'}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

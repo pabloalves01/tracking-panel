@@ -4,11 +4,11 @@ namespace App\Services\FuelStation;
 
 use App\Models\CompanyFuelStation;
 use App\Models\FuelStation;
-use App\Rules\Cnpj;
 use App\Support\CurrentCompany;
 use App\Support\CurrentFuelStation;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class CompanyFuelStationService
@@ -20,7 +20,7 @@ class CompanyFuelStationService
     {
         return CompanyFuelStation::query()
             ->where('company_id', app(CurrentCompany::class)->id)
-            ->with(['fuelStation', 'company'])
+            ->with('fuelStation')
             ->latest()
             ->get();
     }
@@ -30,71 +30,62 @@ class CompanyFuelStationService
      */
     public function findByCnpj(string $cnpj): FuelStation
     {
-        if ($cnpj === '') {
-            throw ValidationException::withMessages([
-                'cnpj' => 'O CNPJ é obrigatório',
-            ]);
-        }
-
-        if (! Cnpj::isValid($cnpj)) {
-            throw ValidationException::withMessages([
-                'cnpj' => 'Informe um CNPJ válido',
-            ]);
-        }
-
-        $station = FuelStation::query()
+        return FuelStation::query()
             ->with(['city', 'state'])
             ->where('cnpj', $cnpj)
-            ->first();
-
-        if (! $station) {
-            throw ValidationException::withMessages([
-                'cnpj' => 'Este posto não possui cadastro no Logiv',
-            ]);
-        }
-
-        return $station;
+            ->firstOrFail();
     }
 
+    /**
+     * O FormRequest já garante que o posto existe.
+     */
     public function store(string $cnpj): void
     {
-        $station = FuelStation::query()->where('cnpj', $cnpj)->first();
-
-        if (! $station) {
-            throw ValidationException::withMessages([
-                'cnpj' => 'Este posto não possui cadastro no Logiv',
-            ]);
-        }
-
         try {
-            CompanyFuelStation::query()->create([
-                'company_id' => app(CurrentCompany::class)->id,
-                'fuel_station_id' => $station->id,
-                'cnpj' => $cnpj,
-                'status' => 'request_sent',
-            ]);
+            DB::transaction(function () use ($cnpj) {
+                CompanyFuelStation::query()->create([
+                    'company_id' => app(CurrentCompany::class)->id,
+                    'fuel_station_id' => FuelStation::query()->where('cnpj', $cnpj)->value('id'),
+                    'status' => 'request_sent',
+                ]);
+            });
         } catch (UniqueConstraintViolationException) {
             abort(422, 'Este CNPJ já foi solicitado');
         }
     }
 
-    public function destroy(string $cnpj): string
+    /**
+     * Vínculos da empresa:
+     * - convite enviado: a empresa cancela (apaga o registro) e o posto aceita ou recusa
+     * - ativo: empresa ou posto desconectam
+     * - recusado ou desconectado: a empresa só pode reenviar o convite
+     */
+    public function destroy(string $stationUuid): void
     {
-        $link = $this->companyLink($cnpj);
+        $link = $this->companyLink($stationUuid);
 
-        if ($link->status === 'active') {
-            $link->update(['status' => 'disconnected']);
+        $deleted = CompanyFuelStation::query()
+            ->whereKey($link->id)
+            ->where('status', 'request_sent')
+            ->delete();
 
-            return 'Conexão encerrada';
+        if ($deleted === 0) {
+            abort(422, 'Só é possível cancelar um convite pendente');
         }
+    }
 
-        if (in_array($link->status, ['request_sent', 'rejected'], true)) {
-            $link->delete();
+    public function disconnectForCompany(string $stationUuid): void
+    {
+        $link = $this->companyLink($stationUuid);
 
-            return 'Pedido removido';
+        $updated = CompanyFuelStation::query()
+            ->whereKey($link->id)
+            ->where('status', 'active')
+            ->update(['status' => 'disconnected']);
+
+        if ($updated === 0) {
+            abort(422, 'Este vínculo não está ativo');
         }
-
-        abort(422, 'Este pedido não pode ser removido');
     }
 
     /**
@@ -104,6 +95,7 @@ class CompanyFuelStationService
     {
         return CompanyFuelStation::query()
             ->where('fuel_station_id', app(CurrentFuelStation::class)->id)
+            ->whereHas('company')
             ->with(['fuelStation', 'company'])
             ->latest()
             ->get();
@@ -113,44 +105,49 @@ class CompanyFuelStationService
     {
         $link = $this->stationLink($companyUuid);
 
-        if ($link->status !== 'request_sent') {
-            abort(422, 'Este pedido não está pendente');
-        }
+        $updated = CompanyFuelStation::query()
+            ->whereKey($link->id)
+            ->where('status', 'request_sent')
+            ->update(['status' => 'active']);
 
-        $link->update(['status' => 'active']);
+        if ($updated === 0) {
+            abort(422, 'Este convite não está pendente');
+        }
     }
 
     public function reject(string $companyUuid): void
     {
         $link = $this->stationLink($companyUuid);
 
-        if ($link->status === 'rejected') {
-            abort(422, 'Este pedido já foi recusado');
-        }
+        $updated = CompanyFuelStation::query()
+            ->whereKey($link->id)
+            ->where('status', 'request_sent')
+            ->update(['status' => 'rejected']);
 
-        if ($link->status !== 'request_sent') {
-            abort(422, 'Este pedido não está pendente');
+        if ($updated === 0) {
+            abort(422, 'Este convite não está pendente');
         }
-
-        $link->update(['status' => 'rejected']);
     }
 
     public function disconnect(string $companyUuid): void
     {
         $link = $this->stationLink($companyUuid);
 
-        if ($link->status !== 'active') {
+        $updated = CompanyFuelStation::query()
+            ->whereKey($link->id)
+            ->where('status', 'active')
+            ->update(['status' => 'disconnected']);
+
+        if ($updated === 0) {
             abort(422, 'Este vínculo não está ativo');
         }
-
-        $link->update(['status' => 'disconnected']);
     }
 
-    private function companyLink(string $cnpj): CompanyFuelStation
+    private function companyLink(string $stationUuid): CompanyFuelStation
     {
         $link = CompanyFuelStation::query()
             ->where('company_id', app(CurrentCompany::class)->id)
-            ->where('cnpj', $cnpj)
+            ->whereHas('fuelStation', fn ($query) => $query->where('uuid', $stationUuid))
             ->first();
 
         if (! $link) {
@@ -174,20 +171,27 @@ class CompanyFuelStationService
         return $link;
     }
 
-    public function resendRequest(string $cnpj): void
+    public function resendRequest(string $stationUuid): void
     {
-        $link = $this->companyLink($cnpj);
+        $link = $this->companyLink($stationUuid);
 
         if (! in_array($link->status, ['rejected', 'disconnected'], true)) {
-            abort(422, 'Esta solicitação não pode ser reenviada');
+            abort(422, 'Este convite não pode ser reenviado');
         }
 
-        if (! FuelStation::query()->where('cnpj', $link->cnpj)->exists()) {
+        if ($link->fuelStation->trashed()) {
             throw ValidationException::withMessages([
-                'cnpj' => 'Este posto não possui cadastro no Logiv',
+                'cnpj' => 'Este posto não está cadastrado na Logiv.',
             ]);
         }
 
-        $link->update(['status' => 'request_sent']);
+        $updated = CompanyFuelStation::query()
+            ->whereKey($link->id)
+            ->whereIn('status', ['rejected', 'disconnected'])
+            ->update(['status' => 'request_sent']);
+
+        if ($updated === 0) {
+            abort(422, 'Este convite não pode ser reenviado');
+        }
     }
 }

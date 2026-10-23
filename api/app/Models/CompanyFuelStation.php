@@ -12,7 +12,6 @@ class CompanyFuelStation extends Model
     protected $fillable = [
         'company_id',
         'fuel_station_id',
-        'cnpj',
         'status',
     ];
 
