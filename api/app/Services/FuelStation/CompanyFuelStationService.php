@@ -77,23 +77,32 @@ class CompanyFuelStationService
         }
     }
 
-    public function destroy(string $stationUuid): string
+    /**
+     * Vínculos da empresa:
+     * - convite enviado: a empresa cancela (apaga o registro) e o posto aceita ou recusa
+     * - ativo: empresa ou posto desconectam
+     * - recusado ou desconectado: a empresa só pode reenviar o convite
+     */
+    public function destroy(string $stationUuid): void
     {
         $link = $this->companyLink($stationUuid);
 
-        if ($link->status === 'active') {
-            $link->update(['status' => 'disconnected']);
-
-            return 'Conexão encerrada';
+        if ($link->status !== 'request_sent') {
+            abort(422, 'Só é possível cancelar um convite pendente');
         }
 
-        if (in_array($link->status, ['request_sent', 'rejected'], true)) {
-            $link->delete();
+        $link->delete();
+    }
 
-            return 'Pedido removido';
+    public function disconnectForCompany(string $stationUuid): void
+    {
+        $link = $this->companyLink($stationUuid);
+
+        if ($link->status !== 'active') {
+            abort(422, 'Este vínculo não está ativo');
         }
 
-        abort(422, 'Este pedido não pode ser removido');
+        $link->update(['status' => 'disconnected']);
     }
 
     /**
@@ -113,7 +122,7 @@ class CompanyFuelStationService
         $link = $this->stationLink($companyUuid);
 
         if ($link->status !== 'request_sent') {
-            abort(422, 'Este pedido não está pendente');
+            abort(422, 'Este convite não está pendente');
         }
 
         $link->update(['status' => 'active']);
@@ -124,11 +133,11 @@ class CompanyFuelStationService
         $link = $this->stationLink($companyUuid);
 
         if ($link->status === 'rejected') {
-            abort(422, 'Este pedido já foi recusado');
+            abort(422, 'Este convite já foi recusado');
         }
 
         if ($link->status !== 'request_sent') {
-            abort(422, 'Este pedido não está pendente');
+            abort(422, 'Este convite não está pendente');
         }
 
         $link->update(['status' => 'rejected']);
@@ -178,7 +187,7 @@ class CompanyFuelStationService
         $link = $this->companyLink($stationUuid);
 
         if (! in_array($link->status, ['rejected', 'disconnected'], true)) {
-            abort(422, 'Esta solicitação não pode ser reenviada');
+            abort(422, 'Este convite não pode ser reenviado');
         }
 
         if ($link->fuelStation->trashed()) {

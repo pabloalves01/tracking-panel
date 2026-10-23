@@ -141,6 +141,7 @@ Route::middleware(['auth:sanctum', 'ensure.company'])->group(function () {
                 ->middleware('throttle:20,1,company-fuel-station-cnpj');
             Route::post('/', [FuelStationLinkController::class, 'store']);
             Route::delete('/{uuid}', [FuelStationLinkController::class, 'destroy']);
+            Route::post('/{uuid}/disconnect', [FuelStationLinkController::class, 'disconnect']);
             Route::post('/{uuid}/resend-request', [FuelStationLinkController::class, 'resendRequest']);
         });
 

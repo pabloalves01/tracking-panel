@@ -43,3 +43,12 @@ export function deleteCompanyFuelStation(uuid) {
 export function resendCompanyFuelStationRequest(uuid) {
     return api.post(`/registry/fuel-stations/${uuid}/resend-request`).then((response) => response.data)
 }
+
+/**
+ * Disconnect an active link between a company and a fuel station.
+ * @param {*} uuid fuel station uuid
+ * @returns (string) success message
+ */
+export function disconnectCompanyFuelStation(uuid) {
+    return api.post(`/registry/fuel-stations/${uuid}/disconnect`).then((response) => response.data)
+}

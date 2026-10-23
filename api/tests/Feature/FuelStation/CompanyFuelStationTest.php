@@ -25,7 +25,7 @@ class CompanyFuelStationTest extends TestCase
         $this->postJson('/api/registry/fuel-stations', [
             'cnpj' => '19.131.243/0001-97',
         ])->assertCreated()
-            ->assertJsonPath('message', 'Pedido de vínculo enviado');
+            ->assertJsonPath('message', 'Convite enviado');
 
         $this->assertDatabaseHas('company_fuel_station', [
             'company_id' => $company->id,
@@ -196,7 +196,7 @@ class CompanyFuelStationTest extends TestCase
         $this->assertSame(0, CompanyFuelStation::query()->count());
     }
 
-    public function test_empresa_remove_o_pedido_e_pode_pedir_de_novo(): void
+    public function test_empresa_cancela_convite_pendente_e_pode_convidar_de_novo(): void
     {
         $this->actAsCompany();
         $station = $this->station(self::CNPJ);
@@ -204,7 +204,7 @@ class CompanyFuelStationTest extends TestCase
 
         $this->deleteJson('/api/registry/fuel-stations/'.$station->uuid)
             ->assertOk()
-            ->assertJsonPath('message', 'Pedido removido');
+            ->assertJsonPath('message', 'Convite cancelado');
 
         $this->assertSame(0, CompanyFuelStation::query()->count());
 
@@ -252,7 +252,7 @@ class CompanyFuelStationTest extends TestCase
 
         $this->postJson('/api/station/companies/'.$company->uuid.'/reject')
             ->assertUnprocessable()
-            ->assertJsonPath('message', 'Este pedido não está pendente');
+            ->assertJsonPath('message', 'Este convite não está pendente');
 
         $this->postJson('/api/station/companies/'.$company->uuid.'/disconnect')
             ->assertOk()
@@ -276,24 +276,24 @@ class CompanyFuelStationTest extends TestCase
 
         $this->postJson('/api/station/companies/'.$company->uuid.'/reject')
             ->assertOk()
-            ->assertJsonPath('message', 'Pedido recusado');
+            ->assertJsonPath('message', 'Convite recusado');
 
         $this->assertSame('rejected', CompanyFuelStation::query()->first()->status);
         $this->assertFalse($company->fuelStations()->whereKey($station->id)->exists());
 
         $this->postJson('/api/station/companies/'.$company->uuid.'/accept')
             ->assertUnprocessable()
-            ->assertJsonPath('message', 'Este pedido não está pendente');
+            ->assertJsonPath('message', 'Este convite não está pendente');
 
         $this->postJson('/api/station/companies/'.$company->uuid.'/reject')
             ->assertUnprocessable()
-            ->assertJsonPath('message', 'Este pedido já foi recusado');
+            ->assertJsonPath('message', 'Este convite já foi recusado');
 
         $this->actAsExistingCompany($company);
 
         $this->postJson('/api/registry/fuel-stations/'.$station->uuid.'/resend-request')
             ->assertOk()
-            ->assertJsonPath('message', 'Pedido reenviado');
+            ->assertJsonPath('message', 'Convite reenviado');
 
         $this->assertSame('request_sent', CompanyFuelStation::query()->first()->status);
     }
@@ -312,7 +312,7 @@ class CompanyFuelStationTest extends TestCase
 
         $this->postJson('/api/registry/fuel-stations/'.$station->uuid.'/resend-request')
             ->assertOk()
-            ->assertJsonPath('message', 'Pedido reenviado');
+            ->assertJsonPath('message', 'Convite reenviado');
 
         $this->assertSame('request_sent', CompanyFuelStation::query()->first()->status);
         $this->assertFalse($company->fuelStations()->whereKey($station->id)->exists());
@@ -339,7 +339,7 @@ class CompanyFuelStationTest extends TestCase
         $this->assertSame(1, CompanyFuelStation::query()->count());
     }
 
-    public function test_empresa_encerra_vinculo_ativo_em_vez_de_apagar(): void
+    public function test_empresa_desconecta_vinculo_ativo_e_nao_pode_apagar(): void
     {
         $company = $this->actAsCompany();
         $station = $this->station(self::CNPJ);
@@ -351,15 +351,23 @@ class CompanyFuelStationTest extends TestCase
         $this->actAsExistingCompany($company);
 
         $this->deleteJson('/api/registry/fuel-stations/'.$station->uuid)
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Só é possível cancelar um convite pendente');
+
+        $this->postJson('/api/registry/fuel-stations/'.$station->uuid.'/disconnect')
             ->assertOk()
             ->assertJsonPath('message', 'Conexão encerrada');
 
         $this->assertSame(1, CompanyFuelStation::query()->count());
         $this->assertSame('disconnected', CompanyFuelStation::query()->first()->status);
         $this->assertFalse($company->fuelStations()->whereKey($station->id)->exists());
+
+        $this->postJson('/api/registry/fuel-stations/'.$station->uuid.'/disconnect')
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Este vínculo não está ativo');
     }
 
-    public function test_empresa_remove_pedido_recusado(): void
+    public function test_empresa_nao_apaga_convite_recusado(): void
     {
         $company = $this->actAsCompany();
         $station = $this->station(self::CNPJ);
@@ -371,13 +379,18 @@ class CompanyFuelStationTest extends TestCase
         $this->actAsExistingCompany($company);
 
         $this->deleteJson('/api/registry/fuel-stations/'.$station->uuid)
-            ->assertOk()
-            ->assertJsonPath('message', 'Pedido removido');
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Só é possível cancelar um convite pendente');
 
-        $this->assertSame(0, CompanyFuelStation::query()->count());
+        $this->postJson('/api/registry/fuel-stations', ['cnpj' => self::CNPJ])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Este CNPJ já foi solicitado');
+
+        $this->assertSame(1, CompanyFuelStation::query()->count());
+        $this->assertSame('rejected', CompanyFuelStation::query()->first()->status);
     }
 
-    public function test_empresa_nao_remove_conexao_encerrada(): void
+    public function test_empresa_nao_apaga_conexao_desconectada(): void
     {
         $company = $this->actAsCompany();
         $station = $this->station(self::CNPJ);
@@ -391,9 +404,158 @@ class CompanyFuelStationTest extends TestCase
 
         $this->deleteJson('/api/registry/fuel-stations/'.$station->uuid)
             ->assertUnprocessable()
-            ->assertJsonPath('message', 'Este pedido não pode ser removido');
+            ->assertJsonPath('message', 'Só é possível cancelar um convite pendente');
 
         $this->assertSame('disconnected', CompanyFuelStation::query()->first()->status);
+    }
+
+    public function test_empresa_nao_desconecta_convite_pendente_nem_recusado(): void
+    {
+        $company = $this->actAsCompany();
+        $station = $this->station(self::CNPJ);
+        $this->postJson('/api/registry/fuel-stations', ['cnpj' => self::CNPJ])->assertCreated();
+
+        $this->postJson('/api/registry/fuel-stations/'.$station->uuid.'/disconnect')
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Este vínculo não está ativo');
+
+        $this->actAsStation($station);
+        $this->postJson('/api/station/companies/'.$company->uuid.'/reject')->assertOk();
+
+        $this->actAsExistingCompany($company);
+
+        $this->postJson('/api/registry/fuel-stations/'.$station->uuid.'/disconnect')
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Este vínculo não está ativo');
+
+        $this->assertSame('rejected', CompanyFuelStation::query()->first()->status);
+    }
+
+    public function test_empresa_nao_reenvia_convite_pendente_nem_ativo(): void
+    {
+        $company = $this->actAsCompany();
+        $station = $this->station(self::CNPJ);
+        $this->postJson('/api/registry/fuel-stations', ['cnpj' => self::CNPJ])->assertCreated();
+
+        $this->postJson('/api/registry/fuel-stations/'.$station->uuid.'/resend-request')
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Este convite não pode ser reenviado');
+
+        $this->actAsStation($station);
+        $this->postJson('/api/station/companies/'.$company->uuid.'/accept')->assertOk();
+
+        $this->actAsExistingCompany($company);
+
+        $this->postJson('/api/registry/fuel-stations/'.$station->uuid.'/resend-request')
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Este convite não pode ser reenviado');
+
+        $this->assertSame('active', CompanyFuelStation::query()->first()->status);
+    }
+
+    public function test_posto_nao_aceita_duas_vezes(): void
+    {
+        $company = $this->actAsCompany();
+        $station = $this->station(self::CNPJ);
+        $this->postJson('/api/registry/fuel-stations', ['cnpj' => self::CNPJ])->assertCreated();
+
+        $this->actAsStation($station);
+        $this->postJson('/api/station/companies/'.$company->uuid.'/accept')->assertOk();
+
+        $this->postJson('/api/station/companies/'.$company->uuid.'/accept')
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Este convite não está pendente');
+
+        $this->assertSame('active', CompanyFuelStation::query()->first()->status);
+    }
+
+    public function test_posto_nao_desconecta_convite_pendente(): void
+    {
+        $company = $this->actAsCompany();
+        $station = $this->station(self::CNPJ);
+        $this->postJson('/api/registry/fuel-stations', ['cnpj' => self::CNPJ])->assertCreated();
+
+        $this->actAsStation($station);
+
+        $this->postJson('/api/station/companies/'.$company->uuid.'/disconnect')
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Este vínculo não está ativo');
+
+        $this->assertSame('request_sent', CompanyFuelStation::query()->first()->status);
+    }
+
+    public function test_ciclo_completo_usa_sempre_o_mesmo_registro(): void
+    {
+        $company = $this->actAsCompany();
+        $station = $this->station(self::CNPJ);
+        $this->postJson('/api/registry/fuel-stations', ['cnpj' => self::CNPJ])->assertCreated();
+        $linkId = CompanyFuelStation::query()->value('id');
+
+        // recusa -> reenvia -> recusa de novo -> reenvia -> aceita
+        $this->actAsStation($station);
+        $this->postJson('/api/station/companies/'.$company->uuid.'/reject')->assertOk();
+        $this->actAsExistingCompany($company);
+        $this->postJson('/api/registry/fuel-stations/'.$station->uuid.'/resend-request')->assertOk();
+        $this->actAsStation($station);
+        $this->postJson('/api/station/companies/'.$company->uuid.'/reject')->assertOk();
+        $this->actAsExistingCompany($company);
+        $this->postJson('/api/registry/fuel-stations/'.$station->uuid.'/resend-request')->assertOk();
+        $this->actAsStation($station);
+        $this->postJson('/api/station/companies/'.$company->uuid.'/accept')->assertOk();
+        $this->assertTrue($company->fuelStations()->whereKey($station->id)->exists());
+
+        // posto desconecta -> empresa reenvia -> posto aceita -> empresa desconecta
+        $this->postJson('/api/station/companies/'.$company->uuid.'/disconnect')->assertOk();
+        $this->actAsExistingCompany($company);
+        $this->postJson('/api/registry/fuel-stations/'.$station->uuid.'/resend-request')->assertOk();
+        $this->actAsStation($station);
+        $this->postJson('/api/station/companies/'.$company->uuid.'/accept')->assertOk();
+        $this->actAsExistingCompany($company);
+        $this->postJson('/api/registry/fuel-stations/'.$station->uuid.'/disconnect')->assertOk();
+
+        $this->assertSame(1, CompanyFuelStation::query()->count());
+        $this->assertSame($linkId, CompanyFuelStation::query()->value('id'));
+        $this->assertSame('disconnected', CompanyFuelStation::query()->value('status'));
+        $this->assertFalse($company->fuelStations()->whereKey($station->id)->exists());
+    }
+
+    public function test_empresa_so_usa_postos_com_vinculo_ativo(): void
+    {
+        $company = $this->actAsCompany();
+        $statuses = ['request_sent', 'active', 'rejected', 'disconnected'];
+
+        foreach ($statuses as $index => $status) {
+            $station = $this->station(['19131243000197', '34028316000103', '11444777000161', '45723174000110'][$index]);
+            CompanyFuelStation::query()->create([
+                'company_id' => $company->id,
+                'fuel_station_id' => $station->id,
+                'status' => $status,
+            ]);
+        }
+
+        $active = CompanyFuelStation::query()->where('status', 'active')->value('fuel_station_id');
+
+        $this->assertSame([$active], $company->fuelStations()->pluck('fuel_stations.id')->all());
+    }
+
+    public function test_outra_empresa_nao_age_sobre_o_convite(): void
+    {
+        $company = $this->actAsCompany('00000000000191', 'Empresa A');
+        $station = $this->station(self::CNPJ);
+        $this->postJson('/api/registry/fuel-stations', ['cnpj' => self::CNPJ])->assertCreated();
+        $this->actAsStation($station);
+        $this->postJson('/api/station/companies/'.$company->uuid.'/accept')->assertOk();
+
+        $this->actAsCompany('11222333000181', 'Empresa B');
+
+        $this->postJson('/api/registry/fuel-stations/'.$station->uuid.'/disconnect')
+            ->assertNotFound()
+            ->assertJsonPath('message', 'Pedido não encontrado');
+        $this->postJson('/api/registry/fuel-stations/'.$station->uuid.'/resend-request')
+            ->assertNotFound()
+            ->assertJsonPath('message', 'Pedido não encontrado');
+
+        $this->assertSame('active', CompanyFuelStation::query()->first()->status);
     }
 
     public function test_posto_so_ve_e_responde_os_proprios_pedidos(): void
@@ -510,14 +672,18 @@ class CompanyFuelStationTest extends TestCase
     {
         $this->app['auth']->forgetGuards();
 
-        $user = User::factory()->create([
+        $owner = FuelStationUser::query()->where('fuel_station_id', $station->id)->first();
+        $user = $owner ? User::query()->find($owner->user_id) : User::factory()->create([
             'email' => 'posto-'.Str::uuid().'@example.com',
         ]);
-        FuelStationUser::query()->create([
-            'fuel_station_id' => $station->id,
-            'user_id' => $user->id,
-            'role' => 'owner',
-        ]);
+
+        if (! $owner) {
+            FuelStationUser::query()->create([
+                'fuel_station_id' => $station->id,
+                'user_id' => $user->id,
+                'role' => 'owner',
+            ]);
+        }
 
         $token = $user->createToken('web');
         $token->accessToken->forceFill([

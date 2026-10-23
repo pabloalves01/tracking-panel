@@ -33,14 +33,25 @@ class FuelStationLinkController extends Controller
         $this->companyFuelStationService->store($request->validated('cnpj'));
 
         return response()->json([
-            'message' => 'Pedido de vínculo enviado',
+            'message' => 'Convite enviado',
         ], 201);
     }
 
     public function destroy(string $uuid)
     {
+        $this->companyFuelStationService->destroy($uuid);
+
         return response()->json([
-            'message' => $this->companyFuelStationService->destroy($uuid),
+            'message' => 'Convite cancelado',
+        ]);
+    }
+
+    public function disconnect(string $uuid)
+    {
+        $this->companyFuelStationService->disconnectForCompany($uuid);
+
+        return response()->json([
+            'message' => 'Conexão encerrada',
         ]);
     }
 
@@ -49,7 +60,7 @@ class FuelStationLinkController extends Controller
         $this->companyFuelStationService->resendRequest($uuid);
 
         return response()->json([
-            'message' => 'Pedido reenviado',
+            'message' => 'Convite reenviado',
         ]);
     }
 }

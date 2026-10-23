@@ -18,15 +18,9 @@ import { Button } from "@/components/ui/button"
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { formatCpfCnpj } from "@/helpers/formatters"
+import { linkStatusLabel } from "@/helpers/labels"
 import { acceptStationCompany, disconnectStationCompany, getStationCompanies, rejectStationCompany } from "@/lib/station/companies"
 import { notifyError, notifySuccess } from "@/lib/notify"
-
-const statusLabel = {
-    request_sent: "Solicitação enviada",
-    active: "Ativo",
-    rejected: "Recusado",
-    disconnected: "Conexão encerrada",
-}
 
 function companyLabel(link) {
     return link?.company?.trade_name || link?.company?.legal_name || "esta empresa"
@@ -122,7 +116,7 @@ export default function StationCompaniesPage() {
                                     <TableCell>{formatCpfCnpj(link.company.cnpj)}</TableCell>
                                     <TableCell>
                                         <Badge variant={link.status === "active" ? "secondary" : "outline"}>
-                                            {statusLabel[link.status] ?? link.status}
+                                            {linkStatusLabel[link.status] ?? link.status}
                                         </Badge>
                                     </TableCell>
                                     <TableCell>
@@ -149,7 +143,7 @@ export default function StationCompaniesPage() {
                                                     variant="outline"
                                                     onClick={() => setLinkToUndo(link)}
                                                 >
-                                                    Desfazer
+                                                    Desconectar
                                                 </Button>
                                             ) : null}
                                         </div>
@@ -164,15 +158,15 @@ export default function StationCompaniesPage() {
             <AlertDialog open={!!linkToUndo} onOpenChange={(open) => !open && setLinkToUndo(null)}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Desfazer vínculo</AlertDialogTitle>
+                        <AlertDialogTitle>Desconectar</AlertDialogTitle>
                         <AlertDialogDescription>
-                            {`Tem certeza que deseja desfazer o vínculo com ${companyLabel(linkToUndo)}?`}
+                            {`Tem certeza que deseja desconectar ${companyLabel(linkToUndo)}?`}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancelar</AlertDialogCancel>
                         <AlertDialogAction variant="destructive" onClick={handleDisconnect}>
-                            Desfazer
+                            Desconectar
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
