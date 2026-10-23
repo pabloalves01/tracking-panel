@@ -40,7 +40,7 @@ class CompanyFuelStationTest extends TestCase
             ->assertJsonPath('data.0.fuel_station.cnpj', self::CNPJ)
             ->assertJsonPath('data.0.status', 'request_sent')
             ->assertJsonPath('data.0.fuel_station.corporate_name', 'POSTO EXEMPLO LTDA')
-            ->assertJsonPath('data.0.company.uuid', $company->uuid);
+            ->assertJsonMissingPath('data.0.company');
     }
 
     public function test_cnpj_sem_cadastro_no_logiv_nao_cria_pedido(): void
@@ -129,6 +129,24 @@ class CompanyFuelStationTest extends TestCase
         $this->getJson('/api/registry/fuel-stations/by-cnpj?cnpj='.urlencode('19.131.243/0001-97'))
             ->assertUnprocessable()
             ->assertJsonPath('errors.cnpj.0', 'Este posto não está cadastrado na Logiv.');
+    }
+
+    public function test_consulta_valida_o_cnpj_pelo_form_request(): void
+    {
+        $this->actAsCompany(self::CNPJ);
+        $this->station(self::CNPJ);
+
+        $this->getJson('/api/registry/fuel-stations/by-cnpj')
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.cnpj.0', 'O CNPJ é obrigatório');
+
+        $this->getJson('/api/registry/fuel-stations/by-cnpj?cnpj=123')
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.cnpj.0', 'Informe um CNPJ válido');
+
+        $this->getJson('/api/registry/fuel-stations/by-cnpj?cnpj='.self::CNPJ)
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.cnpj.0', 'Você não pode convidar o próprio CNPJ.');
     }
 
     public function test_consulta_posto_excluido(): void
@@ -287,7 +305,7 @@ class CompanyFuelStationTest extends TestCase
 
         $this->postJson('/api/station/companies/'.$company->uuid.'/reject')
             ->assertUnprocessable()
-            ->assertJsonPath('message', 'Este convite já foi recusado');
+            ->assertJsonPath('message', 'Este convite não está pendente');
 
         $this->actAsExistingCompany($company);
 

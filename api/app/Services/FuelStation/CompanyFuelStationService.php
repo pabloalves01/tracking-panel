@@ -4,7 +4,6 @@ namespace App\Services\FuelStation;
 
 use App\Models\CompanyFuelStation;
 use App\Models\FuelStation;
-use App\Rules\Cnpj;
 use App\Support\CurrentCompany;
 use App\Support\CurrentFuelStation;
 use Illuminate\Database\Eloquent\Collection;
@@ -20,7 +19,7 @@ class CompanyFuelStationService
     {
         return CompanyFuelStation::query()
             ->where('company_id', app(CurrentCompany::class)->id)
-            ->with(['fuelStation', 'company'])
+            ->with('fuelStation')
             ->latest()
             ->get();
     }
@@ -30,46 +29,21 @@ class CompanyFuelStationService
      */
     public function findByCnpj(string $cnpj): FuelStation
     {
-        if ($cnpj === '') {
-            throw ValidationException::withMessages([
-                'cnpj' => 'O CNPJ é obrigatório',
-            ]);
-        }
-
-        if (! Cnpj::isValid($cnpj)) {
-            throw ValidationException::withMessages([
-                'cnpj' => 'Informe um CNPJ válido',
-            ]);
-        }
-
-        $station = FuelStation::query()
+        return FuelStation::query()
             ->with(['city', 'state'])
             ->where('cnpj', $cnpj)
-            ->first();
-
-        if (! $station) {
-            throw ValidationException::withMessages([
-                'cnpj' => 'Este posto não está cadastrado na Logiv.',
-            ]);
-        }
-
-        return $station;
+            ->firstOrFail();
     }
 
+    /**
+     * O FormRequest já garante que o posto existe.
+     */
     public function store(string $cnpj): void
     {
-        $station = FuelStation::query()->where('cnpj', $cnpj)->first();
-
-        if (! $station) {
-            throw ValidationException::withMessages([
-                'cnpj' => 'Este posto não está cadastrado na Logiv.',
-            ]);
-        }
-
         try {
             CompanyFuelStation::query()->create([
                 'company_id' => app(CurrentCompany::class)->id,
-                'fuel_station_id' => $station->id,
+                'fuel_station_id' => FuelStation::query()->where('cnpj', $cnpj)->value('id'),
                 'status' => 'request_sent',
             ]);
         } catch (UniqueConstraintViolationException) {
@@ -132,10 +106,6 @@ class CompanyFuelStationService
     public function reject(string $companyUuid): void
     {
         $link = $this->stationLink($companyUuid);
-
-        if ($link->status === 'rejected') {
-            abort(422, 'Este convite já foi recusado');
-        }
 
         if ($link->status !== 'request_sent') {
             abort(422, 'Este convite não está pendente');

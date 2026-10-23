@@ -32,10 +32,7 @@ export default function StationCompaniesPage() {
     const [linkToUndo, setLinkToUndo] = useState(null)
 
     useEffect(() => {
-        getStationCompanies()
-            .then(setLinks)
-            .catch(notifyError)
-            .finally(() => setLoading(false))
+        loadLinks()
     }, [])
 
     function loadLinks() {

@@ -63,11 +63,6 @@ class FuelStation extends Model
         return $this->hasMany(FuelStationUser::class);
     }
 
-    public function companyLinks(): HasMany
-    {
-        return $this->hasMany(CompanyFuelStation::class);
-    }
-
     // ===================== UNIQUE IDS =====================
 
     public function uniqueIds(): array
