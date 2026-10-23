@@ -28,18 +28,18 @@ export function storeCompanyFuelStation(cnpj) {
 
 /**
  * Delete a request to link a company to a fuel station.
- * @param {*} cnpj 
+ * @param {*} uuid fuel station uuid
  * @returns (string) success message
  */
-export function deleteCompanyFuelStation(cnpj) {
-    return api.delete(`/registry/fuel-stations/${cnpj}`).then((response) => response.data)
+export function deleteCompanyFuelStation(uuid) {
+    return api.delete(`/registry/fuel-stations/${uuid}`).then((response) => response.data)
 }
 
 /**
  * Resend a request to link a company to a fuel station.
- * @param {*} cnpj 
+ * @param {*} uuid fuel station uuid
  * @returns (string) success message
  */
-export function resendCompanyFuelStationRequest(cnpj) {
-    return api.post(`/registry/fuel-stations/${cnpj}/resend-request`).then((response) => response.data)
+export function resendCompanyFuelStationRequest(uuid) {
+    return api.post(`/registry/fuel-stations/${uuid}/resend-request`).then((response) => response.data)
 }

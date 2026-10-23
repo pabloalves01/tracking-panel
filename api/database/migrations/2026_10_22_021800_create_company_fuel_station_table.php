@@ -15,11 +15,10 @@ return new class extends Migration
             $table->id();
             $table->foreignId('company_id')->constrained('companies');
             $table->foreignId('fuel_station_id')->constrained('fuel_stations');
-            $table->string('cnpj', 14);
             $table->string('status')->default('request_sent');
             $table->timestamps();
 
-            $table->unique(['company_id', 'cnpj']);
+            $table->unique(['company_id', 'fuel_station_id']);
         });
     }
 

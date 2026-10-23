@@ -37,16 +37,16 @@ class FuelStationLinkController extends Controller
         ], 201);
     }
 
-    public function destroy(string $cnpj)
+    public function destroy(string $uuid)
     {
         return response()->json([
-            'message' => $this->companyFuelStationService->destroy(Cnpj::digits($cnpj)),
+            'message' => $this->companyFuelStationService->destroy($uuid),
         ]);
     }
 
-    public function resendRequest(string $cnpj)
+    public function resendRequest(string $uuid)
     {
-        $this->companyFuelStationService->resendRequest($cnpj);
+        $this->companyFuelStationService->resendRequest($uuid);
 
         return response()->json([
             'message' => 'Pedido reenviado',

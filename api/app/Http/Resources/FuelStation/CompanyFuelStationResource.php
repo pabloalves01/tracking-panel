@@ -15,12 +15,12 @@ class CompanyFuelStationResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'cnpj' => $this->cnpj,
             'status' => $this->status,
             'fuel_station' => $this->fuelStation ? [
                 'uuid' => $this->fuelStation->uuid,
                 'corporate_name' => $this->fuelStation->corporate_name,
                 'trade_name' => $this->fuelStation->trade_name,
+                'cnpj' => $this->fuelStation->cnpj,
             ] : null,
             'company' => [
                 'uuid' => $this->company?->uuid,

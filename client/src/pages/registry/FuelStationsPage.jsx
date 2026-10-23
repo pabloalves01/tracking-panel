@@ -60,7 +60,7 @@ export default function FuelStationsPage() {
         setLoading(true)
 
         try {
-            const response = await deleteCompanyFuelStation(linkToRemove.cnpj)
+            const response = await deleteCompanyFuelStation(linkToRemove.fuel_station.uuid)
             notifySuccess(response)
             loadLinks()
         } catch (error) {
@@ -75,7 +75,7 @@ export default function FuelStationsPage() {
         setLoading(true)
 
         try {
-            const response = await resendCompanyFuelStationRequest(link.cnpj)
+            const response = await resendCompanyFuelStationRequest(link.fuel_station.uuid)
             notifySuccess(response)
             loadLinks()
         } catch (error) {
@@ -121,9 +121,9 @@ export default function FuelStationsPage() {
                         </TableHeader>
                         <TableBody>
                             {links.map((link) => (
-                                <TableRow key={link.cnpj}>
+                                <TableRow key={link.fuel_station.uuid}>
                                     <TableCell>{stationLabel(link)}</TableCell>
-                                    <TableCell>{formatCpfCnpj(link.cnpj)}</TableCell>
+                                    <TableCell>{formatCpfCnpj(link.fuel_station.cnpj)}</TableCell>
                                     <TableCell>
                                         <Badge variant={link.status === 'active' ? 'secondary' : 'outline'}>
                                             {statusLabel[link.status] ?? link.status}

@@ -70,7 +70,6 @@ class CompanyFuelStationService
             CompanyFuelStation::query()->create([
                 'company_id' => app(CurrentCompany::class)->id,
                 'fuel_station_id' => $station->id,
-                'cnpj' => $cnpj,
                 'status' => 'request_sent',
             ]);
         } catch (UniqueConstraintViolationException) {
@@ -78,9 +77,9 @@ class CompanyFuelStationService
         }
     }
 
-    public function destroy(string $cnpj): string
+    public function destroy(string $stationUuid): string
     {
-        $link = $this->companyLink($cnpj);
+        $link = $this->companyLink($stationUuid);
 
         if ($link->status === 'active') {
             $link->update(['status' => 'disconnected']);
@@ -146,11 +145,11 @@ class CompanyFuelStationService
         $link->update(['status' => 'disconnected']);
     }
 
-    private function companyLink(string $cnpj): CompanyFuelStation
+    private function companyLink(string $stationUuid): CompanyFuelStation
     {
         $link = CompanyFuelStation::query()
             ->where('company_id', app(CurrentCompany::class)->id)
-            ->where('cnpj', $cnpj)
+            ->whereHas('fuelStation', fn ($query) => $query->where('uuid', $stationUuid))
             ->first();
 
         if (! $link) {
@@ -174,15 +173,15 @@ class CompanyFuelStationService
         return $link;
     }
 
-    public function resendRequest(string $cnpj): void
+    public function resendRequest(string $stationUuid): void
     {
-        $link = $this->companyLink($cnpj);
+        $link = $this->companyLink($stationUuid);
 
         if (! in_array($link->status, ['rejected', 'disconnected'], true)) {
             abort(422, 'Esta solicitação não pode ser reenviada');
         }
 
-        if (! FuelStation::query()->where('cnpj', $link->cnpj)->exists()) {
+        if ($link->fuelStation->trashed()) {
             throw ValidationException::withMessages([
                 'cnpj' => 'Este posto não possui cadastro no Logiv',
             ]);
