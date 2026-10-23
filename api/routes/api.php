@@ -161,9 +161,9 @@ Route::middleware(['auth:sanctum', 'ensure.company'])->group(function () {
 Route::middleware(['auth:sanctum', 'ensure.station'])->prefix('station')->group(function () {
     Route::get('me', [StationController::class, 'me']);
     Route::get('companies', [StationCompanyController::class, 'index']);
-    Route::post('companies/{uuid}/accept', [StationCompanyController::class, 'accept']);
-    Route::post('companies/{uuid}/reject', [StationCompanyController::class, 'reject']);
-    Route::post('companies/{uuid}/disconnect', [StationCompanyController::class, 'disconnect']);
+    Route::post('companies/{uuid}/accept', [StationCompanyController::class, 'accept'])->whereUuid('uuid');
+    Route::post('companies/{uuid}/reject', [StationCompanyController::class, 'reject'])->whereUuid('uuid');
+    Route::post('companies/{uuid}/disconnect', [StationCompanyController::class, 'disconnect'])->whereUuid('uuid');
 });
 
 // =============================== ADMIN SYSTEM ROUTES ===============================

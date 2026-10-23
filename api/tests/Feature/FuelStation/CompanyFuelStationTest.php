@@ -680,6 +680,21 @@ class CompanyFuelStationTest extends TestCase
         $this->postJson('/api/registry/fuel-stations/nao-e-uuid/resend-request')->assertNotFound();
     }
 
+    public function test_uuid_invalido_nas_rotas_do_posto_retorna_404(): void
+    {
+        $this->actAsStation($this->station(self::CNPJ));
+
+        $this->postJson('/api/station/companies/nao-e-uuid/accept')
+            ->assertNotFound()
+            ->assertJsonMissing(['message' => 'Pedido não encontrado']);
+        $this->postJson('/api/station/companies/nao-e-uuid/reject')
+            ->assertNotFound()
+            ->assertJsonMissing(['message' => 'Pedido não encontrado']);
+        $this->postJson('/api/station/companies/nao-e-uuid/disconnect')
+            ->assertNotFound()
+            ->assertJsonMissing(['message' => 'Pedido não encontrado']);
+    }
+
     public function test_posto_sem_vinculo_com_a_empresa_retorna_404(): void
     {
         $this->actAsCompany();
