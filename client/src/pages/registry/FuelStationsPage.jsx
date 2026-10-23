@@ -142,7 +142,7 @@ export default function FuelStationsPage() {
                                             {(link.status === 'rejected' || link.status === 'disconnected') && (
                                                 <ActionButton
                                                     icon={RefreshCw}
-                                                    tooltip="Reenviar solicitação"
+                                                    tooltip="Reenviar convite"
                                                     variant="outline"
                                                     onClick={() => handleResendRequest(link)}
                                                 />

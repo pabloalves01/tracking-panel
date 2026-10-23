@@ -37,7 +37,7 @@ class StoreCompanyFuelStationRequest extends FormRequest
     {
         return [
             'cnpj.required' => 'O CNPJ é obrigatório',
-            'cnpj.exists' => 'Este posto não possui cadastro no Logiv',
+            'cnpj.exists' => 'Este posto não está cadastrado na Logiv.',
         ];
     }
 }

@@ -49,7 +49,7 @@ class CompanyFuelStationService
 
         if (! $station) {
             throw ValidationException::withMessages([
-                'cnpj' => 'Este posto não possui cadastro no Logiv',
+                'cnpj' => 'Este posto não está cadastrado na Logiv.',
             ]);
         }
 
@@ -62,7 +62,7 @@ class CompanyFuelStationService
 
         if (! $station) {
             throw ValidationException::withMessages([
-                'cnpj' => 'Este posto não possui cadastro no Logiv',
+                'cnpj' => 'Este posto não está cadastrado na Logiv.',
             ]);
         }
 
@@ -183,7 +183,7 @@ class CompanyFuelStationService
 
         if ($link->fuelStation->trashed()) {
             throw ValidationException::withMessages([
-                'cnpj' => 'Este posto não possui cadastro no Logiv',
+                'cnpj' => 'Este posto não está cadastrado na Logiv.',
             ]);
         }
 

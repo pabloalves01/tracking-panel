@@ -50,8 +50,8 @@ class CompanyFuelStationTest extends TestCase
         $this->postJson('/api/registry/fuel-stations', [
             'cnpj' => self::CNPJ,
         ])->assertUnprocessable()
-            ->assertJsonPath('message', 'Este posto não possui cadastro no Logiv')
-            ->assertJsonPath('errors.cnpj.0', 'Este posto não possui cadastro no Logiv');
+            ->assertJsonPath('message', 'Este posto não está cadastrado na Logiv.')
+            ->assertJsonPath('errors.cnpj.0', 'Este posto não está cadastrado na Logiv.');
 
         $this->assertSame(0, CompanyFuelStation::query()->count());
         $this->assertSame(0, FuelStation::query()->count());
@@ -64,8 +64,8 @@ class CompanyFuelStationTest extends TestCase
         $this->postJson('/api/registry/fuel-stations', [
             'cnpj' => '19.131.243/0001-97',
         ])->assertUnprocessable()
-            ->assertJsonPath('message', 'Este posto não possui cadastro no Logiv')
-            ->assertJsonPath('errors.cnpj.0', 'Este posto não possui cadastro no Logiv');
+            ->assertJsonPath('message', 'Este posto não está cadastrado na Logiv.')
+            ->assertJsonPath('errors.cnpj.0', 'Este posto não está cadastrado na Logiv.');
 
         $this->assertSame(0, CompanyFuelStation::query()->count());
     }
@@ -78,7 +78,7 @@ class CompanyFuelStationTest extends TestCase
         $this->postJson('/api/registry/fuel-stations', [
             'cnpj' => self::CNPJ,
         ])->assertUnprocessable()
-            ->assertJsonPath('errors.cnpj.0', 'Este posto não possui cadastro no Logiv');
+            ->assertJsonPath('errors.cnpj.0', 'Este posto não está cadastrado na Logiv.');
 
         $this->assertSame(0, CompanyFuelStation::query()->count());
     }
@@ -128,7 +128,7 @@ class CompanyFuelStationTest extends TestCase
 
         $this->getJson('/api/registry/fuel-stations/by-cnpj?cnpj='.urlencode('19.131.243/0001-97'))
             ->assertUnprocessable()
-            ->assertJsonPath('errors.cnpj.0', 'Este posto não possui cadastro no Logiv');
+            ->assertJsonPath('errors.cnpj.0', 'Este posto não está cadastrado na Logiv.');
     }
 
     public function test_consulta_posto_excluido(): void
@@ -138,7 +138,7 @@ class CompanyFuelStationTest extends TestCase
 
         $this->getJson('/api/registry/fuel-stations/by-cnpj?cnpj='.self::CNPJ)
             ->assertUnprocessable()
-            ->assertJsonPath('errors.cnpj.0', 'Este posto não possui cadastro no Logiv');
+            ->assertJsonPath('errors.cnpj.0', 'Este posto não está cadastrado na Logiv.');
     }
 
     public function test_posto_inativo_pode_ser_consultado_e_vinculado(): void
@@ -332,8 +332,8 @@ class CompanyFuelStationTest extends TestCase
 
         $this->postJson('/api/registry/fuel-stations/'.$station->uuid.'/resend-request')
             ->assertUnprocessable()
-            ->assertJsonPath('message', 'Este posto não possui cadastro no Logiv')
-            ->assertJsonPath('errors.cnpj.0', 'Este posto não possui cadastro no Logiv');
+            ->assertJsonPath('message', 'Este posto não está cadastrado na Logiv.')
+            ->assertJsonPath('errors.cnpj.0', 'Este posto não está cadastrado na Logiv.');
 
         $this->assertSame('rejected', CompanyFuelStation::query()->first()->status);
         $this->assertSame(1, CompanyFuelStation::query()->count());
