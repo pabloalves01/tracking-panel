@@ -3,7 +3,7 @@ import { Building2, Fuel } from "lucide-react"
 import { useNavigate } from "react-router"
 
 import { Button } from "@/components/ui/button"
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { LoadingWrapper } from "@/components/common/LoadingWrapper"
 import { formatCpfCnpj } from "@/helpers/formatters"
 import { getAuthContexts, logout, me, selectCompany, selectFuelStation } from "@/lib/auth/auth"
@@ -84,11 +84,19 @@ export default function SelectContextPage() {
                                     <EmptyMedia variant="icon">
                                         <Building2 />
                                     </EmptyMedia>
-                                    <EmptyTitle>Nenhum contexto</EmptyTitle>
+                                    <EmptyTitle>Você ainda não tem acesso</EmptyTitle>
                                     <EmptyDescription>
-                                        Este usuário não está vinculado a uma empresa nem a um posto.
+                                        Sua conta não está vinculada a nenhuma empresa nem posto. Se você é de um posto,
+                                        cadastre-o agora. Se você é de uma empresa, peça à Logiv para vincular sua conta
+                                        a ela, informando o e-mail {user?.email}.
                                     </EmptyDescription>
                                 </EmptyHeader>
+                                <EmptyContent>
+                                    <Button className="cursor-pointer" onClick={() => navigate("/auth/register/posto")}>
+                                        <Fuel />
+                                        Cadastrar posto
+                                    </Button>
+                                </EmptyContent>
                             </Empty>
                         ) : !loading ? (
                             <div className="flex w-full flex-col items-center gap-10">

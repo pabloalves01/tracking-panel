@@ -4,12 +4,15 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Requests\Auth\RegisterRequest;
 use App\Http\Requests\Auth\SelectCompanyRequest;
 use App\Http\Requests\Auth\SelectFuelStationRequest;
 use App\Http\Resources\Auth\UserResource;
 use App\Http\Resources\FuelStation\FuelStationResource;
 use App\Http\Resources\System\Company\CompanyResource;
 use App\Models\Company;
+use App\Models\User;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -42,6 +45,29 @@ class AuthController extends Controller
             'companies' => CompanyResource::collection($companies),
             'fuel_stations' => FuelStationResource::collection($stations),
         ]);
+    }
+
+    /**
+     * Cria só a conta, sem empresa nem posto. A pessoa já sai logada,
+     * com a mesma resposta do login.
+     */
+    public function register(RegisterRequest $request)
+    {
+        try {
+            $user = User::create($request->validated());
+        } catch (UniqueConstraintViolationException) {
+            abort(422, 'Este e-mail já tem conta. Entre com ele');
+        }
+
+        $token = $user->createToken('web');
+        $user->withAccessToken($token->accessToken);
+
+        return response()->json([
+            'token' => $token->plainTextToken,
+            'user' => UserResource::make($user),
+            'companies' => [],
+            'fuel_stations' => [],
+        ], 201);
     }
 
     public function selectCompany(SelectCompanyRequest $request)
