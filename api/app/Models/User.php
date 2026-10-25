@@ -37,7 +37,8 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(Company::class, 'company_user')
             ->withPivot('role')
-            ->wherePivotNull('deleted_at');
+            ->wherePivotNull('deleted_at')
+            ->where('companies.status', 'active');
     }
 
     public function fuelStations(): BelongsToMany

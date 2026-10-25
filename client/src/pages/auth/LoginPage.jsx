@@ -59,22 +59,13 @@ export default function LoginPage() {
         return
       }
 
-      if (total === 0) {
-        // Admin do sistema não precisa de empresa; segue direto para o painel.
-        if (user.is_system_admin) {
-          navigate("/app", { replace: true })
-          return
-        }
-
-        notifyError({
-          response: {
-            status: 422,
-            data: { message: "Nenhuma empresa vinculada a este usuário." },
-          },
-        })
+      // Admin do sistema não precisa de empresa; segue direto para o painel.
+      if (total === 0 && user.is_system_admin) {
+        navigate("/app", { replace: true })
         return
       }
 
+      // Sem nenhum contexto, a tela de contextos explica o que fazer.
       navigate("/auth/contextos", { replace: true })
     } catch (error) {
       notifyError(error)
@@ -150,6 +141,15 @@ export default function LoginPage() {
                     {loading ? "Entrando..." : "Entrar"}
                   </Button>
                 </Field>
+                <p className="text-center text-sm text-muted-foreground">
+                  Não tem conta?{" "}
+                  <Link
+                    to="/auth/register"
+                    className="underline underline-offset-4 hover:text-foreground"
+                  >
+                    Criar conta
+                  </Link>
+                </p>
                 <p className="text-center text-sm text-muted-foreground">
                   <Link
                     to="/auth/register/posto"

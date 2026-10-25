@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Http\Requests\Auth;
+namespace App\Http\Requests\System\User;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class CheckFuelStationSignupEmailRequest extends FormRequest
+class LookupUserRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -14,7 +14,7 @@ class CheckFuelStationSignupEmailRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $this->merge([
-            'email' => strtolower(trim((string) $this->input('email'))),
+            'email' => strtolower(trim((string) $this->query('email'))),
         ]);
     }
 
@@ -28,7 +28,7 @@ class CheckFuelStationSignupEmailRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'email.required' => 'O e-mail é obrigatório',
+            'email.required' => 'Informe o e-mail',
             'email.email' => 'Informe um e-mail válido',
         ];
     }

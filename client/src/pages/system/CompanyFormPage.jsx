@@ -8,7 +8,10 @@ import { SelectState } from "@/components/common/inputs/SelectState"
 import { LayoutToolbar } from "@/components/common/LayoutToolbar"
 import { LoadingWrapper } from "@/components/common/LoadingWrapper"
 import { createCompany, getCompany, updateCompany } from "@/lib/system/companies"
+import { lookupUser } from "@/lib/system/users"
 import { notifyError, notifySuccess } from "@/lib/notify"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator";
 
 export default function CompanyFormPage() {
@@ -23,13 +26,12 @@ export default function CompanyFormPage() {
         cnpj: '',
         state_id: null,
         city_id: null,
-        user: {
-            name: '',
-            email: '',
-            password: '',
-            password_confirmation: '',
-        },
     })
+    // Administrador da empresa: uma conta que já existe, buscada pelo e-mail completo.
+    const [userEmail, setUserEmail] = useState('')
+    const [selectedUser, setSelectedUser] = useState(null)
+    const [userNotFound, setUserNotFound] = useState(false)
+    const [searchingUser, setSearchingUser] = useState(false)
 
     useEffect(() => {
         if (!uuid) return
@@ -48,8 +50,37 @@ export default function CompanyFormPage() {
             .finally(() => setLoading(false))
     }, [uuid])
 
+    async function handleUserSearch() {
+        setSearchingUser(true)
+        setSelectedUser(null)
+        setUserNotFound(false)
+
+        try {
+            setSelectedUser(await lookupUser(userEmail))
+        } catch (error) {
+            if (error.response?.status === 404) {
+                setUserNotFound(true)
+            } else {
+                notifyError(error)
+            }
+        } finally {
+            setSearchingUser(false)
+        }
+    }
+
     async function handleSubmit(event) {
         event.preventDefault()
+
+        if (!isEditing && !selectedUser) {
+            notifyError({
+                response: {
+                    status: 422,
+                    data: { message: 'Busque e selecione o administrador da empresa.' },
+                },
+            })
+            return
+        }
+
         setLoading(true)
 
         try {
@@ -62,7 +93,7 @@ export default function CompanyFormPage() {
             }
             const response = isEditing
                 ? await updateCompany(uuid, company)
-                : await createCompany({ ...company, user: formData.user })
+                : await createCompany({ ...company, user_email: selectedUser.email })
             notifySuccess(response)
             navigate('/app/sistema/empresas')
         } catch (error) {
@@ -174,54 +205,57 @@ export default function CompanyFormPage() {
                         <>
                             <Separator />
                             <FieldSet>
-                                <FieldLegend variant="label">Primeiro usuário</FieldLegend>
+                                <FieldLegend variant="label">Administrador da empresa</FieldLegend>
                                 <FieldDescription>
-                                    Esta pessoa entra como administradora. Se o e-mail já existir, ela é só vinculada e a senha atual permanece.
+                                    Busque pelo e-mail completo de uma conta que já existe na Logiv. Ela entra como administradora da empresa.
                                 </FieldDescription>
                                 <FieldGroup className="md:grid md:grid-cols-2">
                                     <Field>
-                                        <FieldLabel htmlFor="user-name">Nome</FieldLabel>
-                                        <Input
-                                            id="user-name"
-                                            value={formData.user.name}
-                                            placeholder="Ex: Pablo Alves"
-                                            onChange={(e) => setFormData({ ...formData, user: { ...formData.user, name: e.target.value } })}
-                                            autoComplete="name"
-                                        />
-                                    </Field>
-                                    <Field>
                                         <FieldLabel htmlFor="user-email">E-mail</FieldLabel>
-                                        <Input
-                                            id="user-email"
-                                            type="email"
-                                            value={formData.user.email}
-                                            placeholder="Ex: usuario@empresa.com.br"
-                                            onChange={(e) => setFormData({ ...formData, user: { ...formData.user, email: e.target.value } })}
-                                            autoComplete="off"
-                                            required
-                                        />
-                                    </Field>
-                                    <Field>
-                                        <FieldLabel htmlFor="user-password">Senha</FieldLabel>
-                                        <Input
-                                            id="user-password"
-                                            type="password"
-                                            value={formData.user.password}
-                                            placeholder="**********"
-                                            onChange={(e) => setFormData({ ...formData, user: { ...formData.user, password: e.target.value } })}
-                                            autoComplete="new-password"
-                                        />
-                                    </Field>
-                                    <Field>
-                                        <FieldLabel htmlFor="user-password-confirmation">Confirmar senha</FieldLabel>
-                                        <Input
-                                            id="user-password-confirmation"
-                                            type="password"
-                                            value={formData.user.password_confirmation}
-                                            placeholder="**********"
-                                            onChange={(e) => setFormData({ ...formData, user: { ...formData.user, password_confirmation: e.target.value } })}
-                                            autoComplete="new-password"
-                                        />
+                                        <div className="flex gap-2">
+                                            <Input
+                                                id="user-email"
+                                                type="email"
+                                                value={userEmail}
+                                                placeholder="Ex: usuario@empresa.com.br"
+                                                onChange={(e) => {
+                                                    setUserEmail(e.target.value)
+                                                    setSelectedUser(null)
+                                                    setUserNotFound(false)
+                                                }}
+                                                onKeyDown={(e) => {
+                                                    if (e.key !== 'Enter') return
+                                                    e.preventDefault()
+                                                    if (userEmail) handleUserSearch()
+                                                }}
+                                                autoComplete="off"
+                                            />
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                className="cursor-pointer"
+                                                disabled={!userEmail || searchingUser}
+                                                onClick={handleUserSearch}
+                                            >
+                                                {searchingUser ? 'Buscando...' : 'Buscar'}
+                                            </Button>
+                                        </div>
+                                        {selectedUser ? (
+                                            <Alert>
+                                                <AlertTitle>{selectedUser.name}</AlertTitle>
+                                                <AlertDescription>
+                                                    {selectedUser.email} terá acesso de administrador nesta empresa.
+                                                </AlertDescription>
+                                            </Alert>
+                                        ) : null}
+                                        {userNotFound ? (
+                                            <Alert variant="destructive">
+                                                <AlertTitle>Nenhuma conta com este e-mail</AlertTitle>
+                                                <AlertDescription>
+                                                    Peça para o cliente criar uma conta na Logiv, na tela de login em "Criar conta", e busque de novo.
+                                                </AlertDescription>
+                                            </Alert>
+                                        ) : null}
                                     </Field>
                                 </FieldGroup>
                             </FieldSet>

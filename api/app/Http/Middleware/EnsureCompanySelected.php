@@ -31,7 +31,7 @@ class EnsureCompanySelected
         $belongs = $request->user()->companies()->whereKey($companyId)->exists();
 
         if (! $belongs) {
-            abort(409, 'Você não tem permissão para acessar esta empresa');
+            abort(403, 'Você não tem acesso a esta empresa');
         }
 
         app()->instance(CurrentCompany::class, new CurrentCompany($companyId));

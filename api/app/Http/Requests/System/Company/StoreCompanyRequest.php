@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests\System\Company;
 
-use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreCompanyRequest extends FormRequest
@@ -14,35 +13,19 @@ class StoreCompanyRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $user = $this->input('user');
-
-        if (! is_array($user) || ! is_string($user['email'] ?? null)) {
-            return;
-        }
-
-        $user['email'] = strtolower(trim($user['email']));
-
         $this->merge([
-            'user' => $user,
+            'user_email' => strtolower(trim((string) $this->input('user_email'))),
         ]);
     }
 
     public function rules(): array
     {
-        $email = $this->input('user.email');
-        $userExists = is_string($email) && User::where('email', $email)->exists();
-
         return [
             'legal_name' => ['required', 'string', 'max:255'],
             'trade_name' => ['required', 'string', 'max:255'],
             'cnpj' => ['required', 'string', 'max:18', 'unique:companies,cnpj'],
-            'user.name' => $userExists
-                ? ['nullable', 'string', 'max:255']
-                : ['required', 'string', 'max:255'],
-            'user.email' => ['required', 'email', 'max:255'],
-            'user.password' => $userExists
-                ? ['nullable']
-                : ['required', 'string', 'min:8', 'confirmed'],
+            // A conta já existe: a pessoa se cadastra antes e aqui só é escolhida.
+            'user_email' => ['required', 'email', 'max:255', 'exists:users,email'],
             'state_id' => ['nullable', 'integer', 'exists:states,id'],
             'city_id' => ['nullable', 'integer', 'exists:cities,id'],
         ];
@@ -61,12 +44,9 @@ class StoreCompanyRequest extends FormRequest
             'cnpj.string' => 'O CNPJ deve ser uma string',
             'cnpj.max' => 'O CNPJ deve ter no máximo 18 caracteres',
             'cnpj.unique' => 'O CNPJ já está em uso',
-            'user.name.required' => 'O nome do usuário é obrigatório',
-            'user.email.required' => 'O e-mail do usuário é obrigatório',
-            'user.email.email' => 'Informe um e-mail válido',
-            'user.password.required' => 'A senha é obrigatória',
-            'user.password.min' => 'A senha deve ter no mínimo 8 caracteres',
-            'user.password.confirmed' => 'A confirmação da senha não confere',
+            'user_email.required' => 'Selecione o administrador da empresa',
+            'user_email.email' => 'Informe um e-mail válido',
+            'user_email.exists' => 'Nenhuma conta encontrada com este e-mail. Peça para a pessoa criar uma conta na Logiv',
             'state_id.integer' => 'O estado informado é inválido',
             'state_id.exists' => 'Selecione um estado válido',
             'city_id.integer' => 'A cidade informada é inválida',

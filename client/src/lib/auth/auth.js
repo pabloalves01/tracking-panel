@@ -7,6 +7,13 @@ export function login(credentials) {
     })
 }
 
+export function register(payload) {
+    return api.post('/auth/register', payload).then((response) => {
+        localStorage.setItem('token', response.data.token)
+        return response.data
+    })
+}
+
 export function me() {
     return api.get('/auth/me').then((response) => response.data.data)
 }

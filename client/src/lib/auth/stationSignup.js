@@ -4,10 +4,6 @@ export function lookupStationCnpj(cnpj) {
     return api.get(`/auth/station-signup/cnpj/${cnpj}`).then((response) => response.data)
 }
 
-export function checkStationSignupEmail(payload) {
-    return api.post('/auth/station-signup/check-email', payload).then((response) => response.data)
-}
-
 export function storeStationSignup(payload) {
     return api.post('/auth/station-signup', payload).then((response) => response.data)
 }

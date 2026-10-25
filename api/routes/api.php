@@ -17,6 +17,7 @@ use App\Http\Controllers\Registry\VehicleController;
 use App\Http\Controllers\Registry\VehicleOwnerController;
 use App\Http\Controllers\Registry\VehicleResponsibleController;
 use App\Http\Controllers\System\Company\CompanyController;
+use App\Http\Controllers\System\User\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', function () {
@@ -32,18 +33,20 @@ Route::post('/ship-operation-perimeters', [ShipOperationPerimeterController::cla
 // =============================== AUTH ROUTES ===============================
 
 Route::prefix('auth')->group(function () {
-    Route::post('login', [AuthController::class, 'login']);
-
-    Route::prefix('station-signup')->group(function () {
-        Route::get('cnpj/{cnpj}', [FuelStationSignupController::class, 'cnpj'])
-            ->middleware('throttle:20,1,station-signup-cnpj');
-        Route::post('check-email', [FuelStationSignupController::class, 'checkEmail'])
-            ->middleware('throttle:20,1,station-signup-email');
-        Route::post('/', [FuelStationSignupController::class, 'store'])
-            ->middleware('throttle:20,1,station-signup');
-    });
+    Route::post('login', [AuthController::class, 'login'])
+        ->middleware('throttle:20,1,login');
+    Route::post('register', [AuthController::class, 'register'])
+        ->middleware('throttle:20,1,register');
 
     Route::middleware('auth:sanctum')->group(function () {
+        // Cadastro de posto: só com a conta logada, sem precisar de contexto.
+        Route::prefix('station-signup')->group(function () {
+            Route::get('cnpj/{cnpj}', [FuelStationSignupController::class, 'cnpj'])
+                ->middleware('throttle:20,1,station-signup-cnpj');
+            Route::post('/', [FuelStationSignupController::class, 'store'])
+                ->middleware('throttle:20,1,station-signup');
+        });
+
         Route::get('me', [AuthController::class, 'me']);
         Route::post('logout', [AuthController::class, 'logout']);
         Route::get('companies', [AuthController::class, 'companies']);
@@ -178,5 +181,8 @@ Route::middleware(['auth:sanctum', 'ensure.system'])->group(function () {
             Route::post('/{uuid}/deactivate', [CompanyController::class, 'deactivate']);
             Route::post('/{uuid}/activate', [CompanyController::class, 'activate']);
         });
+
+        Route::get('/users/lookup', [UserController::class, 'lookup'])
+            ->middleware('throttle:20,1,system-user-lookup');
     });
 });
