@@ -14,6 +14,7 @@ use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class FuelStationSignupTest extends TestCase
@@ -184,33 +185,40 @@ class FuelStationSignupTest extends TestCase
         $this->assertTrue(Hash::check('senha1234', $user->password));
         $this->assertSame(self::CNPJ, $station->cnpj);
         $this->assertSame($city->id, $station->city_id);
-        $this->assertSame('owner', $membership->role);
+        $this->assertSame('admin', $membership->role);
         $this->assertSame($user->id, $membership->user_id);
     }
 
-    public function test_posto_aceita_somente_um_usuario(): void
+    public function test_posto_aceita_varios_usuarios_mas_nao_repete_o_mesmo(): void
     {
         $this->registerStation();
 
         $station = FuelStation::query()->first();
+        $admin = User::query()->first();
         $other = User::factory()->create([
             'email' => 'outro@posto.com',
         ]);
 
+        FuelStationUser::query()->create([
+            'fuel_station_id' => $station->id,
+            'user_id' => $other->id,
+            'role' => 'member',
+        ]);
+
         try {
-            DB::transaction(function () use ($station, $other) {
+            DB::transaction(function () use ($station, $admin) {
                 FuelStationUser::query()->create([
                     'fuel_station_id' => $station->id,
-                    'user_id' => $other->id,
-                    'role' => 'owner',
+                    'user_id' => $admin->id,
+                    'role' => 'member',
                 ]);
             });
-            $this->fail('O posto aceitou um segundo usuário.');
+            $this->fail('O posto aceitou o mesmo usuário duas vezes.');
         } catch (QueryException $exception) {
-            $this->assertStringContainsString('fuel_station_id', $exception->getMessage());
+            $this->assertStringContainsString('fuel_station', $exception->getMessage());
         }
 
-        $this->assertSame(1, FuelStationUser::query()->count());
+        $this->assertSame(2, FuelStationUser::query()->count());
     }
 
     public function test_email_existente_com_senha_certa_liga_o_posto_ao_usuario(): void
@@ -305,7 +313,7 @@ class FuelStationSignupTest extends TestCase
         $this->assertSame(1, User::query()->count());
     }
 
-    public function test_usuario_criado_na_empresa_vira_owner_do_posto_sem_duplicar(): void
+    public function test_usuario_criado_na_empresa_vira_admin_do_posto_sem_duplicar(): void
     {
         $admin = User::factory()->create([
             'email' => 'admin@logiv.com.br',
@@ -342,7 +350,7 @@ class FuelStationSignupTest extends TestCase
         $this->assertSame(2, User::query()->count());
         $this->assertSame('Pablo Alves', $owner->fresh()->name);
         $this->assertSame($owner->id, FuelStationUser::query()->first()->user_id);
-        $this->assertSame('owner', FuelStationUser::query()->first()->role);
+        $this->assertSame('admin', FuelStationUser::query()->first()->role);
     }
 
     public function test_email_duplicado_na_criacao_avisa_que_a_conta_ja_existe(): void
@@ -353,6 +361,7 @@ class FuelStationSignupTest extends TestCase
             }
 
             User::query()->insert([
+                'uuid' => (string) Str::uuid(),
                 'name' => 'Outra conta',
                 'email' => 'nova@posto.com',
                 'password' => 'secreta',

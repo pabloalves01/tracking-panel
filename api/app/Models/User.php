@@ -5,6 +5,7 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -17,7 +18,7 @@ use Laravel\Sanctum\HasApiTokens;
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable, HasApiTokens;
+    use HasFactory, Notifiable, HasApiTokens, HasUuids;
 
     /**
      * Get the attributes that should be cast.
@@ -33,17 +34,29 @@ class User extends Authenticatable
         ];
     }
 
+    /**
+     * Empresas em que a pessoa entra. Empresa inativa fica de fora.
+     */
     public function companies(): BelongsToMany
     {
         return $this->belongsToMany(Company::class, 'company_user')
             ->withPivot('role')
-            ->wherePivotNull('deleted_at');
+            ->withTimestamps()
+            ->where('companies.status', 'active');
     }
 
     public function fuelStations(): BelongsToMany
     {
         return $this->belongsToMany(FuelStation::class, 'fuel_station_user')
             ->withPivot('role')
+            ->withTimestamps()
             ->where('fuel_stations.status', 'active');
+    }
+
+    // ===================== UNIQUE IDS =====================
+
+    public function uniqueIds(): array
+    {
+        return ['uuid'];
     }
 }

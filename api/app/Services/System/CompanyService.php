@@ -12,15 +12,7 @@ class CompanyService
 
     public function list()
     {
-        // With count não considera o usuário administrador que é colocado
-        // em todas as empresas criadas.
-        return Company::withCount([
-            'users as users_count' => function ($query) {
-                $query->whereDoesntHave('user', function ($user) {
-                    $user->where('is_system_admin', true);
-                });
-            },
-        ])->orderBy('created_at', 'desc')->get();
+        return Company::withCount('users')->orderBy('created_at', 'desc')->get();
     }
 
     public function store(array $data): Company
@@ -50,16 +42,6 @@ class CompanyService
                 'user_id' => $user->id,
                 'role' => 'admin',
             ]);
-
-            // O administrador do sistema (id 1) acompanha toda empresa criada.
-            $systemAdmin = User::where('is_system_admin', true)->orderBy('id')->first();
-
-            if ($systemAdmin && $systemAdmin->id !== $user->id) {
-                CompanyUser::firstOrCreate(
-                    ['company_id' => $company->id, 'user_id' => $systemAdmin->id],
-                    ['role' => 'admin'],
-                );
-            }
 
             return $company;
         });

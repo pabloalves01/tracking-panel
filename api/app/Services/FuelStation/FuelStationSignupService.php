@@ -118,7 +118,7 @@ class FuelStationSignupService
                 FuelStationUser::create([
                     'fuel_station_id' => $station->id,
                     'user_id' => $owner->id,
-                    'role' => 'owner',
+                    'role' => 'admin',
                 ]);
             });
         } catch (UniqueConstraintViolationException) {

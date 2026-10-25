@@ -32,7 +32,8 @@ Route::post('/ship-operation-perimeters', [ShipOperationPerimeterController::cla
 // =============================== AUTH ROUTES ===============================
 
 Route::prefix('auth')->group(function () {
-    Route::post('login', [AuthController::class, 'login']);
+    Route::post('login', [AuthController::class, 'login'])
+        ->middleware('throttle:20,1,login');
 
     Route::prefix('station-signup')->group(function () {
         Route::get('cnpj/{cnpj}', [FuelStationSignupController::class, 'cnpj'])

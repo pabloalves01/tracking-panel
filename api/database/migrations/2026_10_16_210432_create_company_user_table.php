@@ -7,7 +7,8 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Run the migrations.
+     * Vínculo do usuário com a empresa. Papel `admin` ou `member`.
+     * Remover apaga a linha; entrar de novo cria outra.
      */
     public function up(): void
     {
@@ -15,8 +16,10 @@ return new class extends Migration
             $table->id();
             $table->foreignId('company_id')->constrained('companies');
             $table->foreignId('user_id')->constrained('users');
+            $table->string('role')->default('member');
             $table->timestamps();
-            $table->softDeletes();
+
+            $table->unique(['company_id', 'user_id']);
         });
     }
 

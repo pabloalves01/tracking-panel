@@ -28,6 +28,7 @@ class FuelStationResource extends JsonResource
             'status' => $this->status,
             'city_name' => $this->city?->name,
             'uf' => $this->state?->uf,
+            'role' => $this->whenPivotLoaded('fuel_station_user', fn () => $this->pivot->role),
         ];
     }
 }

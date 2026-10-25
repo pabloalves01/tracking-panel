@@ -729,7 +729,7 @@ class CompanyFuelStationTest extends TestCase
         FuelStationUser::query()->create([
             'fuel_station_id' => $station->id,
             'user_id' => $user->id,
-            'role' => 'owner',
+            'role' => 'admin',
         ]);
 
         $token = $user->createToken('web');
@@ -804,7 +804,7 @@ class CompanyFuelStationTest extends TestCase
             FuelStationUser::query()->create([
                 'fuel_station_id' => $station->id,
                 'user_id' => $user->id,
-                'role' => 'owner',
+                'role' => 'admin',
             ]);
         }
 

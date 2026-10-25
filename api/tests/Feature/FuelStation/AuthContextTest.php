@@ -265,7 +265,7 @@ class AuthContextTest extends TestCase
             'status' => 'active',
         ]);
 
-        $user->fuelStations()->attach($station->id, ['role' => 'owner']);
+        $user->fuelStations()->attach($station->id, ['role' => 'admin']);
 
         return $station;
     }

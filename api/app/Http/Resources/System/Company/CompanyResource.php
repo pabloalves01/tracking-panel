@@ -25,6 +25,7 @@ class CompanyResource extends JsonResource
             'logo_path' => $this->logo_path,
             'status' => $this->status,
             'users_count' => $this->whenCounted('users'),
+            'role' => $this->whenPivotLoaded('company_user', fn () => $this->pivot->role),
             // 'created_at' => $this->created_at?->toISOString(),
             // 'updated_at' => $this->updated_at?->toISOString(),
         ];

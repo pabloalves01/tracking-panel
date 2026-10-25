@@ -4,7 +4,6 @@ namespace App\Http\Resources\Auth;
 
 use App\Http\Resources\FuelStation\FuelStationResource;
 use App\Http\Resources\System\Company\CompanyResource;
-use App\Models\Company;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -21,12 +20,13 @@ class UserResource extends JsonResource
     {
         $companyId = $this->currentAccessToken()?->company_id;
         $stationId = $this->currentAccessToken()?->fuel_station_id;
-        $company = $companyId ? Company::find($companyId) : null;
+        $company = $companyId ? $this->companies()->whereKey($companyId)->first() : null;
         $station = $stationId
             ? $this->fuelStations()->with(['city', 'state'])->whereKey($stationId)->first()
             : null;
 
         return [
+            'uuid' => $this->uuid,
             'name' => $this->name,
             'email' => $this->email,
             'is_system_admin' => (bool) $this->is_system_admin,
