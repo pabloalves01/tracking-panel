@@ -34,6 +34,8 @@ class UserResource extends JsonResource
             'current_company' => $company ? CompanyResource::make($company) : null,
             'has_fuel_station' => (bool) $station,
             'current_fuel_station' => $station ? FuelStationResource::make($station) : null,
+            // Papel no contexto do token: admin, member ou null.
+            'current_role' => ($company ?? $station)?->pivot->role,
         ];
     }
 }
