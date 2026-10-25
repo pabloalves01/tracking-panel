@@ -35,15 +35,7 @@ class CompanyService
                 'city_id' => $data['city_id'] ?? null,
             ]);
 
-            $user = User::where('email', $data['user']['email'])->first();
-
-            if (! $user) {
-                $user = User::create([
-                    'name' => $data['user']['name'],
-                    'email' => $data['user']['email'],
-                    'password' => $data['user']['password'],
-                ]);
-            }
+            $user = User::where('email', $data['user_email'])->firstOrFail();
 
             $this->linkUser($company, $user);
 
