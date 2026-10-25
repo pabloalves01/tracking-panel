@@ -45,24 +45,35 @@ class CompanyService
                 ]);
             }
 
-            CompanyUser::create([
-                'company_id' => $company->id,
-                'user_id' => $user->id,
-                'role' => 'admin',
-            ]);
+            $this->linkUser($company, $user);
 
             // O administrador do sistema (id 1) acompanha toda empresa criada.
             $systemAdmin = User::where('is_system_admin', true)->orderBy('id')->first();
 
             if ($systemAdmin && $systemAdmin->id !== $user->id) {
-                CompanyUser::firstOrCreate(
-                    ['company_id' => $company->id, 'user_id' => $systemAdmin->id],
-                    ['role' => 'admin'],
-                );
+                $this->linkUser($company, $systemAdmin);
             }
 
             return $company;
         });
+    }
+
+    /**
+     * Vincula o usuário à empresa como admin. Se o vínculo foi removido antes,
+     * restaura o mesmo registro em vez de criar outro.
+     */
+    public function linkUser(Company $company, User $user): CompanyUser
+    {
+        $link = CompanyUser::withTrashed()->firstOrNew([
+            'company_id' => $company->id,
+            'user_id' => $user->id,
+        ]);
+
+        $link->role = 'admin';
+        $link->deleted_at = null;
+        $link->save();
+
+        return $link;
     }
 
     public function get(string $uuid): Company

@@ -146,6 +146,97 @@ class AuthContextTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_login_sem_nenhum_contexto_devolve_listas_vazias(): void
+    {
+        $user = $this->user();
+
+        $token = $this->login($user);
+
+        $this->assertSame([], $token['companies']);
+        $this->assertSame([], $token['fuel_stations']);
+        $this->assertFalse($token['user']['has_company']);
+        $this->assertFalse($token['user']['has_fuel_station']);
+        $this->assertNull($user->tokens()->first()->company_id);
+        $this->assertNull($user->tokens()->first()->fuel_station_id);
+
+        $this->withToken($token['token'])->getJson('/api/auth/contexts')
+            ->assertOk()
+            ->assertJsonCount(0, 'companies')
+            ->assertJsonCount(0, 'fuel_stations');
+    }
+
+    public function test_login_com_varias_empresas_devolve_todas_sem_selecionar(): void
+    {
+        $user = $this->user();
+        $this->companyFor($user, '00000000000191');
+        $this->companyFor($user, '11222333000181');
+
+        $token = $this->login($user);
+
+        $this->assertCount(2, $token['companies']);
+        $this->assertFalse($token['user']['has_company']);
+        $this->assertNull($user->tokens()->first()->company_id);
+    }
+
+    public function test_empresa_inativa_fica_fora_do_login_e_nao_entra(): void
+    {
+        $user = $this->user();
+        $company = $this->companyFor($user);
+        $company->update(['status' => 'inactive']);
+
+        $token = $this->login($user);
+
+        $this->assertSame([], $token['companies']);
+        $this->assertFalse($token['user']['has_company']);
+
+        $this->withToken($token['token'])->getJson('/api/auth/contexts')
+            ->assertOk()
+            ->assertJsonCount(0, 'companies');
+
+        $this->withToken($token['token'])->getJson('/api/auth/companies')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+
+        $this->withToken($token['token'])
+            ->postJson('/api/auth/company', ['uuid' => $company->uuid])
+            ->assertForbidden();
+    }
+
+    public function test_empresa_desativada_depois_de_selecionada_bloqueia_com_403(): void
+    {
+        $user = $this->user();
+        $company = $this->companyFor($user);
+        $token = $this->login($user)['token'];
+
+        $this->withToken($token)->getJson('/api/registry/entities')->assertOk();
+
+        $company->update(['status' => 'inactive']);
+
+        $this->withToken($token)->getJson('/api/registry/entities')
+            ->assertForbidden()
+            ->assertJsonPath('message', 'Você não tem acesso a esta empresa');
+
+        $this->withToken($token)->getJson('/api/auth/me')
+            ->assertOk()
+            ->assertJsonPath('data.has_company', false)
+            ->assertJsonPath('data.current_company', null);
+    }
+
+    public function test_usuario_de_fora_da_empresa_recebe_403(): void
+    {
+        $owner = $this->user('dono@empresa.com');
+        $company = $this->companyFor($owner);
+        $outsider = $this->user('fora@empresa.com');
+
+        $token = $outsider->createToken('web');
+        $token->accessToken->forceFill(['company_id' => $company->id])->save();
+
+        $this->withToken($token->plainTextToken)
+            ->getJson('/api/registry/entities')
+            ->assertForbidden()
+            ->assertJsonPath('message', 'Você não tem acesso a esta empresa');
+    }
+
     public function test_token_com_empresa_e_posto_retorna_409_nas_duas_rotas(): void
     {
         $user = $this->user();

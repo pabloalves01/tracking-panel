@@ -7,7 +7,8 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Run the migrations.
+     * Vínculo do usuário com a empresa. Um registro por par: ao vincular de novo,
+     * o registro removido (soft delete) é restaurado.
      */
     public function up(): void
     {
@@ -15,8 +16,11 @@ return new class extends Migration
             $table->id();
             $table->foreignId('company_id')->constrained('companies');
             $table->foreignId('user_id')->constrained('users');
+            $table->string('role')->default('admin');
             $table->timestamps();
             $table->softDeletes();
+
+            $table->unique(['company_id', 'user_id']);
         });
     }
 
