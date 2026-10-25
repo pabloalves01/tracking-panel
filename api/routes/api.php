@@ -63,7 +63,6 @@ Route::prefix('auth')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('me', [AuthController::class, 'me']);
         Route::post('logout', [AuthController::class, 'logout']);
-        Route::get('companies', [AuthController::class, 'companies']);
         Route::post('company', [AuthController::class, 'selectCompany']);
         Route::get('contexts', [AuthController::class, 'contexts']);
         Route::post('station', [AuthController::class, 'selectStation']);

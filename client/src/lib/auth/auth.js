@@ -11,10 +11,6 @@ export function me() {
     return api.get('/auth/me').then((response) => response.data.data)
 }
 
-export function getAuthCompanies() {
-    return api.get('/auth/companies').then((response) => response.data.data)
-}
-
 export function selectCompany(uuid) {
     return api.post('/auth/company', { uuid }).then((response) => response.data.data)
 }
