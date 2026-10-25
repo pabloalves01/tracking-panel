@@ -20,7 +20,7 @@ class BrasilApiService
         $digits = Cnpj::digits($cnpj);
 
         if (! Cnpj::isValid($digits)) {
-            abort(422, 'Informe um CNPJ válido');
+            abort(422, 'Informe um CNPJ válido.');
         }
 
         $payload = Cache::remember('brasilapi:cnpj:'.$digits, now()->addHours(24), function () use ($digits) {
@@ -46,7 +46,7 @@ class BrasilApiService
                 ->acceptJson()
                 ->get('https://brasilapi.com.br/api/cnpj/v1/'.$digits);
         } catch (ConnectionException) {
-            abort(503, 'A consulta de CNPJ está indisponível. Tente novamente em instantes');
+            abort(503, 'Não foi possível consultar a Receita agora. Tente de novo em instantes.');
         }
 
         if (in_array($response->status(), [400, 404], true)) {
@@ -56,7 +56,7 @@ class BrasilApiService
         $payload = $response->json();
 
         if (! $response->successful() || ! is_array($payload)) {
-            abort(503, 'A consulta de CNPJ está indisponível. Tente novamente em instantes');
+            abort(503, 'Não foi possível consultar a Receita agora. Tente de novo em instantes.');
         }
 
         return $payload;

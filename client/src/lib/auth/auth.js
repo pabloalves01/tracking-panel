@@ -32,3 +32,13 @@ export function logout() {
         localStorage.removeItem('token')
     })
 }
+
+/**
+ * `?redirect=` só vale para caminhos internos: começa com "/" e não com "//".
+ */
+export function safeRedirect(value) {
+    if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//') || value.startsWith('/\\')) {
+        return null
+    }
+    return value
+}

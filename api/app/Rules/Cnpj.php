@@ -13,7 +13,7 @@ class Cnpj implements ValidationRule
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
         if (! self::isValid(self::digits($value))) {
-            $fail('Informe um CNPJ válido');
+            $fail('Informe um CNPJ válido.');
         }
     }
 

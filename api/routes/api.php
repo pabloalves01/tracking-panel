@@ -42,11 +42,13 @@ Route::prefix('auth')->group(function () {
     Route::prefix('station-signup')->group(function () {
         Route::get('cnpj/{cnpj}', [FuelStationSignupController::class, 'cnpj'])
             ->middleware('throttle:20,1,station-signup-cnpj');
-        Route::post('check-email', [FuelStationSignupController::class, 'checkEmail'])
-            ->middleware('throttle:20,1,station-signup-email');
         Route::post('/', [FuelStationSignupController::class, 'store'])
             ->middleware('throttle:20,1,station-signup');
     });
+
+    // Posto novo na conta logada.
+    Route::post('stations', [FuelStationSignupController::class, 'storeForUser'])
+        ->middleware(['auth:sanctum', 'throttle:20,1,station-create']);
 
     // Convite: o link carrega o token. Sem login dá pra ver e criar a conta.
     Route::prefix('invitations/{token}')->where(['token' => '[A-Za-z0-9]+'])->group(function () {
