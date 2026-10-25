@@ -24,6 +24,7 @@ import { app, joinPath, navigation } from '@/navigation/sidebarNavigation'
 function visibleGroupsFor({ currentCompany, user }) {
     return navigation.filter((group) => {
         if (group.access === 'company') return Boolean(currentCompany)
+        if (group.access === 'companyAdmin') return Boolean(currentCompany) && user?.current_role === 'admin'
         if (group.access === 'system') return Boolean(user?.is_system_admin)
         return true
     })

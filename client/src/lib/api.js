@@ -23,6 +23,12 @@ api.interceptors.response.use(
         // Telas públicas tratam a sessão vencida sozinhas, sem sair da página.
         const publicPage = ['/auth/login', '/auth/convite/', '/auth/register/posto']
             .some((path) => window.location.pathname.startsWith(path))
+        // Perdeu o acesso ao contexto do token (ex.: foi removido): volta pra escolha.
+        const lostContext = error.response?.status === 403
+            && ['Você não tem acesso a esta empresa', 'Você não tem acesso a este posto'].includes(error.response.data?.message)
+        if (lostContext && !publicPage) {
+            window.location.assign('/auth/contextos')
+        }
         if (error.response?.status === 401 && !isLogin) {
             localStorage.removeItem('token')
             if (!publicPage) {

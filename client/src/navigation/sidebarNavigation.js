@@ -6,14 +6,12 @@ import {
     ClipboardListIcon,
     ContactIcon,
     FileTextIcon,
-    FolderTreeIcon,
     Fuel,
     IdCardIcon,
     LandmarkIcon,
     LayoutDashboardIcon,
     MapIcon,
     MapPinIcon,
-    MonitorCog,
     PackageIcon,
     ReceiptIcon,
     ShipIcon,
@@ -34,6 +32,7 @@ import {
  *
  * `access` controla a visibilidade do grupo conforme a sessão:
  * - 'company': só aparece quando há empresa selecionada.
+ * - 'companyAdmin': só aparece para o administrador da empresa selecionada.
  * - 'system': só aparece para o administrador do sistema.
  */
 export const app = {
@@ -173,6 +172,17 @@ export const navigation = [
                         ],
                     },
                 ],
+            },
+        ],
+    },
+    {
+        label: 'ADMINISTRAÇÃO',
+        access: 'companyAdmin',
+        items: [
+            {
+                title: 'Usuários',
+                path: 'usuarios',
+                icon: UsersIcon,
             },
         ],
     },

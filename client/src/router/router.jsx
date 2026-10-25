@@ -4,6 +4,7 @@ import Home from '@/pages/Home'
 import NotFound from '@/pages/NotFound'
 import Perimeter from '@/pages/Perimeter'
 import ProfilePage from '@/pages/ProfilePage'
+import UsersPage from '@/pages/access/UsersPage'
 
 import authRoutes from './auth/authRoutes'
 import registryRoutes from './registry/registryRoutes'
@@ -25,6 +26,7 @@ export const router = createBrowserRouter([
       { index: true, element: <Home /> },
       { path: 'perfil', element: <ProfilePage /> },
       { path: 'operacoes/rastreamento', element: <Perimeter /> },
+      { path: 'usuarios', element: <UsersPage scope="company" /> },
       ...registryRoutes,
       ...systemRoutes,
     ],
