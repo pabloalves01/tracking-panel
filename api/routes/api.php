@@ -37,16 +37,15 @@ Route::prefix('auth')->group(function () {
     Route::post('register', [AuthController::class, 'register'])
         ->middleware('throttle:20,1,register');
 
-    Route::prefix('station-signup')->group(function () {
-        Route::get('cnpj/{cnpj}', [FuelStationSignupController::class, 'cnpj'])
-            ->middleware('throttle:20,1,station-signup-cnpj');
-        Route::post('check-email', [FuelStationSignupController::class, 'checkEmail'])
-            ->middleware('throttle:20,1,station-signup-email');
-        Route::post('/', [FuelStationSignupController::class, 'store'])
-            ->middleware('throttle:20,1,station-signup');
-    });
-
     Route::middleware('auth:sanctum')->group(function () {
+        // Cadastro de posto: só com a conta logada, sem precisar de contexto.
+        Route::prefix('station-signup')->group(function () {
+            Route::get('cnpj/{cnpj}', [FuelStationSignupController::class, 'cnpj'])
+                ->middleware('throttle:20,1,station-signup-cnpj');
+            Route::post('/', [FuelStationSignupController::class, 'store'])
+                ->middleware('throttle:20,1,station-signup');
+        });
+
         Route::get('me', [AuthController::class, 'me']);
         Route::post('logout', [AuthController::class, 'logout']);
         Route::get('companies', [AuthController::class, 'companies']);

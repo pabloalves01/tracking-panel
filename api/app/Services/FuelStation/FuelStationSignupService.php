@@ -12,7 +12,6 @@ use App\Services\External\BrasilApiService;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 
 class FuelStationSignupService
 {
@@ -33,37 +32,14 @@ class FuelStationSignupService
     }
 
     /**
-     * @return array{exists: bool}
+     * Cria o posto e vincula o usuário logado como owner.
      */
-    public function checkEmail(string $email): array
+    public function store(User $owner, string $cnpj): FuelStation
     {
-        return [
-            'exists' => User::where('email', $email)->exists(),
-        ];
-    }
-
-    /**
-     * @param  array<string, mixed>  $data
-     * @return array{message: string}
-     */
-    public function store(array $data): array
-    {
-        $digits = $this->availableCnpj((string) $data['cnpj']);
+        $digits = $this->availableCnpj($cnpj);
         $payload = $this->brasilApi->cnpj($digits);
-        $email = (string) $data['email'];
-        $user = User::where('email', $email)->first();
 
-        if ($user) {
-            $this->checkPassword($user, (string) $data['password']);
-        }
-
-        $this->createStation($digits, $payload, $user, $data);
-
-        return [
-            'message' => $user
-                ? 'Posto vinculado à sua conta'
-                : 'Posto cadastrado com sucesso',
-        ];
+        return $this->createStation($digits, $payload, $owner);
     }
 
     private function availableCnpj(string $cnpj): string
@@ -81,23 +57,15 @@ class FuelStationSignupService
         return $digits;
     }
 
-    private function checkPassword(User $user, string $password): void
-    {
-        if (! Hash::check($password, $user->password)) {
-            abort(422, 'Senha incorreta');
-        }
-    }
-
     /**
      * @param  array<string, mixed>  $payload
-     * @param  array<string, mixed>  $data
      */
-    private function createStation(string $cnpj, array $payload, ?User $owner, array $data): void
+    private function createStation(string $cnpj, array $payload, User $owner): FuelStation
     {
         $address = $this->address($payload);
 
         try {
-            DB::transaction(function () use ($cnpj, $address, $owner, $data) {
+            return DB::transaction(function () use ($cnpj, $address, $owner) {
                 $station = FuelStation::create(array_merge(
                     Arr::except($address, ['state_name', 'city_name', 'uf']),
                     [
@@ -107,26 +75,16 @@ class FuelStationSignupService
                     ],
                 ));
 
-                if (! $owner) {
-                    $owner = User::create([
-                        'name' => $data['name'],
-                        'email' => $data['email'],
-                        'password' => $data['password'],
-                    ]);
-                }
-
                 FuelStationUser::create([
                     'fuel_station_id' => $station->id,
                     'user_id' => $owner->id,
                     'role' => 'owner',
                 ]);
+
+                return $station;
             });
         } catch (UniqueConstraintViolationException) {
-            if (FuelStation::withTrashed()->where('cnpj', $cnpj)->exists()) {
-                abort(422, 'Este posto já está cadastrado. Fale com o responsável');
-            }
-
-            abort(422, 'Este e-mail já tem conta');
+            abort(422, 'Este posto já está cadastrado. Fale com o responsável');
         }
     }
 

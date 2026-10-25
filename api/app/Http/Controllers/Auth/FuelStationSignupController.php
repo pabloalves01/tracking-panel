@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Auth\CheckFuelStationSignupEmailRequest;
 use App\Http\Requests\Auth\StoreFuelStationSignupRequest;
+use App\Http\Resources\FuelStation\FuelStationResource;
 use App\Services\FuelStation\FuelStationSignupService;
 
 class FuelStationSignupController extends Controller
@@ -16,15 +16,24 @@ class FuelStationSignupController extends Controller
         return response()->json($this->fuelStationSignupService->lookup($cnpj));
     }
 
-    public function checkEmail(CheckFuelStationSignupEmailRequest $request)
-    {
-        return response()->json($this->fuelStationSignupService->checkEmail(
-            $request->validated('email'),
-        ));
-    }
-
+    /**
+     * Cria o posto, vincula a conta logada como owner e já entra no posto.
+     */
     public function store(StoreFuelStationSignupRequest $request)
     {
-        return response()->json($this->fuelStationSignupService->store($request->validated()), 201);
+        $station = $this->fuelStationSignupService->store(
+            $request->user(),
+            $request->validated('cnpj'),
+        );
+
+        $request->user()->currentAccessToken()->forceFill([
+            'company_id' => null,
+            'fuel_station_id' => $station->id,
+        ])->save();
+
+        return response()->json([
+            'message' => 'Posto cadastrado com sucesso',
+            'fuel_station' => FuelStationResource::make($station->load(['city', 'state'])),
+        ], 201);
     }
 }
