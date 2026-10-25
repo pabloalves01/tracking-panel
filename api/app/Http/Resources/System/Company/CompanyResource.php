@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\System\Company;
 
+use App\Http\Resources\Access\MemberResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -25,6 +26,7 @@ class CompanyResource extends JsonResource
             'logo_path' => $this->logo_path,
             'status' => $this->status,
             'users_count' => $this->whenCounted('users'),
+            'admins' => MemberResource::collection($this->whenLoaded('admins')),
             'role' => $this->whenPivotLoaded('company_user', fn () => $this->pivot->role),
             // 'created_at' => $this->created_at?->toISOString(),
             // 'updated_at' => $this->updated_at?->toISOString(),

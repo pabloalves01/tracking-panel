@@ -32,3 +32,21 @@ export default {
     deactivateCompany,
     activateCompany
 } 
+
+export function getCompanyInvitations(uuid) {
+    return api.get(`/system/companies/${uuid}/invitations`).then((response) => response.data.data)
+}
+
+/** Convite de administrador. Devolve `{ data, token }`. */
+export function createCompanyInvitation(uuid, email) {
+    return api.post(`/system/companies/${uuid}/invitations`, { email }).then((response) => response.data)
+}
+
+/** Devolve `{ data, token }`. O link anterior deixa de funcionar. */
+export function renewCompanyInvitation(uuid, invitationUuid) {
+    return api.post(`/system/companies/${uuid}/invitations/${invitationUuid}/renew`).then((response) => response.data)
+}
+
+export function cancelCompanyInvitation(uuid, invitationUuid) {
+    return api.delete(`/system/companies/${uuid}/invitations/${invitationUuid}`).then((response) => response.data)
+}

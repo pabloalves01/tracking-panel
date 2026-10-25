@@ -3,21 +3,29 @@
 namespace App\Services\System;
 
 use App\Models\Company;
-use App\Models\CompanyUser;
+use App\Models\Invitation;
 use App\Models\User;
+use App\Services\Access\InvitationService;
+use App\Support\MembershipContext;
 use Illuminate\Support\Facades\DB;
 
 class CompanyService
 {
+    public function __construct(private InvitationService $invitationService) {}
 
     public function list()
     {
         return Company::withCount('users')->orderBy('created_at', 'desc')->get();
     }
 
-    public function store(array $data): Company
+    /**
+     * Cria a empresa e o convite de admin. Devolve o token do link, que só aparece agora.
+     *
+     * @return array{0: Company, 1: Invitation, 2: string}
+     */
+    public function store(array $data, User $inviter): array
     {
-        return DB::transaction(function () use ($data) {
+        return DB::transaction(function () use ($data, $inviter) {
             $company = Company::create([
                 'legal_name' => $data['legal_name'],
                 'trade_name' => $data['trade_name'],
@@ -27,29 +35,23 @@ class CompanyService
                 'city_id' => $data['city_id'] ?? null,
             ]);
 
-            $user = User::where('email', $data['user']['email'])->first();
+            [$invitation, $token] = $this->invitationService->create(
+                MembershipContext::company($company->id),
+                $data['admin_email'],
+                'admin',
+                $inviter,
+            );
 
-            if (! $user) {
-                $user = User::create([
-                    'name' => $data['user']['name'],
-                    'email' => $data['user']['email'],
-                    'password' => $data['user']['password'],
-                ]);
-            }
-
-            CompanyUser::create([
-                'company_id' => $company->id,
-                'user_id' => $user->id,
-                'role' => 'admin',
-            ]);
-
-            return $company;
+            return [$company, $invitation, $token];
         });
     }
 
+    /**
+     * Empresa com os administradores, para a tela de edição.
+     */
     public function get(string $uuid): Company
     {
-        return Company::where('uuid', $uuid)->firstOrFail();
+        return Company::where('uuid', $uuid)->with('admins.user')->firstOrFail();
     }
 
     public function update(string $uuid, array $data): Company

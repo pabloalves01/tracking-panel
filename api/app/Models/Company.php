@@ -58,6 +58,11 @@ class Company extends Model
         return $this->hasMany(CompanyUser::class);
     }
 
+    public function admins(): HasMany
+    {
+        return $this->hasMany(CompanyUser::class)->where('role', 'admin')->orderBy('created_at');
+    }
+
     /**
      * Postos que a empresa já pode usar: só o vínculo ativo.
      */

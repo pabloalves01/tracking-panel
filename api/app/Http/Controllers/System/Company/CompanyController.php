@@ -5,6 +5,7 @@ namespace App\Http\Controllers\System\Company;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\System\Company\StoreCompanyRequest;
 use App\Http\Requests\System\Company\UpdateCompanyRequest;
+use App\Http\Resources\Access\InvitationResource;
 use App\Http\Resources\System\Company\CompanyResource;
 use App\Services\System\CompanyService;
 use DomainException;
@@ -37,9 +38,12 @@ class CompanyController extends Controller
     public function store(StoreCompanyRequest $request)
     {
         try {
-            $this->companyService->store($request->validated());
+            [$company, $invitation, $token] = $this->companyService->store($request->validated(), $request->user());
             return response()->json([
                 'message' => 'Empresa criada com sucesso',
+                'data' => CompanyResource::make($company),
+                'invitation' => InvitationResource::make($invitation->load('inviter')),
+                'token' => $token,
             ], 201);
         } catch (DomainException $e) {
             Log::error($e->getMessage());

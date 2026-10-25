@@ -20,6 +20,7 @@ use App\Http\Controllers\Registry\VehicleController;
 use App\Http\Controllers\Registry\VehicleOwnerController;
 use App\Http\Controllers\Registry\VehicleResponsibleController;
 use App\Http\Controllers\System\Company\CompanyController;
+use App\Http\Controllers\System\Company\CompanyInvitationController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', function () {
@@ -215,6 +216,12 @@ Route::middleware(['auth:sanctum', 'ensure.system'])->group(function () {
             Route::put('/{uuid}', [CompanyController::class, 'update']);
             Route::post('/{uuid}/deactivate', [CompanyController::class, 'deactivate']);
             Route::post('/{uuid}/activate', [CompanyController::class, 'activate']);
+            Route::get('/{company}/invitations', [CompanyInvitationController::class, 'index'])->whereUuid('company');
+            Route::post('/{company}/invitations', [CompanyInvitationController::class, 'store'])->whereUuid('company');
+            Route::post('/{company}/invitations/{invitation}/renew', [CompanyInvitationController::class, 'renew'])
+                ->whereUuid(['company', 'invitation']);
+            Route::delete('/{company}/invitations/{invitation}', [CompanyInvitationController::class, 'destroy'])
+                ->whereUuid(['company', 'invitation']);
         });
     });
 });
