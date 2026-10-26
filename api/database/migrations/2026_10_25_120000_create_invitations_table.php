@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -27,6 +28,21 @@ return new class extends Migration
             $table->timestamp('accepted_at')->nullable();
             $table->timestamps();
         });
+
+        // Exatamente uma das duas: empresa ou posto. O SQLite não aceita
+        // ALTER TABLE ... ADD CONSTRAINT, então lá a regra vai por trigger.
+        if (DB::getDriverName() === 'sqlite') {
+            foreach (['insert', 'update'] as $event) {
+                DB::statement("create trigger invitations_one_place_{$event} before {$event} on invitations
+                    when not ((new.company_id is null) <> (new.fuel_station_id is null))
+                    begin select raise(abort, 'invitations_one_place'); end");
+            }
+
+            return;
+        }
+
+        DB::statement('alter table invitations add constraint invitations_one_place
+            check ((company_id is null) <> (fuel_station_id is null))');
     }
 
     /**

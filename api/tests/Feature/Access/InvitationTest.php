@@ -6,7 +6,10 @@ use App\Models\CompanyUser;
 use App\Models\FuelStationUser;
 use App\Models\Invitation;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class InvitationTest extends TestCase
@@ -452,6 +455,39 @@ class InvitationTest extends TestCase
         $this->getJson('/api/auth/invitations/'.str_repeat('b', 48))
             ->assertStatus(429)
             ->assertJsonPath('message', 'Muitas tentativas. Aguarde um minuto e tente de novo.');
+    }
+
+    public function test_banco_exige_exatamente_empresa_ou_posto_no_convite(): void
+    {
+        $company = $this->company();
+        $station = $this->station();
+        $row = fn (array $place) => $place + [
+            'email' => 'ana@x.com',
+            'role' => 'member',
+            'token_hash' => hash('sha256', Str::random(48)),
+            'expires_at' => now()->addDay(),
+        ];
+        // Savepoint: no Postgres o erro não derruba a transação do teste.
+        $fails = function (callable $write) {
+            try {
+                DB::transaction($write);
+                $this->fail('O banco aceitou o convite.');
+            } catch (QueryException) {
+                $this->addToAssertionCount(1);
+            }
+        };
+
+        $fails(fn () => Invitation::query()->create($row([])));
+        $fails(fn () => Invitation::query()->create($row([
+            'company_id' => $company->id,
+            'fuel_station_id' => $station->id,
+        ])));
+
+        $invitation = Invitation::query()->create($row(['company_id' => $company->id]));
+        $fails(fn () => Invitation::query()->whereKey($invitation->id)->update(['fuel_station_id' => $station->id]));
+        $fails(fn () => Invitation::query()->whereKey($invitation->id)->update(['company_id' => null]));
+
+        $this->assertSame(1, Invitation::query()->count());
     }
 
     // ===================== HELPERS =====================
