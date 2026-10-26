@@ -38,6 +38,13 @@ class InvitationService
     public function create(MembershipContext $context, string $email, string $role, ?User $inviter): array
     {
         return DB::transaction(function () use ($context, $email, $role, $inviter) {
+            // Trava a empresa ou o posto: dois convites para o mesmo e-mail ao mesmo tempo
+            // esperam um pelo outro, e o segundo já encontra o pendente.
+            DB::table($context->isCompany() ? 'companies' : 'fuel_stations')
+                ->where('id', $context->id)
+                ->lockForUpdate()
+                ->first();
+
             $userId = User::query()->where('email', $email)->value('id');
 
             if ($userId && $context->members()->where('user_id', $userId)->exists()) {
@@ -50,7 +57,6 @@ class InvitationService
                 ->where($context->column(), $context->id)
                 ->where('email', $email)
                 ->where('status', 'pending')
-                ->lockForUpdate()
                 ->exists();
 
             if ($pending) {
