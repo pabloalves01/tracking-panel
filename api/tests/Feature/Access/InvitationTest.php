@@ -457,6 +457,74 @@ class InvitationTest extends TestCase
             ->assertJsonPath('message', 'Muitas tentativas. Aguarde um minuto e tente de novo.');
     }
 
+    public function test_link_de_convite_ja_aceito_nao_funciona_de_novo(): void
+    {
+        [$company] = $this->companyWithAdmin();
+        $token = $this->invite('ana@x.com')['token'];
+        $this->asGuest();
+        $register = [
+            'name' => 'Ana',
+            'password' => 'senha-nova-123',
+            'password_confirmation' => 'senha-nova-123',
+        ];
+
+        $this->postJson("/api/auth/invitations/{$token}/register", $register)->assertCreated();
+
+        $this->asGuest();
+        $this->getJson("/api/auth/invitations/{$token}")
+            ->assertNotFound()
+            ->assertJsonPath('message', self::INVALID);
+        $this->postJson("/api/auth/invitations/{$token}/register", $register)
+            ->assertNotFound()
+            ->assertJsonPath('message', self::INVALID);
+
+        // Nem a própria Ana, logada, reaproveita o link.
+        $this->actIn(User::query()->where('email', 'ana@x.com')->sole());
+        $this->postJson("/api/auth/invitations/{$token}/accept")
+            ->assertNotFound()
+            ->assertJsonPath('message', self::INVALID);
+
+        $this->assertSame(1, CompanyUser::query()->where('company_id', $company->id)->where('role', 'member')->count());
+        $this->assertSame('accepted', Invitation::query()->value('status'));
+    }
+
+    public function test_convites_de_um_posto_nao_aparecem_nem_mudam_no_outro(): void
+    {
+        [$first] = $this->stationWithAdmin();
+        $uuid = $this->postJson('/api/station/invitations', ['email' => 'ana@x.com', 'role' => 'member'])
+            ->assertCreated()
+            ->json('data.uuid');
+
+        $second = $this->station('Posto Dois');
+        $owner = $this->person('dono@dois.com', 'Dono Dois');
+        $owner->fuelStations()->attach($second->id, ['role' => 'admin']);
+        $this->actIn($owner, $second);
+
+        $this->getJson('/api/station/invitations')->assertOk()->assertJsonCount(0, 'data');
+        $this->postJson("/api/station/invitations/{$uuid}/renew")->assertNotFound();
+        $this->deleteJson("/api/station/invitations/{$uuid}")->assertNotFound();
+
+        // O mesmo e-mail pode ter convite pendente em cada posto.
+        $this->postJson('/api/station/invitations', ['email' => 'ana@x.com', 'role' => 'admin'])->assertCreated();
+
+        $this->assertSame(1, Invitation::query()->where('fuel_station_id', $first->id)->where('status', 'pending')->count());
+        $this->assertSame(1, Invitation::query()->where('fuel_station_id', $second->id)->where('status', 'pending')->count());
+        $this->assertSame('member', Invitation::query()->where('fuel_station_id', $first->id)->value('role'));
+    }
+
+    public function test_logiv_e_admin_convidando_o_mesmo_email_fica_um_convite_pendente(): void
+    {
+        [$company] = $this->companyWithAdmin();
+        $this->invite('ana@x.com');
+
+        $this->actIn(User::factory()->create(['email' => 'logiv@logiv.com.br', 'is_system_admin' => true]));
+        $this->postJson("/api/system/companies/{$company->uuid}/invitations", ['email' => 'ANA@x.com'])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.email.0', 'Já existe um convite pendente para este e-mail. Use “Copiar novo link” na lista.');
+
+        $this->assertSame(1, Invitation::query()->where('email', 'ana@x.com')->where('status', 'pending')->count());
+    }
+
     public function test_banco_exige_exatamente_empresa_ou_posto_no_convite(): void
     {
         $company = $this->company();

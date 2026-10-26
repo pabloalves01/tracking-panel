@@ -99,6 +99,24 @@ class MemberTest extends TestCase
         $this->assertNotNull($member);
     }
 
+    public function test_admin_se_rebaixa_quando_ha_outro_admin(): void
+    {
+        [$company, $admin, $member] = $this->team();
+        CompanyUser::query()->where('user_id', $member->id)->update(['role' => 'admin']);
+        $this->actIn($admin, $company);
+
+        $this->patchJson("/api/company/users/{$admin->uuid}", ['role' => 'member'])
+            ->assertOk()
+            ->assertJsonPath('message', 'Papel alterado');
+
+        $this->assertSame('member', $this->roleOf($admin));
+        $this->assertSame('admin', $this->roleOf($member));
+
+        // Continua na empresa, mas a tela Usuários fecha na hora.
+        $this->getJson('/api/auth/me')->assertJsonPath('data.current_role', 'member');
+        $this->getJson('/api/company/users')->assertForbidden()->assertJsonPath('message', self::ONLY_ADMIN);
+    }
+
     public function test_admin_remove_membro_e_ele_perde_o_acesso_na_hora(): void
     {
         [$company, $admin, $member] = $this->team();
