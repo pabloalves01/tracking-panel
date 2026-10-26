@@ -213,7 +213,36 @@ class AuthContextTest extends TestCase
         $this->withToken($token->plainTextToken)
             ->getJson('/api/station/me')
             ->assertForbidden()
-            ->assertJsonPath('message', 'Você não tem acesso a este posto');
+            ->assertJsonPath('message', 'Você não tem acesso a este posto')
+            ->assertJsonPath('code', 'context_access_lost');
+    }
+
+    public function test_seletor_troca_de_empresa_para_posto_e_volta_no_mesmo_token(): void
+    {
+        $user = $this->user();
+        $company = $this->companyFor($user);
+        $station = $this->stationFor($user);
+        $token = $this->login($user)['token'];
+
+        $this->withToken($token)->postJson('/api/auth/company', ['uuid' => $company->uuid])->assertOk();
+        $this->withToken($token)->getJson('/api/auth/me')->assertJsonPath('data.current_company.uuid', $company->uuid);
+
+        $this->withToken($token)->postJson('/api/auth/station', ['uuid' => $station->uuid])->assertOk();
+        $this->withToken($token)->getJson('/api/auth/me')
+            ->assertJsonPath('data.current_company', null)
+            ->assertJsonPath('data.current_fuel_station.uuid', $station->uuid);
+
+        $this->withToken($token)->postJson('/api/auth/company', ['uuid' => $company->uuid])->assertOk();
+        $this->withToken($token)->getJson('/api/auth/me')
+            ->assertJsonPath('data.current_company.uuid', $company->uuid)
+            ->assertJsonPath('data.current_fuel_station', null);
+    }
+
+    public function test_rota_antiga_de_empresas_do_usuario_saiu(): void
+    {
+        $token = $this->login($this->user())['token'];
+
+        $this->withToken($token)->getJson('/api/auth/companies')->assertNotFound();
     }
 
     private function user(string $email = 'dono@posto.com'): User
@@ -265,7 +294,7 @@ class AuthContextTest extends TestCase
             'status' => 'active',
         ]);
 
-        $user->fuelStations()->attach($station->id, ['role' => 'owner']);
+        $user->fuelStations()->attach($station->id, ['role' => 'admin']);
 
         return $station;
     }

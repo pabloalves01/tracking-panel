@@ -1,7 +1,10 @@
 <?php
 
+use App\Http\Controllers\Access\InvitationController;
+use App\Http\Controllers\Access\MemberController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\FuelStationSignupController;
+use App\Http\Controllers\Auth\InvitationAcceptController;
 use App\Http\Controllers\FuelStation\StationCompanyController;
 use App\Http\Controllers\FuelStation\StationController;
 use App\Http\Controllers\Location\LocationController;
@@ -17,6 +20,7 @@ use App\Http\Controllers\Registry\VehicleController;
 use App\Http\Controllers\Registry\VehicleOwnerController;
 use App\Http\Controllers\Registry\VehicleResponsibleController;
 use App\Http\Controllers\System\Company\CompanyController;
+use App\Http\Controllers\System\Company\CompanyInvitationController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', function () {
@@ -32,21 +36,33 @@ Route::post('/ship-operation-perimeters', [ShipOperationPerimeterController::cla
 // =============================== AUTH ROUTES ===============================
 
 Route::prefix('auth')->group(function () {
-    Route::post('login', [AuthController::class, 'login']);
+    Route::post('login', [AuthController::class, 'login'])
+        ->middleware('throttle:20,1,login');
 
     Route::prefix('station-signup')->group(function () {
         Route::get('cnpj/{cnpj}', [FuelStationSignupController::class, 'cnpj'])
             ->middleware('throttle:20,1,station-signup-cnpj');
-        Route::post('check-email', [FuelStationSignupController::class, 'checkEmail'])
-            ->middleware('throttle:20,1,station-signup-email');
         Route::post('/', [FuelStationSignupController::class, 'store'])
             ->middleware('throttle:20,1,station-signup');
+    });
+
+    // Posto novo na conta logada.
+    Route::post('stations', [FuelStationSignupController::class, 'storeForUser'])
+        ->middleware(['auth:sanctum', 'throttle:20,1,station-create']);
+
+    // Convite: o link carrega o token. Sem login dá pra ver e criar a conta.
+    Route::prefix('invitations/{token}')->where(['token' => '[A-Za-z0-9]+'])->group(function () {
+        Route::get('/', [InvitationAcceptController::class, 'show'])
+            ->middleware('throttle:20,1,invitation-show');
+        Route::post('register', [InvitationAcceptController::class, 'register'])
+            ->middleware('throttle:20,1,invitation-register');
+        Route::post('accept', [InvitationAcceptController::class, 'accept'])
+            ->middleware(['auth:sanctum', 'throttle:20,1,invitation-accept']);
     });
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('me', [AuthController::class, 'me']);
         Route::post('logout', [AuthController::class, 'logout']);
-        Route::get('companies', [AuthController::class, 'companies']);
         Route::post('company', [AuthController::class, 'selectCompany']);
         Route::get('contexts', [AuthController::class, 'contexts']);
         Route::post('station', [AuthController::class, 'selectStation']);
@@ -63,6 +79,19 @@ Route::middleware('auth:sanctum')->prefix('locations')->group(function () {
 // =============================== API COMPANY ROUTES ===============================
 
 Route::middleware(['auth:sanctum', 'ensure.company'])->group(function () {
+
+    Route::prefix('company')->group(function () {
+        // Usuários e convites. Sair (DELETE do próprio uuid) não exige admin.
+        Route::middleware('ensure.admin')->group(function () {
+            Route::get('users', [MemberController::class, 'index']);
+            Route::patch('users/{uuid}', [MemberController::class, 'update'])->whereUuid('uuid');
+            Route::get('invitations', [InvitationController::class, 'index']);
+            Route::post('invitations', [InvitationController::class, 'store']);
+            Route::post('invitations/{uuid}/renew', [InvitationController::class, 'renew'])->whereUuid('uuid');
+            Route::delete('invitations/{uuid}', [InvitationController::class, 'destroy'])->whereUuid('uuid');
+        });
+        Route::delete('users/{uuid}', [MemberController::class, 'destroy'])->whereUuid('uuid');
+    });
 
     Route::prefix('registry')->group(function () {
         Route::get('entities/by-document/{document}', [CommonEntityController::class, 'byDocument']);
@@ -164,6 +193,17 @@ Route::middleware(['auth:sanctum', 'ensure.station'])->prefix('station')->group(
     Route::post('companies/{uuid}/accept', [StationCompanyController::class, 'accept'])->whereUuid('uuid');
     Route::post('companies/{uuid}/reject', [StationCompanyController::class, 'reject'])->whereUuid('uuid');
     Route::post('companies/{uuid}/disconnect', [StationCompanyController::class, 'disconnect'])->whereUuid('uuid');
+
+    // Usuários e convites. Sair (DELETE do próprio uuid) não exige admin.
+    Route::middleware('ensure.admin')->group(function () {
+        Route::get('users', [MemberController::class, 'index']);
+        Route::patch('users/{uuid}', [MemberController::class, 'update'])->whereUuid('uuid');
+        Route::get('invitations', [InvitationController::class, 'index']);
+        Route::post('invitations', [InvitationController::class, 'store']);
+        Route::post('invitations/{uuid}/renew', [InvitationController::class, 'renew'])->whereUuid('uuid');
+        Route::delete('invitations/{uuid}', [InvitationController::class, 'destroy'])->whereUuid('uuid');
+    });
+    Route::delete('users/{uuid}', [MemberController::class, 'destroy'])->whereUuid('uuid');
 });
 
 // =============================== ADMIN SYSTEM ROUTES ===============================
@@ -177,6 +217,12 @@ Route::middleware(['auth:sanctum', 'ensure.system'])->group(function () {
             Route::put('/{uuid}', [CompanyController::class, 'update']);
             Route::post('/{uuid}/deactivate', [CompanyController::class, 'deactivate']);
             Route::post('/{uuid}/activate', [CompanyController::class, 'activate']);
+            Route::get('/{company}/invitations', [CompanyInvitationController::class, 'index'])->whereUuid('company');
+            Route::post('/{company}/invitations', [CompanyInvitationController::class, 'store'])->whereUuid('company');
+            Route::post('/{company}/invitations/{invitation}/renew', [CompanyInvitationController::class, 'renew'])
+                ->whereUuid(['company', 'invitation']);
+            Route::delete('/{company}/invitations/{invitation}', [CompanyInvitationController::class, 'destroy'])
+                ->whereUuid(['company', 'invitation']);
         });
     });
 });

@@ -1,11 +1,13 @@
 <?php
 
+use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\EnsureCompanySelected;
 use App\Http\Middleware\EnsureFuelStationSelected;
 use App\Http\Middleware\EnsureSystemAdmin;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -20,10 +22,15 @@ return Application::configure(basePath: dirname(__DIR__))
             'ensure.company' => EnsureCompanySelected::class, // Verifica se a empresa está selecionada
             'ensure.station' => EnsureFuelStationSelected::class, // Verifica se o posto está selecionado
             'ensure.system' => EnsureSystemAdmin::class, // Verifica se o usuário é um administrador do sistema
+            'ensure.admin' => EnsureAdmin::class, // Verifica se o usuário é admin da empresa ou do posto do token
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
+
+        $exceptions->render(fn (ThrottleRequestsException $e) => response()->json([
+            'message' => 'Muitas tentativas. Aguarde um minuto e tente de novo.',
+        ], 429, $e->getHeaders()));
     })->create();

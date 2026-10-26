@@ -3,13 +3,13 @@ import { useNavigate } from "react-router"
 
 import { LoadingWrapper } from "@/components/common/LoadingWrapper"
 import { AppLayout } from "@/layouts/AppLayout"
-import { getAuthCompanies, me, selectCompany } from "@/lib/auth/auth"
+import { me } from "@/lib/auth/auth"
 import { SessionContext } from "@/lib/auth/session"
 
 /**
  * /app só abre com token e empresa gravada nesse token.
  * Sem isso, o histórico não pode deixar a pessoa dentro do sistema.
- * A sessão (usuário, empresa atual e empresas) é carregada aqui e
+ * A sessão (usuário e empresa atual) é carregada aqui e
  * compartilhada com o cabeçalho pelo SessionContext.
  */
 export function RequireCompany() {
@@ -26,15 +26,15 @@ export function RequireCompany() {
             }
         }
 
-        Promise.all([me(), getAuthCompanies()])
-            .then(([user, companies]) => {
+        me()
+            .then((user) => {
                 if (!active) return
                 // Admin do sistema entra sem empresa. Contexto de posto volta pra seleção.
                 if (!user.has_company && (!user.is_system_admin || user.has_fuel_station)) {
                     navigate("/auth/contextos", { replace: true })
                     return
                 }
-                setSession({ user, companies })
+                setSession({ user })
             })
             .catch(() => {
                 if (!active) return
@@ -47,13 +47,6 @@ export function RequireCompany() {
         }
     }, [navigate])
 
-    async function switchCompany(uuid) {
-        if (uuid === session?.user?.current_company?.uuid) return
-        await selectCompany(uuid)
-        // Tudo em /app é escopado pela empresa; recarregar refaz todas as buscas.
-        window.location.reload()
-    }
-
     if (!session) {
         return <LoadingWrapper loading />
     }
@@ -65,8 +58,6 @@ export function RequireCompany() {
             value={{
                 user: session.user,
                 currentCompany: session.user.current_company,
-                companies: session.companies,
-                switchCompany,
             }}
         >
             <AppLayout />

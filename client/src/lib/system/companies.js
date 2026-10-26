@@ -31,4 +31,4 @@ export default {
     updateCompany,
     deactivateCompany,
     activateCompany
-} 
+}

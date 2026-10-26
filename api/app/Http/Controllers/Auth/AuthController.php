@@ -82,11 +82,6 @@ class AuthController extends Controller
         return UserResource::make($request->user());
     }
 
-    public function companies(Request $request)
-    {
-        return CompanyResource::collection($request->user()->companies()->get());
-    }
-
     public function contexts(Request $request)
     {
         return response()->json([

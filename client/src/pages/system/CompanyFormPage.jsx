@@ -10,6 +10,7 @@ import { LoadingWrapper } from "@/components/common/LoadingWrapper"
 import { createCompany, getCompany, updateCompany } from "@/lib/system/companies"
 import { notifyError, notifySuccess } from "@/lib/notify"
 import { Separator } from "@/components/ui/separator";
+import { InvitationLinkDialog } from "@/components/common/InvitationLinkDialog"
 
 export default function CompanyFormPage() {
     const { uuid } = useParams()
@@ -23,13 +24,9 @@ export default function CompanyFormPage() {
         cnpj: '',
         state_id: null,
         city_id: null,
-        user: {
-            name: '',
-            email: '',
-            password: '',
-            password_confirmation: '',
-        },
+        admin_email: '',
     })
+    const [created, setCreated] = useState(null)
 
     useEffect(() => {
         if (!uuid) return
@@ -60,11 +57,16 @@ export default function CompanyFormPage() {
                 state_id: formData.state_id,
                 city_id: formData.city_id,
             }
-            const response = isEditing
-                ? await updateCompany(uuid, company)
-                : await createCompany({ ...company, user: formData.user })
+            if (isEditing) {
+                notifySuccess(await updateCompany(uuid, company))
+                navigate('/app/sistema/empresas')
+                return
+            }
+
+            const response = await createCompany({ ...company, admin_email: formData.admin_email })
             notifySuccess(response)
-            navigate('/app/sistema/empresas')
+            // A janela do link fica aberta até a pessoa fechar; depois volta pra lista.
+            setCreated({ data: response.invitation, token: response.token })
         } catch (error) {
             notifyError(error)
         } finally {
@@ -82,6 +84,9 @@ export default function CompanyFormPage() {
                     { text: isEditing ? 'Editar empresa' : 'Nova empresa' },
                 ]}
                 buttons={[
+                    ...(isEditing
+                        ? [{ title: 'Usuários', variant: 'outline', to: `/app/sistema/empresas/${uuid}/usuarios` }]
+                        : []),
                     { title: 'Cancelar', variant: 'outline', to: '/app/sistema/empresas' },
                     {
                         title: 'Salvar',
@@ -170,65 +175,42 @@ export default function CompanyFormPage() {
                         </FieldGroup>
                     </FieldSet>
 
-                    {!isEditing ? (
+                    {isEditing ? null : (
                         <>
                             <Separator />
+
                             <FieldSet>
-                                <FieldLegend variant="label">Primeiro usuário</FieldLegend>
+                                <FieldLegend variant="label">Administrador da empresa</FieldLegend>
                                 <FieldDescription>
-                                    Esta pessoa entra como administradora. Se o e-mail já existir, ela é só vinculada e a senha atual permanece.
+                                    Vamos gerar um link de convite. A pessoa cria a conta, ou entra com a que já tem, e vira administradora da empresa.
                                 </FieldDescription>
-                                <FieldGroup className="md:grid md:grid-cols-2">
+                                <FieldGroup className="md:grid md:grid-cols-3">
                                     <Field>
-                                        <FieldLabel htmlFor="user-name">Nome</FieldLabel>
+                                        <FieldLabel htmlFor="admin-email">E-mail</FieldLabel>
                                         <Input
-                                            id="user-name"
-                                            value={formData.user.name}
-                                            placeholder="Ex: Pablo Alves"
-                                            onChange={(e) => setFormData({ ...formData, user: { ...formData.user, name: e.target.value } })}
-                                            autoComplete="name"
-                                        />
-                                    </Field>
-                                    <Field>
-                                        <FieldLabel htmlFor="user-email">E-mail</FieldLabel>
-                                        <Input
-                                            id="user-email"
+                                            id="admin-email"
                                             type="email"
-                                            value={formData.user.email}
-                                            placeholder="Ex: usuario@empresa.com.br"
-                                            onChange={(e) => setFormData({ ...formData, user: { ...formData.user, email: e.target.value } })}
+                                            value={formData.admin_email}
+                                            placeholder="Ex: ana@empresa.com.br"
+                                            onChange={(e) => setFormData({ ...formData, admin_email: e.target.value })}
                                             autoComplete="off"
                                             required
-                                        />
-                                    </Field>
-                                    <Field>
-                                        <FieldLabel htmlFor="user-password">Senha</FieldLabel>
-                                        <Input
-                                            id="user-password"
-                                            type="password"
-                                            value={formData.user.password}
-                                            placeholder="**********"
-                                            onChange={(e) => setFormData({ ...formData, user: { ...formData.user, password: e.target.value } })}
-                                            autoComplete="new-password"
-                                        />
-                                    </Field>
-                                    <Field>
-                                        <FieldLabel htmlFor="user-password-confirmation">Confirmar senha</FieldLabel>
-                                        <Input
-                                            id="user-password-confirmation"
-                                            type="password"
-                                            value={formData.user.password_confirmation}
-                                            placeholder="**********"
-                                            onChange={(e) => setFormData({ ...formData, user: { ...formData.user, password_confirmation: e.target.value } })}
-                                            autoComplete="new-password"
                                         />
                                     </Field>
                                 </FieldGroup>
                             </FieldSet>
                         </>
-                    ) : null}
+                    )}
                 </form>
             </LoadingWrapper>
+
+            <InvitationLinkDialog
+                created={created}
+                onClose={() => {
+                    setCreated(null)
+                    navigate('/app/sistema/empresas')
+                }}
+            />
         </>
     )
 }

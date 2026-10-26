@@ -2,10 +2,14 @@
 
 namespace App\Http\Requests\Auth;
 
-use App\Models\User;
 use App\Rules\Cnpj;
+use App\Services\FuelStation\FuelStationSignupService;
 use Illuminate\Foundation\Http\FormRequest;
 
+/**
+ * Cadastro público de posto: sempre uma conta nova.
+ * Quem já tem conta entra antes e usa `POST /auth/stations`.
+ */
 class StoreFuelStationSignupRequest extends FormRequest
 {
     public function authorize(): bool
@@ -15,26 +19,22 @@ class StoreFuelStationSignupRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $this->merge([
-            'cnpj' => Cnpj::digits($this->input('cnpj')),
-            'email' => strtolower(trim((string) $this->input('email'))),
-        ]);
+        if (is_string($this->input('cnpj'))) {
+            $this->merge(['cnpj' => Cnpj::digits($this->input('cnpj'))]);
+        }
+
+        if (is_string($this->input('email'))) {
+            $this->merge(['email' => strtolower(trim($this->input('email')))]);
+        }
     }
 
     public function rules(): array
     {
-        $email = (string) $this->input('email');
-        $userExists = $email !== '' && User::query()->where('email', $email)->exists();
-
         return [
-            'cnpj' => ['required', 'string', new Cnpj],
-            'email' => ['required', 'email', 'max:255'],
-            'name' => $userExists
-                ? ['nullable', 'string', 'max:255']
-                : ['required', 'string', 'max:255'],
-            'password' => $userExists
-                ? ['required', 'string']
-                : ['required', 'string', 'min:8', 'confirmed'],
+            'cnpj' => ['bail', 'required', 'string', new Cnpj],
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
         ];
     }
 
@@ -42,10 +42,15 @@ class StoreFuelStationSignupRequest extends FormRequest
     {
         return [
             'cnpj.required' => 'O CNPJ é obrigatório',
-            'email.required' => 'O e-mail é obrigatório',
-            'email.email' => 'Informe um e-mail válido',
+            'cnpj.string' => 'Informe um CNPJ válido.',
             'name.required' => 'O nome é obrigatório',
+            'name.string' => 'Informe um nome válido',
+            'email.required' => 'O e-mail é obrigatório',
+            'email.string' => 'Informe um e-mail válido',
+            'email.email' => 'Informe um e-mail válido',
+            'email.unique' => FuelStationSignupService::EMAIL_TAKEN,
             'password.required' => 'A senha é obrigatória',
+            'password.string' => 'Informe uma senha válida',
             'password.min' => 'A senha deve ter no mínimo 8 caracteres',
             'password.confirmed' => 'A confirmação da senha não confere',
         ];

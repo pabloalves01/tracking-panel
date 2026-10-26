@@ -12,10 +12,14 @@ use App\Services\External\BrasilApiService;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 
 class FuelStationSignupService
 {
+    public const ALREADY_REGISTERED = 'Este posto já está cadastrado na Logiv. Peça um convite ao administrador do posto.';
+
+    public const EMAIL_TAKEN = 'Este e-mail já tem conta. Entre com ela para cadastrar o posto.';
+
     public function __construct(private BrasilApiService $brasilApi) {}
 
     /**
@@ -33,37 +37,36 @@ class FuelStationSignupService
     }
 
     /**
-     * @return array{exists: bool}
-     */
-    public function checkEmail(string $email): array
-    {
-        return [
-            'exists' => User::where('email', $email)->exists(),
-        ];
-    }
-
-    /**
+     * Cadastro público: cria a conta nova, o posto e o vínculo admin numa transação.
+     *
      * @param  array<string, mixed>  $data
-     * @return array{message: string}
+     * @return array{0: FuelStation, 1: User}
      */
     public function store(array $data): array
     {
         $digits = $this->availableCnpj((string) $data['cnpj']);
         $payload = $this->brasilApi->cnpj($digits);
-        $email = (string) $data['email'];
-        $user = User::where('email', $email)->first();
 
-        if ($user) {
-            $this->checkPassword($user, (string) $data['password']);
-        }
+        return $this->createStation($digits, $payload, function () use ($data) {
+            return User::create([
+                'name' => $data['name'],
+                'email' => $data['email'],
+                'password' => $data['password'],
+            ]);
+        });
+    }
 
-        $this->createStation($digits, $payload, $user, $data);
+    /**
+     * Cadastro com a conta logada: o posto vai pra ela.
+     */
+    public function storeForUser(User $user, string $cnpj): FuelStation
+    {
+        $digits = $this->availableCnpj($cnpj);
+        $payload = $this->brasilApi->cnpj($digits);
 
-        return [
-            'message' => $user
-                ? 'Posto vinculado à sua conta'
-                : 'Posto cadastrado com sucesso',
-        ];
+        [$station] = $this->createStation($digits, $payload, fn () => $user);
+
+        return $station;
     }
 
     private function availableCnpj(string $cnpj): string
@@ -71,33 +74,30 @@ class FuelStationSignupService
         $digits = Cnpj::digits($cnpj);
 
         if (! Cnpj::isValid($digits)) {
-            abort(422, 'Informe um CNPJ válido');
+            abort(422, 'Informe um CNPJ válido.');
         }
 
         if (FuelStation::withTrashed()->where('cnpj', $digits)->exists()) {
-            abort(422, 'Este posto já está cadastrado. Fale com o responsável');
+            abort(422, self::ALREADY_REGISTERED);
         }
 
         return $digits;
     }
 
-    private function checkPassword(User $user, string $password): void
-    {
-        if (! Hash::check($password, $user->password)) {
-            abort(422, 'Senha incorreta');
-        }
-    }
-
     /**
+     * Cria o posto e liga o dono como admin. `$owner` devolve a conta, nova ou a logada,
+     * dentro da mesma transação.
+     *
      * @param  array<string, mixed>  $payload
-     * @param  array<string, mixed>  $data
+     * @param  callable(): User  $owner
+     * @return array{0: FuelStation, 1: User}
      */
-    private function createStation(string $cnpj, array $payload, ?User $owner, array $data): void
+    private function createStation(string $cnpj, array $payload, callable $owner): array
     {
         $address = $this->address($payload);
 
         try {
-            DB::transaction(function () use ($cnpj, $address, $owner, $data) {
+            return DB::transaction(function () use ($cnpj, $address, $owner) {
                 $station = FuelStation::create(array_merge(
                     Arr::except($address, ['state_name', 'city_name', 'uf']),
                     [
@@ -107,26 +107,24 @@ class FuelStationSignupService
                     ],
                 ));
 
-                if (! $owner) {
-                    $owner = User::create([
-                        'name' => $data['name'],
-                        'email' => $data['email'],
-                        'password' => $data['password'],
-                    ]);
-                }
+                $user = $owner();
 
                 FuelStationUser::create([
                     'fuel_station_id' => $station->id,
-                    'user_id' => $owner->id,
-                    'role' => 'owner',
+                    'user_id' => $user->id,
+                    'role' => 'admin',
                 ]);
+
+                return [$station, $user];
             });
         } catch (UniqueConstraintViolationException) {
             if (FuelStation::withTrashed()->where('cnpj', $cnpj)->exists()) {
-                abort(422, 'Este posto já está cadastrado. Fale com o responsável');
+                abort(422, self::ALREADY_REGISTERED);
             }
 
-            abort(422, 'Este e-mail já tem conta');
+            throw ValidationException::withMessages([
+                'email' => self::EMAIL_TAKEN,
+            ]);
         }
     }
 
@@ -139,7 +137,7 @@ class FuelStationSignupService
         $corporateName = $this->text($payload['razao_social'] ?? null);
 
         if ($corporateName === null) {
-            abort(422, 'A Receita Federal não retornou a razão social deste CNPJ');
+            abort(503, 'Não foi possível consultar a Receita agora. Tente de novo em instantes.');
         }
 
         $ibge = $payload['codigo_municipio_ibge'] ?? null;

@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
  *
  * O valor vai em texto puro para a API. O backend grava o hash e não devolve a senha.
  */
-export function InputPassword({ id, value, onChange, placeholder, disabled, className, autoComplete = 'new-password' }) {
+export function InputPassword({ id, value, onChange, placeholder, disabled, required, className, autoComplete = 'new-password' }) {
     const [visible, setVisible] = useState(false)
 
     return (
@@ -19,6 +19,7 @@ export function InputPassword({ id, value, onChange, placeholder, disabled, clas
                 type={visible ? 'text' : 'password'}
                 value={value}
                 disabled={disabled}
+                required={required}
                 autoComplete={autoComplete}
                 placeholder={placeholder}
                 className={cn('pr-10', className)}

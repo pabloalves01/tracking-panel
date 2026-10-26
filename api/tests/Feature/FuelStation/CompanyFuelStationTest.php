@@ -142,7 +142,7 @@ class CompanyFuelStationTest extends TestCase
 
         $this->getJson('/api/registry/fuel-stations/by-cnpj?cnpj=123')
             ->assertUnprocessable()
-            ->assertJsonPath('errors.cnpj.0', 'Informe um CNPJ válido');
+            ->assertJsonPath('errors.cnpj.0', 'Informe um CNPJ válido.');
 
         $this->getJson('/api/registry/fuel-stations/by-cnpj?cnpj='.self::CNPJ)
             ->assertUnprocessable()
@@ -209,7 +209,7 @@ class CompanyFuelStationTest extends TestCase
 
         $this->postJson('/api/registry/fuel-stations', ['cnpj' => '123'])
             ->assertUnprocessable()
-            ->assertJsonPath('message', 'Informe um CNPJ válido');
+            ->assertJsonPath('message', 'Informe um CNPJ válido.');
 
         $this->assertSame(0, CompanyFuelStation::query()->count());
     }
@@ -729,7 +729,7 @@ class CompanyFuelStationTest extends TestCase
         FuelStationUser::query()->create([
             'fuel_station_id' => $station->id,
             'user_id' => $user->id,
-            'role' => 'owner',
+            'role' => 'admin',
         ]);
 
         $token = $user->createToken('web');
@@ -804,7 +804,7 @@ class CompanyFuelStationTest extends TestCase
             FuelStationUser::query()->create([
                 'fuel_station_id' => $station->id,
                 'user_id' => $user->id,
-                'role' => 'owner',
+                'role' => 'admin',
             ]);
         }
 

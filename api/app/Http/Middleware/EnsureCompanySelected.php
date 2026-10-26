@@ -30,8 +30,13 @@ class EnsureCompanySelected
 
         $belongs = $request->user()->companies()->whereKey($companyId)->exists();
 
+        // Vínculo removido ou empresa inativa: perde o acesso na hora.
         if (! $belongs) {
-            abort(409, 'Você não tem permissão para acessar esta empresa');
+            // `code` fixo: o front volta pra escolha de contexto sem depender do texto.
+            return response()->json([
+                'message' => 'Você não tem acesso a esta empresa',
+                'code' => 'context_access_lost',
+            ], 403);
         }
 
         app()->instance(CurrentCompany::class, new CurrentCompany($companyId));

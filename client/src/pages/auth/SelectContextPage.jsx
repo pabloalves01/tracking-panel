@@ -1,11 +1,13 @@
 import { Children, useEffect, useState } from "react"
 import { Building2, Fuel } from "lucide-react"
-import { useNavigate } from "react-router"
+import { Link, useNavigate } from "react-router"
 
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { LoadingWrapper } from "@/components/common/LoadingWrapper"
 import { formatCpfCnpj } from "@/helpers/formatters"
+import { roleLabel } from "@/helpers/labels"
 import { getAuthContexts, logout, me, selectCompany, selectFuelStation } from "@/lib/auth/auth"
 import { notifyError } from "@/lib/notify"
 
@@ -72,10 +74,7 @@ export default function SelectContextPage() {
                     <div className="flex w-full max-w-[76rem] flex-col items-center gap-8">
                         <div className="flex flex-col gap-1 text-center">
                             <p className="text-sm text-muted-foreground">Bem-vindo, {user?.name}</p>
-                            <h1 className="text-2xl font-bold">Selecionar o contexto</h1>
-                            <p className="text-sm text-muted-foreground">
-                                Escolha em qual empresa ou posto você quer entrar.
-                            </p>
+                            <h1 className="text-2xl font-bold">Onde você quer entrar?</h1>
                         </div>
 
                         {!loading && companies.length === 0 && stations.length === 0 ? (
@@ -84,11 +83,20 @@ export default function SelectContextPage() {
                                     <EmptyMedia variant="icon">
                                         <Building2 />
                                     </EmptyMedia>
-                                    <EmptyTitle>Nenhum contexto</EmptyTitle>
+                                    <EmptyTitle>Nenhuma empresa ou posto</EmptyTitle>
                                     <EmptyDescription>
-                                        Este usuário não está vinculado a uma empresa nem a um posto.
+                                        Você ainda não tem acesso a nenhuma empresa ou posto. Para entrar, peça um
+                                        convite ao administrador. Se você é responsável por um posto, cadastre-o.
                                     </EmptyDescription>
                                 </EmptyHeader>
+                                <EmptyContent>
+                                    <Link
+                                        to="/auth/register/posto"
+                                        className="text-sm font-medium underline underline-offset-4"
+                                    >
+                                        Cadastrar meu posto
+                                    </Link>
+                                </EmptyContent>
                             </Empty>
                         ) : !loading ? (
                             <div className="flex w-full flex-col items-center gap-10">
@@ -100,6 +108,7 @@ export default function SelectContextPage() {
                                             title={company.trade_name}
                                             subtitle={company.legal_name}
                                             document={company.cnpj}
+                                            role={company.role}
                                             onClick={() => handleCompanyClick(company.uuid)}
                                         />
                                     ))}
@@ -112,6 +121,7 @@ export default function SelectContextPage() {
                                             title={station.trade_name || station.corporate_name}
                                             subtitle={station.trade_name ? station.corporate_name : ""}
                                             document={station.cnpj}
+                                            role={station.role}
                                             onClick={() => handleStationClick(station.uuid)}
                                         />
                                     ))}
@@ -146,15 +156,18 @@ function ContextSection({ title, empty, children }) {
     )
 }
 
-function ContextCard({ icon: Icon, title, subtitle, document, onClick }) {
+function ContextCard({ icon: Icon, title, subtitle, document, role, onClick }) {
     return (
         <button
             type="button"
             className="flex w-full max-w-sm flex-col gap-4 rounded-xl border bg-card/95 p-5 text-left text-card-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-muted sm:w-72 cursor-pointer"
             onClick={onClick}
         >
-            <span className="flex size-10 items-center justify-center rounded-lg bg-muted">
-                <Icon className="size-5" />
+            <span className="flex items-center justify-between gap-2">
+                <span className="flex size-10 items-center justify-center rounded-lg bg-muted">
+                    <Icon className="size-5" />
+                </span>
+                <Badge variant={role === "admin" ? "secondary" : "outline"}>{roleLabel[role]}</Badge>
             </span>
             <span className="flex flex-col gap-1">
                 <span className="font-medium">{title}</span>
