@@ -3,8 +3,8 @@
 namespace Tests\Feature\Registry;
 
 use App\Models\Company;
-use App\Models\Registry\CommonEntity;
 use App\Models\Registry\Carrier;
+use App\Models\Registry\CommonEntity;
 use App\Models\User;
 use App\Support\CurrentCompany;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -15,7 +15,7 @@ class StoreCarrierTest extends TestCase
 {
     use RefreshDatabase;
 
-    private const CPF = '11111111111';
+    private const CPF = '52998224725';
 
     protected function setUp(): void
     {

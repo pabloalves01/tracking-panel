@@ -15,7 +15,7 @@ class StoreVehicleOwnerTest extends TestCase
 {
     use RefreshDatabase;
 
-    private const CPF = '11111111111';
+    private const CPF = '52998224725';
 
     protected function setUp(): void
     {

@@ -28,13 +28,16 @@ class EnsureCompanySelected
             abort(409, 'Selecione uma empresa');
         }
 
-        $belongs = $request->user()->companies()->whereKey($companyId)->exists();
+        $company = $request->user()->companies()->whereKey($companyId)->first();
 
-        if (! $belongs) {
-            abort(409, 'Você não tem permissão para acessar esta empresa');
+        if (! $company) {
+            return response()->json([
+                'message' => 'Você não tem permissão para acessar esta empresa',
+                'code' => 'context_access_lost',
+            ], 403);
         }
 
-        app()->instance(CurrentCompany::class, new CurrentCompany($companyId));
+        app()->instance(CurrentCompany::class, new CurrentCompany($companyId, (string) $company->pivot->role));
 
         return $next($request);
     }

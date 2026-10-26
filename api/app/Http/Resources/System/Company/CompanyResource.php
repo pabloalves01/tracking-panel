@@ -24,6 +24,7 @@ class CompanyResource extends JsonResource
             'city_id' => $this->city_id,
             'logo_path' => $this->logo_path,
             'status' => $this->status,
+            'role' => $this->whenPivotLoaded('company_user', fn () => $this->pivot->role),
             'users_count' => $this->whenCounted('users'),
             // 'created_at' => $this->created_at?->toISOString(),
             // 'updated_at' => $this->updated_at?->toISOString(),

@@ -20,5 +20,7 @@ class DatabaseSeeder extends Seeder
         User::factory()->create([
             'is_system_admin' => true,
         ]);
+
+        $this->call(DemoAccessSeeder::class);
     }
 }

@@ -20,14 +20,17 @@ class CompanyController extends Controller
     {
         try {
             $companies = $this->companyService->list();
+
             return CompanyResource::collection($companies);
         } catch (DomainException $e) {
             Log::error($e->getMessage());
+
             return response()->json([
                 'message' => $e->getMessage(),
             ], 500);
         } catch (Exception $e) {
             Log::error($e->getMessage());
+
             return response()->json([
                 'message' => $e->getMessage(),
             ], 500);
@@ -36,36 +39,34 @@ class CompanyController extends Controller
 
     public function store(StoreCompanyRequest $request)
     {
-        try {
-            $this->companyService->store($request->validated());
-            return response()->json([
-                'message' => 'Empresa criada com sucesso',
-            ], 201);
-        } catch (DomainException $e) {
-            Log::error($e->getMessage());
-            return response()->json([
-                'message' => $e->getMessage(),
-            ], 500);
-        } catch (Exception $e) {
-            Log::error($e->getMessage());
-            return response()->json([
-                'message' => $e->getMessage(),
-            ], 500);
-        }
+        $invitation = $this->companyService->store($request->validated())['invitation'];
+
+        return response()->json([
+            'message' => 'Empresa criada com sucesso',
+            'invitation' => [
+                'email' => $invitation->email,
+                'role' => $invitation->role,
+                'expires_at' => $invitation->expires_at?->toIso8601String(),
+                'invite_url' => $invitation->inviteUrl(),
+            ],
+        ], 201);
     }
 
     public function show(Request $request, $uuid)
     {
         try {
             $company = $this->companyService->get($uuid);
+
             return CompanyResource::make($company);
         } catch (DomainException $e) {
             Log::error($e->getMessage());
+
             return response()->json([
                 'message' => $e->getMessage(),
             ], 500);
         } catch (Exception $e) {
             Log::error($e->getMessage());
+
             return response()->json([
                 'message' => $e->getMessage(),
             ], 500);
@@ -76,16 +77,19 @@ class CompanyController extends Controller
     {
         try {
             $this->companyService->update($uuid, $request->validated());
+
             return response()->json([
                 'message' => 'Empresa atualizada com sucesso',
             ]);
         } catch (DomainException $e) {
             Log::error($e->getMessage());
+
             return response()->json([
                 'message' => $e->getMessage(),
             ], 500);
         } catch (Exception $e) {
             Log::error($e->getMessage());
+
             return response()->json([
                 'message' => $e->getMessage(),
             ], 500);
@@ -96,16 +100,19 @@ class CompanyController extends Controller
     {
         try {
             $this->companyService->deactivate($uuid);
+
             return response()->json([
                 'message' => 'Empresa desativada com sucesso',
             ]);
         } catch (DomainException $e) {
             Log::error($e->getMessage());
+
             return response()->json([
                 'message' => $e->getMessage(),
             ], 500);
         } catch (Exception $e) {
             Log::error($e->getMessage());
+
             return response()->json([
                 'message' => $e->getMessage(),
             ], 500);
@@ -116,16 +123,19 @@ class CompanyController extends Controller
     {
         try {
             $this->companyService->activate($uuid);
+
             return response()->json([
                 'message' => 'Empresa ativada com sucesso',
             ]);
         } catch (DomainException $e) {
             Log::error($e->getMessage());
+
             return response()->json([
                 'message' => $e->getMessage(),
             ], 500);
         } catch (Exception $e) {
             Log::error($e->getMessage());
+
             return response()->json([
                 'message' => $e->getMessage(),
             ], 500);

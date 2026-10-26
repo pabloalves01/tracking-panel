@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\System\Company;
 
+use App\Rules\Cnpj;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -10,6 +11,13 @@ class UpdateCompanyRequest extends FormRequest
     public function authorize(): bool
     {
         return true;
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'cnpj' => Cnpj::digits($this->input('cnpj')),
+        ]);
     }
 
     public function rules(): array
@@ -21,6 +29,7 @@ class UpdateCompanyRequest extends FormRequest
                 'required',
                 'string',
                 'max:18',
+                new Cnpj,
                 // Ignora a própria empresa para não acusar o CNPJ como duplicado dela mesma.
                 Rule::unique('companies', 'cnpj')->ignore($this->route('uuid'), 'uuid'),
             ],

@@ -8,15 +8,16 @@ use App\Models\Location\City;
 use App\Models\Location\State;
 use App\Models\User;
 use App\Rules\Cnpj;
+use App\Services\AuditLogger;
 use App\Services\External\BrasilApiService;
+use App\Support\Membership;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 
 class FuelStationSignupService
 {
-    public function __construct(private BrasilApiService $brasilApi) {}
+    public function __construct(private BrasilApiService $brasilApi, private AuditLogger $audit) {}
 
     /**
      * @return array<string, mixed>
@@ -33,36 +34,38 @@ class FuelStationSignupService
     }
 
     /**
-     * @return array{exists: bool}
-     */
-    public function checkEmail(string $email): array
-    {
-        return [
-            'exists' => User::where('email', $email)->exists(),
-        ];
-    }
-
-    /**
      * @param  array<string, mixed>  $data
-     * @return array{message: string}
+     * @return array{message: string, token: string, user: User, fuel_station: FuelStation}
      */
     public function store(array $data): array
     {
-        $digits = $this->availableCnpj((string) $data['cnpj']);
-        $payload = $this->brasilApi->cnpj($digits);
-        $email = (string) $data['email'];
-        $user = User::where('email', $email)->first();
+        $email = strtolower(trim((string) $data['email']));
 
-        if ($user) {
-            $this->checkPassword($user, (string) $data['password']);
+        if (User::query()->where('email', $email)->exists()) {
+            abort(422, 'Este e-mail já tem conta. Entre para cadastrar o posto');
         }
 
-        $this->createStation($digits, $payload, $user, $data);
+        $digits = $this->availableCnpj((string) $data['cnpj']);
+        $payload = $this->brasilApi->cnpj($digits);
+        $station = $this->createStation($digits, $payload, null, $data);
+
+        return $this->session($station->users()->first()->user, $station, 'Posto cadastrado com sucesso');
+    }
+
+    /**
+     * @return array{message: string, user: User, fuel_station: FuelStation}
+     */
+    public function storeForUser(User $user, string $cnpj): array
+    {
+        $digits = $this->availableCnpj($cnpj);
+        $payload = $this->brasilApi->cnpj($digits);
+        $station = $this->createStation($digits, $payload, $user, []);
+        $this->enterStation($user, $station);
 
         return [
-            'message' => $user
-                ? 'Posto vinculado à sua conta'
-                : 'Posto cadastrado com sucesso',
+            'message' => 'Posto vinculado à sua conta',
+            'user' => $user,
+            'fuel_station' => $station,
         ];
     }
 
@@ -81,23 +84,16 @@ class FuelStationSignupService
         return $digits;
     }
 
-    private function checkPassword(User $user, string $password): void
-    {
-        if (! Hash::check($password, $user->password)) {
-            abort(422, 'Senha incorreta');
-        }
-    }
-
     /**
      * @param  array<string, mixed>  $payload
      * @param  array<string, mixed>  $data
      */
-    private function createStation(string $cnpj, array $payload, ?User $owner, array $data): void
+    private function createStation(string $cnpj, array $payload, ?User $owner, array $data): FuelStation
     {
         $address = $this->address($payload);
 
         try {
-            DB::transaction(function () use ($cnpj, $address, $owner, $data) {
+            return DB::transaction(function () use ($cnpj, $address, $owner, $data) {
                 $station = FuelStation::create(array_merge(
                     Arr::except($address, ['state_name', 'city_name', 'uf']),
                     [
@@ -115,19 +111,62 @@ class FuelStationSignupService
                     ]);
                 }
 
-                FuelStationUser::create([
+                $membership = FuelStationUser::create([
                     'fuel_station_id' => $station->id,
                     'user_id' => $owner->id,
-                    'role' => 'owner',
+                    'role' => Membership::OWNER,
+                    'status' => Membership::ACTIVE,
                 ]);
+
+                $this->audit->log('membership.activated', $membership, [
+                    'role' => Membership::OWNER,
+                    'user_uuid' => $owner->uuid,
+                    'source' => 'station_signup',
+                ], null, $station->id);
+
+                return $station;
             });
         } catch (UniqueConstraintViolationException) {
             if (FuelStation::withTrashed()->where('cnpj', $cnpj)->exists()) {
                 abort(422, 'Este posto já está cadastrado. Fale com o responsável');
             }
 
-            abort(422, 'Este e-mail já tem conta');
+            abort(422, 'Este e-mail já tem conta. Entre para cadastrar o posto');
         }
+    }
+
+    /**
+     * @return array{message: string, token: string, user: User, fuel_station: FuelStation}
+     */
+    private function session(User $user, FuelStation $station, string $message): array
+    {
+        $token = $user->createToken('web');
+        $token->accessToken->forceFill([
+            'company_id' => null,
+            'fuel_station_id' => $station->id,
+        ])->save();
+        $user->withAccessToken($token->accessToken);
+
+        return [
+            'message' => $message,
+            'token' => $token->plainTextToken,
+            'user' => $user,
+            'fuel_station' => $station->load(['city', 'state']),
+        ];
+    }
+
+    private function enterStation(User $user, FuelStation $station): void
+    {
+        $token = $user->currentAccessToken();
+
+        if (! $token) {
+            return;
+        }
+
+        $token->forceFill([
+            'company_id' => null,
+            'fuel_station_id' => $station->id,
+        ])->save();
     }
 
     /**

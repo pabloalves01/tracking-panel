@@ -22,13 +22,16 @@ class EnsureFuelStationSelected
             abort(409, 'Selecione um posto');
         }
 
-        $belongs = $request->user()->fuelStations()->whereKey($token->fuel_station_id)->exists();
+        $station = $request->user()->fuelStations()->whereKey($token->fuel_station_id)->first();
 
-        if (! $belongs) {
-            abort(403, 'Você não tem acesso a este posto');
+        if (! $station) {
+            return response()->json([
+                'message' => 'Você não tem acesso a este posto',
+                'code' => 'context_access_lost',
+            ], 403);
         }
 
-        app()->instance(CurrentFuelStation::class, new CurrentFuelStation($token->fuel_station_id));
+        app()->instance(CurrentFuelStation::class, new CurrentFuelStation($token->fuel_station_id, (string) $station->pivot->role));
 
         return $next($request);
     }

@@ -2,13 +2,14 @@
 
 namespace Tests\Feature\FuelStation;
 
+use App\Models\AuditLog;
 use App\Models\Company;
 use App\Models\CompanyFuelStation;
+use App\Models\CompanyUser;
 use App\Models\FuelStation;
 use App\Models\FuelStationUser;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -31,7 +32,6 @@ class CompanyFuelStationTest extends TestCase
         $this->assertDatabaseHas('company_fuel_station', [
             'company_id' => $company->id,
             'fuel_station_id' => $station->id,
-            'cnpj' => self::CNPJ,
             'status' => 'request_sent',
         ]);
         $this->assertSame(1, User::query()->count());
@@ -201,10 +201,10 @@ class CompanyFuelStationTest extends TestCase
     public function test_empresa_remove_o_pedido_e_pode_pedir_de_novo(): void
     {
         $this->actAsCompany();
-        $this->station(self::CNPJ);
+        $station = $this->station(self::CNPJ);
         $this->postJson('/api/registry/fuel-stations', ['cnpj' => self::CNPJ])->assertCreated();
 
-        $this->deleteJson('/api/registry/fuel-stations/'.self::CNPJ)
+        $this->deleteJson('/api/registry/fuel-stations/'.$station->uuid)
             ->assertOk()
             ->assertJsonPath('message', 'Pedido removido');
 
@@ -217,7 +217,7 @@ class CompanyFuelStationTest extends TestCase
     public function test_empresa_so_ve_e_remove_os_proprios_pedidos(): void
     {
         $company = $this->actAsCompany('00000000000191', 'Empresa A');
-        $this->station(self::CNPJ);
+        $station = $this->station(self::CNPJ);
         $this->postJson('/api/registry/fuel-stations', ['cnpj' => self::CNPJ])->assertCreated();
 
         $other = $this->actAsCompany('11222333000181', 'Empresa B');
@@ -226,13 +226,13 @@ class CompanyFuelStationTest extends TestCase
             ->assertOk()
             ->assertJsonCount(0, 'data');
 
-        $this->deleteJson('/api/registry/fuel-stations/'.self::CNPJ)
+        $this->deleteJson('/api/registry/fuel-stations/'.$station->uuid)
             ->assertNotFound()
             ->assertJsonPath('message', 'Pedido não encontrado');
 
         $this->assertDatabaseHas('company_fuel_station', [
             'company_id' => $company->id,
-            'cnpj' => self::CNPJ,
+            'fuel_station_id' => $station->id,
         ]);
         $this->assertSame(0, CompanyFuelStation::query()->where('company_id', $other->id)->count());
     }
@@ -293,7 +293,7 @@ class CompanyFuelStationTest extends TestCase
 
         $this->actAsExistingCompany($company);
 
-        $this->postJson('/api/registry/fuel-stations/'.self::CNPJ.'/resend-request')
+        $this->postJson('/api/registry/fuel-stations/'.$station->uuid.'/resend-request')
             ->assertOk()
             ->assertJsonPath('message', 'Pedido reenviado');
 
@@ -312,7 +312,7 @@ class CompanyFuelStationTest extends TestCase
 
         $this->actAsExistingCompany($company);
 
-        $this->postJson('/api/registry/fuel-stations/'.self::CNPJ.'/resend-request')
+        $this->postJson('/api/registry/fuel-stations/'.$station->uuid.'/resend-request')
             ->assertOk()
             ->assertJsonPath('message', 'Pedido reenviado');
 
@@ -320,29 +320,15 @@ class CompanyFuelStationTest extends TestCase
         $this->assertFalse($company->fuelStations()->whereKey($station->id)->exists());
     }
 
-    public function test_reenvio_falha_quando_o_posto_nao_existe(): void
+    public function test_reenvio_com_uuid_invalido_nao_encontra_o_pedido(): void
     {
-        $company = $this->actAsCompany();
-        $station = $this->station(self::CNPJ);
-        $this->postJson('/api/registry/fuel-stations', ['cnpj' => self::CNPJ])->assertCreated();
-
-        $this->actAsStation($station);
-        $this->postJson('/api/station/companies/'.$company->uuid.'/reject')->assertOk();
-
-        $placeholder = $this->station('34028316000103', 'OUTRO POSTO LTDA');
-        CompanyFuelStation::query()->update(['fuel_station_id' => $placeholder->id]);
-        FuelStationUser::query()->where('fuel_station_id', $station->id)->delete();
-        DB::table('personal_access_tokens')->where('fuel_station_id', $station->id)->update(['fuel_station_id' => null]);
-        $station->forceDelete();
-
-        $this->actAsExistingCompany($company);
+        $this->actAsCompany();
+        $this->station(self::CNPJ);
+        $this->postJson('/api/registry/fuel-stations', ['cnpj' => '19.131.243/0001-97'])->assertCreated();
 
         $this->postJson('/api/registry/fuel-stations/'.self::CNPJ.'/resend-request')
-            ->assertUnprocessable()
-            ->assertJsonPath('message', 'Este posto não possui cadastro no Logiv')
-            ->assertJsonPath('errors.cnpj.0', 'Este posto não possui cadastro no Logiv');
-
-        $this->assertSame('rejected', CompanyFuelStation::query()->first()->status);
+            ->assertNotFound()
+            ->assertJsonPath('message', 'Pedido não encontrado');
     }
 
     public function test_reenvio_falha_quando_o_posto_foi_excluido(): void
@@ -357,7 +343,7 @@ class CompanyFuelStationTest extends TestCase
 
         $this->actAsExistingCompany($company);
 
-        $this->postJson('/api/registry/fuel-stations/'.self::CNPJ.'/resend-request')
+        $this->postJson('/api/registry/fuel-stations/'.$station->uuid.'/resend-request')
             ->assertUnprocessable()
             ->assertJsonPath('message', 'Este posto não possui cadastro no Logiv')
             ->assertJsonPath('errors.cnpj.0', 'Este posto não possui cadastro no Logiv');
@@ -377,7 +363,7 @@ class CompanyFuelStationTest extends TestCase
 
         $this->actAsExistingCompany($company);
 
-        $this->deleteJson('/api/registry/fuel-stations/'.self::CNPJ)
+        $this->postJson('/api/registry/fuel-stations/'.$station->uuid.'/disconnect')
             ->assertOk()
             ->assertJsonPath('message', 'Conexão encerrada');
 
@@ -397,11 +383,12 @@ class CompanyFuelStationTest extends TestCase
 
         $this->actAsExistingCompany($company);
 
-        $this->deleteJson('/api/registry/fuel-stations/'.self::CNPJ)
-            ->assertOk()
-            ->assertJsonPath('message', 'Pedido removido');
+        $this->deleteJson('/api/registry/fuel-stations/'.$station->uuid)
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Só é possível cancelar um convite pendente');
 
-        $this->assertSame(0, CompanyFuelStation::query()->count());
+        $this->assertSame(1, CompanyFuelStation::query()->count());
+        $this->assertSame('rejected', CompanyFuelStation::query()->first()->status);
     }
 
     public function test_empresa_nao_remove_conexao_encerrada(): void
@@ -416,9 +403,9 @@ class CompanyFuelStationTest extends TestCase
 
         $this->actAsExistingCompany($company);
 
-        $this->deleteJson('/api/registry/fuel-stations/'.self::CNPJ)
+        $this->deleteJson('/api/registry/fuel-stations/'.$station->uuid)
             ->assertUnprocessable()
-            ->assertJsonPath('message', 'Este pedido não pode ser removido');
+            ->assertJsonPath('message', 'Só é possível cancelar um convite pendente');
 
         $this->assertSame('disconnected', CompanyFuelStation::query()->first()->status);
     }
@@ -450,7 +437,7 @@ class CompanyFuelStationTest extends TestCase
             ->assertNotFound()
             ->assertJsonPath('message', 'Pedido não encontrado');
 
-        $this->assertSame('active', CompanyFuelStation::query()->where('cnpj', self::CNPJ)->value('status'));
+        $this->assertSame('active', CompanyFuelStation::query()->where('fuel_station_id', $station->id)->value('status'));
     }
 
     public function test_token_de_empresa_nao_acessa_os_pedidos_do_posto(): void
@@ -488,6 +475,86 @@ class CompanyFuelStationTest extends TestCase
         $this->getJson('/api/registry/fuel-stations/by-cnpj?cnpj='.self::CNPJ)
             ->assertStatus(409)
             ->assertJsonPath('message', 'Selecione uma empresa');
+    }
+
+    public function test_empresa_nao_convida_o_proprio_cnpj(): void
+    {
+        $company = $this->actAsCompany(self::CNPJ);
+        $this->station(self::CNPJ);
+
+        $this->postJson('/api/registry/fuel-stations', ['cnpj' => self::CNPJ])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.cnpj.0', 'A empresa não pode convidar o próprio CNPJ');
+
+        $this->assertSame(0, CompanyFuelStation::query()->where('company_id', $company->id)->count());
+    }
+
+    public function test_membro_nao_pede_nem_encerra_vinculo(): void
+    {
+        $this->actAsCompany();
+        $station = $this->station(self::CNPJ);
+        CompanyUser::query()->update(['role' => 'member']);
+
+        $this->postJson('/api/registry/fuel-stations', ['cnpj' => self::CNPJ])
+            ->assertForbidden();
+
+        CompanyUser::query()->update(['role' => 'admin']);
+        $this->postJson('/api/registry/fuel-stations', ['cnpj' => self::CNPJ])->assertCreated();
+        CompanyUser::query()->update(['role' => 'member']);
+
+        $this->deleteJson('/api/registry/fuel-stations/'.$station->uuid)
+            ->assertForbidden();
+    }
+
+    public function test_pedido_grava_auditoria(): void
+    {
+        $this->actAsCompany();
+        $this->station(self::CNPJ);
+
+        $this->postJson('/api/registry/fuel-stations', ['cnpj' => self::CNPJ])->assertCreated();
+
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'company_fuel_station.requested',
+        ]);
+        $this->assertSame(1, AuditLog::query()->count());
+    }
+
+    public function test_empresa_inativa_ou_excluida_nao_aparece_para_o_posto(): void
+    {
+        $company = $this->actAsCompany();
+        $station = $this->station(self::CNPJ);
+        $this->postJson('/api/registry/fuel-stations', ['cnpj' => self::CNPJ])->assertCreated();
+
+        $company->update(['status' => 'inactive']);
+        $this->actAsStation($station);
+
+        $this->getJson('/api/station/companies')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+
+        $this->postJson('/api/station/companies/'.$company->uuid.'/accept')
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Esta empresa não está disponível');
+
+        $company->update(['status' => 'active']);
+        $company->delete();
+
+        $this->getJson('/api/station/companies')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+
+        $this->postJson('/api/station/companies/'.$company->uuid.'/accept')
+            ->assertNotFound();
+    }
+
+    public function test_uuid_invalido_no_posto_nao_vira_erro_de_servidor(): void
+    {
+        $station = $this->station(self::CNPJ);
+        $this->actAsStation($station);
+
+        $this->postJson('/api/station/companies/nao-e-uuid/accept')
+            ->assertNotFound()
+            ->assertJsonPath('message', 'Pedido não encontrado');
     }
 
     private function actAsCompany(string $cnpj = '00000000000191', string $tradeName = 'Empresa Teste'): Company

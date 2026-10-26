@@ -13,6 +13,7 @@ class FuelStationUser extends Model
         'fuel_station_id',
         'user_id',
         'role',
+        'status',
     ];
 
     public function fuelStation(): BelongsTo

@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests\Auth;
 
-use App\Models\User;
 use App\Rules\Cnpj;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -23,18 +22,11 @@ class StoreFuelStationSignupRequest extends FormRequest
 
     public function rules(): array
     {
-        $email = (string) $this->input('email');
-        $userExists = $email !== '' && User::query()->where('email', $email)->exists();
-
         return [
             'cnpj' => ['required', 'string', new Cnpj],
             'email' => ['required', 'email', 'max:255'],
-            'name' => $userExists
-                ? ['nullable', 'string', 'max:255']
-                : ['required', 'string', 'max:255'],
-            'password' => $userExists
-                ? ['required', 'string']
-                : ['required', 'string', 'min:8', 'confirmed'],
+            'name' => ['required', 'string', 'max:255'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
         ];
     }
 

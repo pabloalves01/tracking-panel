@@ -16,6 +16,7 @@ class CompanyUser extends Model
         'company_id',
         'user_id',
         'role',
+        'status',
     ];
 
     // ===================== BELONGS TO RELATIONS =====================
@@ -23,7 +24,7 @@ class CompanyUser extends Model
     /**
      * Get the company that belongs to the company user.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo<Company, $this>
+     * @return BelongsTo<Company, $this>
      */
     public function company(): BelongsTo
     {
@@ -33,7 +34,7 @@ class CompanyUser extends Model
     /**
      * Get the user that belongs to the company user.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo<User, $this>
+     * @return BelongsTo<User, $this>
      */
     public function user(): BelongsTo
     {

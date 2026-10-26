@@ -24,15 +24,14 @@ class CpfCnpjForPersonType implements DataAwareRule, ValidationRule
 
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
-        $digits = preg_replace('/\D/', '', (string) $value) ?? '';
         $personType = data_get($this->data, 'entity.person_type');
 
-        if ($personType === 'pf' && strlen($digits) !== 11) {
-            $fail('O CPF deve ter 11 dígitos');
+        if ($personType === 'pf' && ! Cpf::isValid(Cpf::digits($value))) {
+            $fail('Informe um CPF válido');
         }
 
-        if ($personType === 'pj' && strlen($digits) !== 14) {
-            $fail('O CNPJ deve ter 14 dígitos');
+        if ($personType === 'pj' && ! Cnpj::isValid(Cnpj::digits($value))) {
+            $fail('Informe um CNPJ válido');
         }
     }
 }

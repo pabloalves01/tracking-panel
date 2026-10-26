@@ -2,17 +2,19 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CompanyFuelStation extends Model
 {
+    use HasUuids;
+
     protected $table = 'company_fuel_station';
 
     protected $fillable = [
         'company_id',
         'fuel_station_id',
-        'cnpj',
         'status',
     ];
 
@@ -25,6 +27,16 @@ class CompanyFuelStation extends Model
             'company_id' => 'integer',
             'fuel_station_id' => 'integer',
         ];
+    }
+
+    public function uniqueIds(): array
+    {
+        return ['uuid'];
+    }
+
+    public function getRouteKeyName(): string
+    {
+        return 'uuid';
     }
 
     // ===================== BELONGS TO RELATIONS =====================

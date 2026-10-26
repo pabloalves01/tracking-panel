@@ -26,6 +26,7 @@ class FuelStationResource extends JsonResource
             'complement' => $this->complement,
             'district' => $this->district,
             'status' => $this->status,
+            'role' => $this->whenPivotLoaded('fuel_station_user', fn () => $this->pivot->role),
             'city_name' => $this->city?->name,
             'uf' => $this->state?->uf,
         ];
