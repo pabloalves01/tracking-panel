@@ -5,6 +5,7 @@ import NotFound from '@/pages/NotFound'
 import Perimeter from '@/pages/Perimeter'
 import ProfilePage from '@/pages/ProfilePage'
 
+import accessRoutes from './access/accessRoutes'
 import authRoutes from './auth/authRoutes'
 import registryRoutes from './registry/registryRoutes'
 import { RequireCompany } from './RequireCompany'
@@ -25,6 +26,7 @@ export const router = createBrowserRouter([
       { index: true, element: <Home /> },
       { path: 'perfil', element: <ProfilePage /> },
       { path: 'operacoes/rastreamento', element: <Perimeter /> },
+      ...accessRoutes,
       ...registryRoutes,
       ...systemRoutes,
     ],

@@ -19,8 +19,16 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
     (response) => response,
     (error) => {
+        if (error.response?.data?.code === 'context_access_lost') {
+            if (window.location.pathname !== '/auth/contextos') {
+                window.location.assign('/auth/contextos')
+            }
+            return Promise.reject(error)
+        }
+
         const isLogin = error.config?.url?.includes('/auth/login')
-        if (error.response?.status === 401 && !isLogin) {
+        const onAuthScreen = window.location.pathname.startsWith('/auth/')
+        if (error.response?.status === 401 && !isLogin && !onAuthScreen) {
             localStorage.removeItem('token')
             if (window.location.pathname !== '/auth/login') {
                 window.location.assign('/auth/login')

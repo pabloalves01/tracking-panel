@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router"
-import { BanIcon, BuildingIcon, CircleCheckIcon, PencilIcon, PlusIcon, User, UserIcon } from "lucide-react"
+import { BanIcon, BuildingIcon, CircleCheckIcon, PencilIcon, PlusIcon, UserIcon, UsersIcon } from "lucide-react"
 
 import {
     AlertDialog,
@@ -116,6 +116,11 @@ export default function CompaniesPage() {
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-2">
+                                                <ActionButton
+                                                    icon={UsersIcon}
+                                                    tooltip="Usuários"
+                                                    onClick={() => navigate(`/app/sistema/empresas/${company.uuid}/usuarios`)}
+                                                />
                                                 <ActionButton
                                                     icon={PencilIcon}
                                                     tooltip="Editar"

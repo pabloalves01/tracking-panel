@@ -53,6 +53,12 @@ export const navigation = [
                 path: '/app',
                 icon: LayoutDashboardIcon,
             },
+            {
+                title: 'Usuários',
+                path: 'usuarios',
+                icon: UsersIcon,
+                roles: ['owner', 'admin'],
+            },
         ],
     },
     {

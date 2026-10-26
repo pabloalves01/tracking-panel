@@ -21,12 +21,28 @@ import {
 import { useSession } from '@/lib/auth/session'
 import { app, joinPath, navigation } from '@/navigation/sidebarNavigation'
 
+function visibleItems(items, role) {
+    return items
+        .filter((item) => !item.roles || item.roles.includes(role))
+        .map((item) => (
+            item.children
+                ? { ...item, children: visibleItems(item.children, role) }
+                : item
+        ))
+}
+
 function visibleGroupsFor({ currentCompany, user }) {
-    return navigation.filter((group) => {
-        if (group.access === 'company') return Boolean(currentCompany)
-        if (group.access === 'system') return Boolean(user?.is_system_admin)
-        return true
-    })
+    return navigation
+        .filter((group) => {
+            if (group.access === 'company') return Boolean(currentCompany)
+            if (group.access === 'system') return Boolean(user?.is_system_admin)
+            return true
+        })
+        .map((group) => ({
+            ...group,
+            items: visibleItems(group.items, user?.current_role),
+        }))
+        .filter((group) => group.items.length > 0)
 }
 
 function sidebarHref(path) {

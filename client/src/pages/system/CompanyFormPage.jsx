@@ -7,6 +7,7 @@ import { InputCpfCnpj } from "@/components/common/inputs/InputCpfCnpj"
 import { SelectState } from "@/components/common/inputs/SelectState"
 import { LayoutToolbar } from "@/components/common/LayoutToolbar"
 import { LoadingWrapper } from "@/components/common/LoadingWrapper"
+import { Button } from "@/components/ui/button"
 import { createCompany, getCompany, updateCompany } from "@/lib/system/companies"
 import { notifyError, notifySuccess } from "@/lib/notify"
 import { Separator } from "@/components/ui/separator";
@@ -17,18 +18,14 @@ export default function CompanyFormPage() {
     const isEditing = !!uuid
 
     const [loading, setLoading] = useState(isEditing)
+    const [invite, setInvite] = useState(null)
     const [formData, setFormData] = useState({
         legal_name: '',
         trade_name: '',
         cnpj: '',
         state_id: null,
         city_id: null,
-        user: {
-            name: '',
-            email: '',
-            password: '',
-            password_confirmation: '',
-        },
+        admin_email: '',
     })
 
     useEffect(() => {
@@ -60,11 +57,15 @@ export default function CompanyFormPage() {
                 state_id: formData.state_id,
                 city_id: formData.city_id,
             }
-            const response = isEditing
-                ? await updateCompany(uuid, company)
-                : await createCompany({ ...company, user: formData.user })
+            if (isEditing) {
+                notifySuccess(await updateCompany(uuid, company))
+                navigate('/app/sistema/empresas')
+                return
+            }
+
+            const response = await createCompany({ ...company, admin_email: formData.admin_email })
             notifySuccess(response)
-            navigate('/app/sistema/empresas')
+            setInvite(response.invitation)
         } catch (error) {
             notifyError(error)
         } finally {
@@ -81,7 +82,9 @@ export default function CompanyFormPage() {
                     { text: 'Empresas', to: '/app/sistema/empresas' },
                     { text: isEditing ? 'Editar empresa' : 'Nova empresa' },
                 ]}
-                buttons={[
+                buttons={invite ? [
+                    { title: 'Voltar para empresas', variant: 'outline', to: '/app/sistema/empresas' },
+                ] : [
                     { title: 'Cancelar', variant: 'outline', to: '/app/sistema/empresas' },
                     {
                         title: 'Salvar',
@@ -90,8 +93,43 @@ export default function CompanyFormPage() {
                 ]}
             />
 
+            {invite ? (
+                <div className="flex max-w-xl flex-col gap-4">
+                    <FieldSet>
+                        <FieldLegend variant="label">Convite do proprietário</FieldLegend>
+                        <FieldDescription>
+                            A empresa foi criada. Envie este link para {invite.email}. Ele vale 7 dias e não é enviado por e-mail.
+                        </FieldDescription>
+                        <FieldGroup>
+                            <Field>
+                                <FieldLabel htmlFor="company-invite-url">Link</FieldLabel>
+                                <Input id="company-invite-url" readOnly value={invite.invite_url} />
+                            </Field>
+                        </FieldGroup>
+                    </FieldSet>
+                    <div className="flex gap-2">
+                        <Button
+                            type="button"
+                            onClick={async () => {
+                                try {
+                                    await navigator.clipboard.writeText(invite.invite_url)
+                                    notifySuccess({ message: 'Link copiado' })
+                                } catch (error) {
+                                    notifyError(error)
+                                }
+                            }}
+                        >
+                            Copiar link
+                        </Button>
+                        <Button type="button" variant="outline" onClick={() => navigate('/app/sistema/empresas')}>
+                            Voltar para empresas
+                        </Button>
+                    </div>
+                </div>
+            ) : null}
+
             <LoadingWrapper loading={loading}>
-                <form id="company-form" className="flex w-full flex-col gap-10" onSubmit={handleSubmit}>
+                <form id="company-form" className={`flex w-full flex-col gap-10 ${invite ? 'hidden' : ''}`} onSubmit={handleSubmit}>
                     <FieldSet>
                         <FieldLegend variant="label">Dados da empresa</FieldLegend>
                         <FieldDescription>Informações cadastrais usadas na operação.</FieldDescription>
@@ -174,53 +212,21 @@ export default function CompanyFormPage() {
                         <>
                             <Separator />
                             <FieldSet>
-                                <FieldLegend variant="label">Primeiro usuário</FieldLegend>
+                                <FieldLegend variant="label">Proprietário</FieldLegend>
                                 <FieldDescription>
-                                    Esta pessoa entra como administradora. Se o e-mail já existir, ela é só vinculada e a senha atual permanece.
+                                    A Logiv não cria a senha. Esta pessoa recebe um convite de proprietário e cria a conta ao aceitar.
                                 </FieldDescription>
                                 <FieldGroup className="md:grid md:grid-cols-2">
                                     <Field>
-                                        <FieldLabel htmlFor="user-name">Nome</FieldLabel>
+                                        <FieldLabel htmlFor="admin-email">E-mail</FieldLabel>
                                         <Input
-                                            id="user-name"
-                                            value={formData.user.name}
-                                            placeholder="Ex: Pablo Alves"
-                                            onChange={(e) => setFormData({ ...formData, user: { ...formData.user, name: e.target.value } })}
-                                            autoComplete="name"
-                                        />
-                                    </Field>
-                                    <Field>
-                                        <FieldLabel htmlFor="user-email">E-mail</FieldLabel>
-                                        <Input
-                                            id="user-email"
+                                            id="admin-email"
                                             type="email"
-                                            value={formData.user.email}
-                                            placeholder="Ex: usuario@empresa.com.br"
-                                            onChange={(e) => setFormData({ ...formData, user: { ...formData.user, email: e.target.value } })}
+                                            value={formData.admin_email}
+                                            placeholder="Ex: proprietario@empresa.com.br"
+                                            onChange={(e) => setFormData({ ...formData, admin_email: e.target.value })}
                                             autoComplete="off"
                                             required
-                                        />
-                                    </Field>
-                                    <Field>
-                                        <FieldLabel htmlFor="user-password">Senha</FieldLabel>
-                                        <Input
-                                            id="user-password"
-                                            type="password"
-                                            value={formData.user.password}
-                                            placeholder="**********"
-                                            onChange={(e) => setFormData({ ...formData, user: { ...formData.user, password: e.target.value } })}
-                                            autoComplete="new-password"
-                                        />
-                                    </Field>
-                                    <Field>
-                                        <FieldLabel htmlFor="user-password-confirmation">Confirmar senha</FieldLabel>
-                                        <Input
-                                            id="user-password-confirmation"
-                                            type="password"
-                                            value={formData.user.password_confirmation}
-                                            placeholder="**********"
-                                            onChange={(e) => setFormData({ ...formData, user: { ...formData.user, password_confirmation: e.target.value } })}
-                                            autoComplete="new-password"
                                         />
                                     </Field>
                                 </FieldGroup>

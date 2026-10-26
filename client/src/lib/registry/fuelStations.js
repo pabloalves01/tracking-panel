@@ -27,19 +27,22 @@ export function storeCompanyFuelStation(cnpj) {
 }
 
 /**
- * Delete a request to link a company to a fuel station.
- * @param {*} cnpj 
- * @returns (string) success message
+ * Cancela um pedido ainda pendente. O endereço usa o uuid do posto.
  */
-export function deleteCompanyFuelStation(cnpj) {
-    return api.delete(`/registry/fuel-stations/${cnpj}`).then((response) => response.data)
+export function deleteCompanyFuelStation(stationUuid) {
+    return api.delete(`/registry/fuel-stations/${stationUuid}`).then((response) => response.data)
 }
 
 /**
- * Resend a request to link a company to a fuel station.
- * @param {*} cnpj 
- * @returns (string) success message
+ * Encerra um vínculo que já está ativo.
  */
-export function resendCompanyFuelStationRequest(cnpj) {
-    return api.post(`/registry/fuel-stations/${cnpj}/resend-request`).then((response) => response.data)
+export function disconnectCompanyFuelStation(stationUuid) {
+    return api.post(`/registry/fuel-stations/${stationUuid}/disconnect`).then((response) => response.data)
+}
+
+/**
+ * Reenvia um pedido recusado ou encerrado.
+ */
+export function resendCompanyFuelStationRequest(stationUuid) {
+    return api.post(`/registry/fuel-stations/${stationUuid}/resend-request`).then((response) => response.data)
 }

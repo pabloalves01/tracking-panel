@@ -1,7 +1,7 @@
 import { LogOut, User } from 'lucide-react'
 import { useNavigate } from 'react-router'
 
-import { CompanySwitcher } from '@/components/layout/app/CompanySwitcher'
+import { ContextSwitcher } from '@/components/layout/ContextSwitcher'
 import { ThemeToggle } from '@/components/layout/ThemeToggle'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
@@ -47,7 +47,7 @@ export function AppHeader() {
             </div>
 
             <div className="ml-auto flex items-center gap-3">
-                <CompanySwitcher />
+                <ContextSwitcher />
                 <ThemeToggle />
                 <DropdownMenu>
                     <DropdownMenuTrigger

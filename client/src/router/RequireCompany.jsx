@@ -3,14 +3,14 @@ import { useNavigate } from "react-router"
 
 import { LoadingWrapper } from "@/components/common/LoadingWrapper"
 import { AppLayout } from "@/layouts/AppLayout"
-import { getAuthCompanies, me, selectCompany } from "@/lib/auth/auth"
+import { getAuthContexts, me, selectCompany, selectFuelStation } from "@/lib/auth/auth"
 import { SessionContext } from "@/lib/auth/session"
+import { notifyError } from "@/lib/notify"
 
 /**
  * /app só abre com token e empresa gravada nesse token.
  * Sem isso, o histórico não pode deixar a pessoa dentro do sistema.
- * A sessão (usuário, empresa atual e empresas) é carregada aqui e
- * compartilhada com o cabeçalho pelo SessionContext.
+ * A sessão (usuário, empresa atual, empresas e postos) é carregada aqui.
  */
 export function RequireCompany() {
     const navigate = useNavigate()
@@ -26,15 +26,19 @@ export function RequireCompany() {
             }
         }
 
-        Promise.all([me(), getAuthCompanies()])
-            .then(([user, companies]) => {
+        Promise.all([me(), getAuthContexts()])
+            .then(([user, contexts]) => {
                 if (!active) return
                 // Admin do sistema entra sem empresa. Contexto de posto volta pra seleção.
                 if (!user.has_company && (!user.is_system_admin || user.has_fuel_station)) {
                     navigate("/auth/contextos", { replace: true })
                     return
                 }
-                setSession({ user, companies })
+                setSession({
+                    user,
+                    companies: contexts.companies ?? [],
+                    stations: contexts.fuel_stations ?? [],
+                })
             })
             .catch(() => {
                 if (!active) return
@@ -48,10 +52,22 @@ export function RequireCompany() {
     }, [navigate])
 
     async function switchCompany(uuid) {
-        if (uuid === session?.user?.current_company?.uuid) return
-        await selectCompany(uuid)
-        // Tudo em /app é escopado pela empresa; recarregar refaz todas as buscas.
-        window.location.reload()
+        if (uuid === session?.user?.current_company?.uuid && !session?.user?.has_fuel_station) return
+        try {
+            await selectCompany(uuid)
+            window.location.assign("/app")
+        } catch (error) {
+            notifyError(error)
+        }
+    }
+
+    async function switchStation(uuid) {
+        try {
+            await selectFuelStation(uuid)
+            window.location.assign("/posto")
+        } catch (error) {
+            notifyError(error)
+        }
     }
 
     if (!session) {
@@ -59,14 +75,14 @@ export function RequireCompany() {
     }
 
     return (
-        // Esse sessionContext.Provider faz parte do contexto global da aplicação.
-        // Ele permite que qualquer componente filho acesse os dados da sessão.
         <SessionContext.Provider
             value={{
                 user: session.user,
                 currentCompany: session.user.current_company,
                 companies: session.companies,
+                stations: session.stations,
                 switchCompany,
+                switchStation,
             }}
         >
             <AppLayout />

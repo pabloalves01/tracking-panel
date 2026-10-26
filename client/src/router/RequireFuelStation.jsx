@@ -3,7 +3,7 @@ import { useNavigate } from "react-router"
 
 import { LoadingWrapper } from "@/components/common/LoadingWrapper"
 import { StationLayout } from "@/layouts/StationLayout"
-import { me } from "@/lib/auth/auth"
+import { getAuthContexts, me, selectCompany, selectFuelStation } from "@/lib/auth/auth"
 import { SessionContext } from "@/lib/auth/session"
 import { StationSessionContext } from "@/lib/auth/stationSession"
 import { notifyError } from "@/lib/notify"
@@ -26,19 +26,29 @@ export function RequireFuelStation() {
             }
         }
 
-        me()
-            .then((user) => {
+        Promise.all([me(), getAuthContexts()])
+            .then(([user, contexts]) => {
                 if (!active) return
                 if (!user.has_fuel_station) {
                     navigate("/auth/contextos", { replace: true })
                     return
                 }
-                setSession({ user, station: user.current_fuel_station })
+                setSession({
+                    user,
+                    station: user.current_fuel_station,
+                    companies: contexts.companies ?? [],
+                    stations: contexts.fuel_stations ?? [],
+                })
             })
             .catch((error) => {
                 if (!active) return
                 const status = error.response?.status
-                if (status === 401 || status === 403) {
+                const lost = error.response?.data?.code === "context_access_lost"
+                if (lost) {
+                    navigate("/auth/contextos", { replace: true })
+                    return
+                }
+                if (status === 401) {
                     localStorage.removeItem("token")
                     navigate("/auth/login", { replace: true })
                     return
@@ -52,12 +62,40 @@ export function RequireFuelStation() {
         }
     }, [navigate])
 
+    async function switchCompany(uuid) {
+        try {
+            await selectCompany(uuid)
+            window.location.assign("/app")
+        } catch (error) {
+            notifyError(error)
+        }
+    }
+
+    async function switchStation(uuid) {
+        if (uuid === session?.station?.uuid) return
+        try {
+            await selectFuelStation(uuid)
+            window.location.assign("/posto")
+        } catch (error) {
+            notifyError(error)
+        }
+    }
+
     if (!session) {
         return <LoadingWrapper loading={!failed} />
     }
 
     return (
-        <SessionContext.Provider value={{ user: session.user }}>
+        <SessionContext.Provider
+            value={{
+                user: session.user,
+                currentCompany: null,
+                companies: session.companies,
+                stations: session.stations,
+                switchCompany,
+                switchStation,
+            }}
+        >
             <StationSessionContext.Provider value={{ station: session.station }}>
                 <StationLayout />
             </StationSessionContext.Provider>

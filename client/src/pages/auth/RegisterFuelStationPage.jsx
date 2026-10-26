@@ -1,5 +1,5 @@
-import { useState } from "react"
-import { Link, useNavigate } from "react-router"
+import { useEffect, useState } from "react"
+import { Link, useSearchParams } from "react-router"
 
 import { InputCpfCnpj } from "@/components/common/inputs/InputCpfCnpj"
 import { InputPassword } from "@/components/common/inputs/InputPassword"
@@ -9,22 +9,49 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { checkStationSignupEmail, lookupStationCnpj, storeStationSignup } from "@/lib/auth/stationSignup"
+import { me } from "@/lib/auth/auth"
+import { lookupStationCnpj, storeStationForUser, storeStationSignup } from "@/lib/auth/stationSignup"
 import { notifyError, notifySuccess } from "@/lib/notify"
 
+function onlyDigits(value) {
+  return String(value ?? "").replace(/\D/g, "").slice(0, 14)
+}
+
 export default function RegisterFuelStationPage() {
-  const navigate = useNavigate()
+  const [params] = useSearchParams()
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
-  const [cnpj, setCnpj] = useState("")
+  const [loggedIn, setLoggedIn] = useState(false)
+  const [cnpj, setCnpj] = useState(() => onlyDigits(params.get("cnpj")))
   const [station, setStation] = useState(null)
   const [email, setEmail] = useState("")
-  const [emailExists, setEmailExists] = useState(null)
+  const [accountExists, setAccountExists] = useState(false)
   const [name, setName] = useState("")
   const [password, setPassword] = useState("")
   const [passwordConfirmation, setPasswordConfirmation] = useState("")
 
   const cnpjReady = station?.cnpj === cnpj
+
+  useEffect(() => {
+    if (!localStorage.getItem("token")) return
+
+    let active = true
+    setLoading(true)
+    me()
+      .then(() => {
+        if (active) setLoggedIn(true)
+      })
+      .catch(() => {
+        localStorage.removeItem("token")
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   async function handleCnpjSubmit(event) {
     event.preventDefault()
@@ -49,38 +76,34 @@ export default function RegisterFuelStationPage() {
   async function handleAccountSubmit(event) {
     event.preventDefault()
     setLoading(true)
+    setAccountExists(false)
 
     try {
-      if (emailExists === null) {
-        const result = await checkStationSignupEmail({ email })
-        setEmailExists(Boolean(result.exists))
-        return
-      }
-
-      const result = await storeStationSignup(
-        emailExists
-          ? {
-              cnpj: station.cnpj,
-              email,
-              password,
-            }
-          : {
-              cnpj: station.cnpj,
-              name,
-              email,
-              password,
-              password_confirmation: passwordConfirmation,
-            },
-      )
+      const result = loggedIn
+        ? await storeStationForUser(station.cnpj)
+        : await storeStationSignup({
+            cnpj: station.cnpj,
+            name,
+            email,
+            password,
+            password_confirmation: passwordConfirmation,
+          })
 
       notifySuccess(result)
-      navigate("/auth/login", { replace: true })
+      window.location.assign("/posto")
     } catch (error) {
-      notifyError(error)
+      const message = error?.response?.data?.message ?? ""
+      if (message.includes("já tem conta")) {
+        setAccountExists(true)
+      } else {
+        notifyError(error)
+      }
     } finally {
       setLoading(false)
     }
   }
+
+  const loginHref = `/auth/login?redirect=${encodeURIComponent(`/auth/register/posto?cnpj=${cnpj}`)}`
 
   return (
     <LoadingWrapper loading={loading}>
@@ -147,28 +170,16 @@ export default function RegisterFuelStationPage() {
                 <form className="flex flex-col gap-6" onSubmit={handleAccountSubmit}>
                   <FieldGroup>
                     <div className="flex flex-col items-center gap-1 text-center">
-                      <h1 className="text-2xl font-bold">Acesso do responsável</h1>
-                      {emailExists ? null : (
-                        <p className="text-sm text-balance text-muted-foreground">
-                          Informe o e-mail de quem vai administrar o posto.
-                        </p>
-                      )}
+                      <h1 className="text-2xl font-bold">
+                        {loggedIn ? "Vincular posto à sua conta" : "Acesso do responsável"}
+                      </h1>
+                      <p className="text-sm text-balance text-muted-foreground">
+                        {loggedIn
+                          ? "O posto entra nesta conta. Você será o proprietário."
+                          : "Quem cadastra o posto vira o proprietário."}
+                      </p>
                     </div>
-                    <Field>
-                      <FieldLabel htmlFor="station-email">E-mail</FieldLabel>
-                      <Input
-                        id="station-email"
-                        type="email"
-                        placeholder="responsavel@posto.com.br"
-                        value={email}
-                        autoComplete="email"
-                        onChange={(event) => {
-                          setEmail(event.target.value)
-                          setEmailExists(null)
-                        }}
-                      />
-                    </Field>
-                    {emailExists === false ? (
+                    {loggedIn ? null : (
                       <>
                         <Field>
                           <FieldLabel htmlFor="station-name">Nome</FieldLabel>
@@ -176,7 +187,23 @@ export default function RegisterFuelStationPage() {
                             id="station-name"
                             value={name}
                             autoComplete="name"
+                            required
                             onChange={(event) => setName(event.target.value)}
+                          />
+                        </Field>
+                        <Field>
+                          <FieldLabel htmlFor="station-email">E-mail</FieldLabel>
+                          <Input
+                            id="station-email"
+                            type="email"
+                            placeholder="responsavel@posto.com.br"
+                            value={email}
+                            autoComplete="email"
+                            required
+                            onChange={(event) => {
+                              setEmail(event.target.value)
+                              setAccountExists(false)
+                            }}
                           />
                         </Field>
                         <Field>
@@ -200,34 +227,21 @@ export default function RegisterFuelStationPage() {
                           />
                         </Field>
                       </>
-                    ) : null}
-                    {emailExists === true ? (
-                      <>
-                        <Alert>
-                          <AlertTitle>Conta já existente</AlertTitle>
-                          <AlertDescription>
-                            Este e-mail já tem uma conta na Logiv. Digite a senha dessa conta para vincular o posto a ela.
-                          </AlertDescription>
-                        </Alert>
-                        <Field>
-                          <FieldLabel htmlFor="station-current-password">Senha atual</FieldLabel>
-                          <InputPassword
-                            id="station-current-password"
-                            value={password}
-                            autoComplete="current-password"
-                            onChange={setPassword}
-                            placeholder="Senha da conta"
-                          />
-                        </Field>
-                      </>
+                    )}
+                    {accountExists ? (
+                      <Alert>
+                        <AlertTitle>Conta já existente</AlertTitle>
+                        <AlertDescription>
+                          Este e-mail já tem conta. Entre para cadastrar o posto.
+                        </AlertDescription>
+                        <Button className="mt-3" render={<Link to={loginHref} />}>
+                          Entrar
+                        </Button>
+                      </Alert>
                     ) : null}
                     <Field>
                       <Button type="submit" disabled={loading}>
-                        {emailExists === null
-                          ? "Continuar"
-                          : emailExists
-                            ? "Vincular posto à minha conta"
-                            : "Cadastrar posto"}
+                        Cadastrar posto
                       </Button>
                     </Field>
                     <Button type="button" variant="outline" onClick={() => setStep(1)}>

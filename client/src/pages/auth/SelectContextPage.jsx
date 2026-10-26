@@ -1,9 +1,10 @@
 import { Children, useEffect, useState } from "react"
 import { Building2, Fuel } from "lucide-react"
-import { useNavigate } from "react-router"
+import { Link, useNavigate } from "react-router"
 
 import { Button } from "@/components/ui/button"
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
+import { roleLabel } from "@/helpers/labels/roleLabel"
 import { LoadingWrapper } from "@/components/common/LoadingWrapper"
 import { formatCpfCnpj } from "@/helpers/formatters"
 import { getAuthContexts, logout, me, selectCompany, selectFuelStation } from "@/lib/auth/auth"
@@ -86,9 +87,12 @@ export default function SelectContextPage() {
                                     </EmptyMedia>
                                     <EmptyTitle>Nenhum contexto</EmptyTitle>
                                     <EmptyDescription>
-                                        Este usuário não está vinculado a uma empresa nem a um posto.
+                                        O acesso a uma empresa chega por convite. Quem será proprietário de um posto pode cadastrá-lo agora.
                                     </EmptyDescription>
                                 </EmptyHeader>
+                                <EmptyContent>
+                                    <Button render={<Link to="/auth/register/posto" />}>Cadastrar posto</Button>
+                                </EmptyContent>
                             </Empty>
                         ) : !loading ? (
                             <div className="flex w-full flex-col items-center gap-10">
@@ -100,6 +104,7 @@ export default function SelectContextPage() {
                                             title={company.trade_name}
                                             subtitle={company.legal_name}
                                             document={company.cnpj}
+                                            role={roleLabel[company.role]}
                                             onClick={() => handleCompanyClick(company.uuid)}
                                         />
                                     ))}
@@ -112,6 +117,7 @@ export default function SelectContextPage() {
                                             title={station.trade_name || station.corporate_name}
                                             subtitle={station.trade_name ? station.corporate_name : ""}
                                             document={station.cnpj}
+                                            role={roleLabel[station.role]}
                                             onClick={() => handleStationClick(station.uuid)}
                                         />
                                     ))}
@@ -146,7 +152,7 @@ function ContextSection({ title, empty, children }) {
     )
 }
 
-function ContextCard({ icon: Icon, title, subtitle, document, onClick }) {
+function ContextCard({ icon: Icon, title, subtitle, document, role, onClick }) {
     return (
         <button
             type="button"
@@ -159,6 +165,7 @@ function ContextCard({ icon: Icon, title, subtitle, document, onClick }) {
             <span className="flex flex-col gap-1">
                 <span className="font-medium">{title}</span>
                 {subtitle ? <span className="text-sm text-muted-foreground">{subtitle}</span> : null}
+                {role ? <span className="text-sm text-muted-foreground">{role}</span> : null}
                 <span className="text-sm text-muted-foreground">{formatCpfCnpj(document)}</span>
             </span>
         </button>

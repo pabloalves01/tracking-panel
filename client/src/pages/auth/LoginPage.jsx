@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { Link, useNavigate } from "react-router"
+import { Link, useNavigate, useSearchParams } from "react-router"
 
 import { ThemeToggle } from "@/components/layout/ThemeToggle"
 import { LoadingWrapper } from "@/components/common/LoadingWrapper"
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { login, me } from "@/lib/auth/auth"
+import { safeInternalPath } from "@/lib/auth/redirect"
 import { notifyError } from "@/lib/notify"
 
 // Empresa, depois posto, depois admin sem contexto. Admin com posto entra no posto.
@@ -19,6 +20,8 @@ function destinationFor(user) {
 
 export default function LoginPage() {
   const navigate = useNavigate()
+  const [params] = useSearchParams()
+  const redirect = safeInternalPath(params.get("redirect"))
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
@@ -32,7 +35,7 @@ export default function LoginPage() {
     me()
       .then((user) => {
         if (!active) return
-        navigate(destinationFor(user), { replace: true })
+        navigate(redirect || destinationFor(user), { replace: true })
       })
       .catch(() => {
         localStorage.removeItem("token")
@@ -52,6 +55,12 @@ export default function LoginPage() {
 
     try {
       const { user, companies, fuel_stations: stations = [] } = await login({ email, password })
+
+      if (redirect) {
+        navigate(redirect, { replace: true })
+        return
+      }
+
       const total = companies.length + stations.length
 
       if (total === 1) {
@@ -66,12 +75,7 @@ export default function LoginPage() {
           return
         }
 
-        notifyError({
-          response: {
-            status: 422,
-            data: { message: "Nenhuma empresa vinculada a este usuário." },
-          },
-        })
+        navigate("/auth/contextos", { replace: true })
         return
       }
 

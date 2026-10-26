@@ -18,17 +18,12 @@ import { Badge } from '@/components/ui/badge'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { formatCpfCnpj } from '@/helpers/formatters'
-import { deleteCompanyFuelStation, getCompanyFuelStations, resendCompanyFuelStationRequest } from '@/lib/registry/fuelStations'
+import { linkStatusLabel } from '@/helpers/labels/linkStatusLabel'
+import { deleteCompanyFuelStation, disconnectCompanyFuelStation, getCompanyFuelStations, resendCompanyFuelStationRequest } from '@/lib/registry/fuelStations'
+import { useSession } from '@/lib/auth/session'
 import { notifyError, notifySuccess } from '@/lib/notify'
 
 const listPath = '/app/cadastros/entidades/postos'
-
-const statusLabel = {
-    request_sent: 'Solicitação enviada',
-    active: 'Ativo',
-    rejected: 'Recusado',
-    disconnected: 'Conexão encerrada',
-}
 
 function stationLabel(link) {
     return link?.fuel_station?.trade_name
@@ -37,6 +32,8 @@ function stationLabel(link) {
 }
 
 export default function FuelStationsPage() {
+    const { user } = useSession()
+    const canManage = user?.current_role === 'owner' || user?.current_role === 'admin'
     const [links, setLinks] = useState([])
     const [loading, setLoading] = useState(false)
     const [linkToRemove, setLinkToRemove] = useState(null)
@@ -60,7 +57,9 @@ export default function FuelStationsPage() {
         setLoading(true)
 
         try {
-            const response = await deleteCompanyFuelStation(linkToRemove.cnpj)
+            const response = linkToRemove.status === 'active'
+                ? await disconnectCompanyFuelStation(linkToRemove.fuel_station.uuid)
+                : await deleteCompanyFuelStation(linkToRemove.fuel_station.uuid)
             notifySuccess(response)
             loadLinks()
         } catch (error) {
@@ -75,7 +74,7 @@ export default function FuelStationsPage() {
         setLoading(true)
 
         try {
-            const response = await resendCompanyFuelStationRequest(link.cnpj)
+            const response = await resendCompanyFuelStationRequest(link.fuel_station.uuid)
             notifySuccess(response)
             loadLinks()
         } catch (error) {
@@ -93,9 +92,9 @@ export default function FuelStationsPage() {
                     { text: 'Entidades', to: '/app/cadastros/entidades' },
                     { text: 'Postos' },
                 ]}
-                buttons={[
+                buttons={canManage ? [
                     { title: 'Novo posto', icon: PlusIcon, to: `${listPath}/novo` },
-                ]}
+                ] : []}
             />
 
             <LoadingWrapper loading={loading}>
@@ -121,34 +120,43 @@ export default function FuelStationsPage() {
                         </TableHeader>
                         <TableBody>
                             {links.map((link) => (
-                                <TableRow key={link.cnpj}>
+                                <TableRow key={link.uuid}>
                                     <TableCell>{stationLabel(link)}</TableCell>
                                     <TableCell>{formatCpfCnpj(link.cnpj)}</TableCell>
                                     <TableCell>
                                         <Badge variant={link.status === 'active' ? 'secondary' : 'outline'}>
-                                            {statusLabel[link.status] ?? link.status}
+                                            {linkStatusLabel[link.status] ?? link.status}
                                         </Badge>
                                     </TableCell>
                                     <TableCell>
-                                        <div className="flex items-center gap-2">
-                                            {(link.status === 'request_sent' || link.status === 'rejected' || link.status === 'active') && (
-                                                <ActionButton
-                                                    icon={link.status === 'active' ? Link2Off : Trash2Icon}
-                                                    tooltip={link.status === 'active' ? 'Encerrar conexão' : 'Remover pedido'}
-                                                    variant="destructive"
-                                                    onClick={() => setLinkToRemove(link)}
-                                                />
-                                            )}
-                                            {(link.status === 'rejected' || link.status === 'disconnected') && (
-                                                <ActionButton
-                                                    icon={RefreshCw}
-                                                    tooltip="Reenviar solicitação"
-                                                    variant="outline"
-                                                    onClick={() => handleResendRequest(link)}
-                                                />
-                                            )}
-                                        </div>
-
+                                        {canManage ? (
+                                            <div className="flex items-center gap-2">
+                                                {link.status === 'request_sent' && link.fuel_station?.uuid ? (
+                                                    <ActionButton
+                                                        icon={Trash2Icon}
+                                                        tooltip="Remover pedido"
+                                                        variant="destructive"
+                                                        onClick={() => setLinkToRemove(link)}
+                                                    />
+                                                ) : null}
+                                                {link.status === 'active' && link.fuel_station?.uuid ? (
+                                                    <ActionButton
+                                                        icon={Link2Off}
+                                                        tooltip="Encerrar conexão"
+                                                        variant="destructive"
+                                                        onClick={() => setLinkToRemove(link)}
+                                                    />
+                                                ) : null}
+                                                {(link.status === 'rejected' || link.status === 'disconnected') && link.fuel_station?.uuid ? (
+                                                    <ActionButton
+                                                        icon={RefreshCw}
+                                                        tooltip="Reenviar convite"
+                                                        variant="outline"
+                                                        onClick={() => handleResendRequest(link)}
+                                                    />
+                                                ) : null}
+                                            </div>
+                                        ) : null}
                                     </TableCell>
                                 </TableRow>
                             ))}

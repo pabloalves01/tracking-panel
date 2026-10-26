@@ -1,4 +1,4 @@
-import { Building2, LayoutDashboardIcon } from 'lucide-react'
+import { Building2, LayoutDashboardIcon, UsersIcon } from 'lucide-react'
 import { Link, useLocation } from 'react-router'
 
 import {
@@ -12,11 +12,15 @@ import {
     SidebarMenuItem,
     SidebarRail,
 } from '@/components/ui/sidebar'
+import { useSession } from '@/lib/auth/session'
 
 export function StationSidebar() {
     const { pathname } = useLocation()
+    const { user } = useSession()
+    const canManage = user?.current_role === 'owner' || user?.current_role === 'admin'
     const home = pathname === '/posto'
-    const companies = pathname === '/posto/empresas'
+    const companies = pathname === '/posto/empresas' || pathname.startsWith('/posto/empresas/')
+    const users = pathname === '/posto/usuarios' || pathname.startsWith('/posto/usuarios/')
 
     return (
         <Sidebar collapsible="icon">
@@ -51,6 +55,18 @@ export function StationSidebar() {
                                 <span>Empresas</span>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
+                        {canManage ? (
+                            <SidebarMenuItem>
+                                <SidebarMenuButton
+                                    isActive={users}
+                                    tooltip="Usuários"
+                                    render={<Link to="/posto/usuarios" />}
+                                >
+                                    <UsersIcon />
+                                    <span>Usuários</span>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
+                        ) : null}
                     </SidebarMenu>
                 </SidebarGroup>
             </SidebarContent>
