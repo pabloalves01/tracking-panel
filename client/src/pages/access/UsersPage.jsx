@@ -1,6 +1,6 @@
 import { useContext, useEffect, useState } from "react"
 import { EllipsisIcon, UserPlusIcon, UsersIcon } from "lucide-react"
-import { useNavigate } from "react-router"
+import { useNavigate, useParams } from "react-router"
 
 import { InvitationLinkDialog } from "@/components/common/InvitationLinkDialog"
 import { LayoutToolbar } from "@/components/common/LayoutToolbar"
@@ -50,6 +50,7 @@ import {
     updateMemberRole,
 } from "@/lib/access/users"
 import { SessionContext } from "@/lib/auth/session"
+import { getCompany } from "@/lib/system/companies"
 import { StationSessionContext } from "@/lib/auth/stationSession"
 import { notifyError, notifySuccess } from "@/lib/notify"
 
@@ -60,11 +61,15 @@ const roles = [
 
 /**
  * Lê membros e convites pendentes. Não mexe no estado da tela.
+ * Na Logiv (`companyUuid`), os membros são os administradores que vêm com a empresa.
  */
-async function readUsers(scope) {
+async function readUsers(scope, companyUuid) {
     try {
-        const [members, invitations] = await Promise.all([getMembers(scope), getInvitations(scope)])
-        return { members, invitations, error: null }
+        const members = companyUuid
+            ? getCompany(companyUuid).then((company) => company.admins ?? [])
+            : getMembers(scope)
+        const [list, invitations] = await Promise.all([members, getInvitations(scope)])
+        return { members: list, invitations, error: null }
     } catch (error) {
         return { members: [], invitations: [], error }
     }
@@ -73,13 +78,20 @@ async function readUsers(scope) {
 /**
  * Usuários da empresa (`/app/usuarios`) ou do posto (`/posto/usuarios`).
  * Só o admin chega aqui; a API devolve 403 para os demais.
+ *
+ * Com `scope="system"` (`/app/sistema/empresas/:uuid/usuarios`), a Logiv vê os
+ * administradores da empresa e cuida dos convites de admin. Não mexe em contas.
  */
-export default function UsersPage({ scope }) {
+export default function UsersPage({ scope: panel }) {
     const navigate = useNavigate()
+    const { uuid } = useParams()
+    const isSystem = panel === "system"
+    const companyUuid = isSystem ? uuid : null
+    const scope = isSystem ? `system/companies/${uuid}` : panel
     const session = useContext(SessionContext)
     const stationSession = useContext(StationSessionContext)
     const isStation = scope === "station"
-    const home = isStation ? "/posto" : "/app"
+    const home = isSystem ? "/app/sistema" : isStation ? "/posto" : "/app"
     const place = isStation ? stationSession?.station : session?.currentCompany
     const placeName = isStation
         ? place?.trade_name || place?.corporate_name
@@ -109,12 +121,12 @@ export default function UsersPage({ scope }) {
 
     // Quem chama já ligou o loading.
     function load() {
-        return readUsers(scope).then(applyState)
+        return readUsers(scope, companyUuid).then(applyState)
     }
 
     useEffect(() => {
-        readUsers(scope).then(applyState)
-    }, [scope])
+        readUsers(scope, companyUuid).then(applyState)
+    }, [scope, companyUuid])
 
     function openInvite() {
         setEmail("")
@@ -202,7 +214,16 @@ export default function UsersPage({ scope }) {
         }
     }
 
-    const breadcrumbs = [{ text: "Início", to: home }, { text: "Usuários" }]
+    const breadcrumbs = isSystem
+        ? [
+            { text: "Início", to: "/" },
+            { text: "Sistema", to: "/app/sistema" },
+            { text: "Empresas", to: "/app/sistema/empresas" },
+            { text: "Editar empresa", to: `/app/sistema/empresas/${uuid}/editar` },
+            { text: "Usuários" },
+        ]
+        : [{ text: "Início", to: home }, { text: "Usuários" }]
+    const inviteTitle = isSystem ? "Convidar administrador" : "Convidar usuário"
 
     if (forbidden) {
         return (
@@ -225,7 +246,7 @@ export default function UsersPage({ scope }) {
         <>
             <LayoutToolbar
                 breadcrumbs={breadcrumbs}
-                buttons={[{ title: "Convidar usuário", icon: UserPlusIcon, onClick: openInvite }]}
+                buttons={[{ title: inviteTitle, icon: UserPlusIcon, onClick: openInvite }]}
             />
 
             <LoadingWrapper loading={loading}>
@@ -255,39 +276,48 @@ export default function UsersPage({ scope }) {
                                     </TableCell>
                                     <TableCell>{formatDate(member.joined_at)}</TableCell>
                                     <TableCell>
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger
-                                                render={
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="icon-sm"
-                                                        aria-label={`Ações de ${member.name}`}
-                                                    />
-                                                }
-                                            >
-                                                <EllipsisIcon />
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end" className="w-52">
-                                                <DropdownMenuGroup>
-                                                    <DropdownMenuItem
-                                                        onClick={() => handleRole(member, member.role === "admin" ? "member" : "admin")}
-                                                    >
-                                                        {member.role === "admin" ? "Tornar membro" : "Tornar administrador"}
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuSeparator />
-                                                    <DropdownMenuItem
-                                                        variant="destructive"
-                                                        onClick={() => setMemberToRemove(member)}
-                                                    >
-                                                        {member.is_you ? `Sair ${ofPlace}` : "Remover"}
-                                                    </DropdownMenuItem>
-                                                </DropdownMenuGroup>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
+                                        {isSystem ? null : (
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger
+                                                    render={
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="icon-sm"
+                                                            aria-label={`Ações de ${member.name}`}
+                                                        />
+                                                    }
+                                                >
+                                                    <EllipsisIcon />
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end" className="w-52">
+                                                    <DropdownMenuGroup>
+                                                        <DropdownMenuItem
+                                                            onClick={() => handleRole(member, member.role === "admin" ? "member" : "admin")}
+                                                        >
+                                                            {member.role === "admin" ? "Tornar membro" : "Tornar administrador"}
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem
+                                                            variant="destructive"
+                                                            onClick={() => setMemberToRemove(member)}
+                                                        >
+                                                            {member.is_you ? `Sair ${ofPlace}` : "Remover"}
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuGroup>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        )}
                                     </TableCell>
                                 </TableRow>
                             ))}
+                            {isSystem && members.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={5} className="text-muted-foreground">
+                                        Nenhum administrador ainda. Use “Convidar administrador”.
+                                    </TableCell>
+                                </TableRow>
+                            ) : null}
                         </TableBody>
                     </Table>
 
@@ -350,9 +380,11 @@ export default function UsersPage({ scope }) {
                 <DialogContent>
                     <form onSubmit={handleInvite} className="flex flex-col gap-6">
                         <DialogHeader>
-                            <DialogTitle>Convidar usuário</DialogTitle>
+                            <DialogTitle>{inviteTitle}</DialogTitle>
                             <DialogDescription>
-                                Vamos gerar um link de convite para você enviar à pessoa.
+                                {isSystem
+                                    ? "Vamos gerar um link de convite. A pessoa cria a conta, ou entra com a que já tem, e vira administradora da empresa."
+                                    : "Vamos gerar um link de convite para você enviar à pessoa."}
                             </DialogDescription>
                         </DialogHeader>
                         <FieldGroup>
@@ -367,23 +399,25 @@ export default function UsersPage({ scope }) {
                                     required
                                 />
                             </Field>
-                            <Field>
-                                <FieldLabel htmlFor="invite-role">Papel</FieldLabel>
-                                <Select items={roles} value={role} onValueChange={setRole}>
-                                    <SelectTrigger id="invite-role" className="w-full">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectGroup>
-                                            {roles.map((item) => (
-                                                <SelectItem key={item.value} value={item.value}>
-                                                    {item.label}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectGroup>
-                                    </SelectContent>
-                                </Select>
-                            </Field>
+                            {isSystem ? null : (
+                                <Field>
+                                    <FieldLabel htmlFor="invite-role">Papel</FieldLabel>
+                                    <Select items={roles} value={role} onValueChange={setRole}>
+                                        <SelectTrigger id="invite-role" className="w-full">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectGroup>
+                                                {roles.map((item) => (
+                                                    <SelectItem key={item.value} value={item.value}>
+                                                        {item.label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectGroup>
+                                        </SelectContent>
+                                    </Select>
+                                </Field>
+                            )}
                         </FieldGroup>
                         <DialogFooter>
                             <Button type="button" variant="outline" onClick={() => setInviteOpen(false)}>

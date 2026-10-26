@@ -1,8 +1,9 @@
 import { api } from '../api'
 
 /**
- * Usuários e convites do contexto do token.
- * `scope` é 'company' (painel da empresa) ou 'station' (painel do posto).
+ * Usuários e convites.
+ * `scope` é 'company' (painel da empresa), 'station' (painel do posto)
+ * ou 'system/companies/<uuid>' (a Logiv cuidando dos convites de admin de uma empresa).
  */
 export function getMembers(scope) {
     return api.get(`/${scope}/users`).then((response) => response.data.data)

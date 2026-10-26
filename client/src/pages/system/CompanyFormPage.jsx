@@ -11,7 +11,6 @@ import { createCompany, getCompany, updateCompany } from "@/lib/system/companies
 import { notifyError, notifySuccess } from "@/lib/notify"
 import { Separator } from "@/components/ui/separator";
 import { InvitationLinkDialog } from "@/components/common/InvitationLinkDialog"
-import { CompanyAdmins } from "@/pages/system/CompanyAdmins"
 
 export default function CompanyFormPage() {
     const { uuid } = useParams()
@@ -27,7 +26,6 @@ export default function CompanyFormPage() {
         city_id: null,
         admin_email: '',
     })
-    const [admins, setAdmins] = useState([])
     const [created, setCreated] = useState(null)
 
     useEffect(() => {
@@ -42,7 +40,6 @@ export default function CompanyFormPage() {
                     state_id: company.state_id ?? null,
                     city_id: company.city_id ?? null,
                 })
-                setAdmins(company.admins ?? [])
             })
             .catch(notifyError)
             .finally(() => setLoading(false))
@@ -87,6 +84,9 @@ export default function CompanyFormPage() {
                     { text: isEditing ? 'Editar empresa' : 'Nova empresa' },
                 ]}
                 buttons={[
+                    ...(isEditing
+                        ? [{ title: 'Usuários', variant: 'outline', to: `/app/sistema/empresas/${uuid}/usuarios` }]
+                        : []),
                     { title: 'Cancelar', variant: 'outline', to: '/app/sistema/empresas' },
                     {
                         title: 'Salvar',
@@ -175,31 +175,31 @@ export default function CompanyFormPage() {
                         </FieldGroup>
                     </FieldSet>
 
-                    <Separator />
+                    {isEditing ? null : (
+                        <>
+                            <Separator />
 
-                    {isEditing ? (
-                        <CompanyAdmins companyUuid={uuid} admins={admins} onBusy={setLoading} />
-                    ) : (
-                        <FieldSet>
-                            <FieldLegend variant="label">Administrador da empresa</FieldLegend>
-                            <FieldDescription>
-                                Vamos gerar um link de convite. A pessoa cria a conta, ou entra com a que já tem, e vira administradora da empresa.
-                            </FieldDescription>
-                            <FieldGroup className="md:grid md:grid-cols-3">
-                                <Field>
-                                    <FieldLabel htmlFor="admin-email">E-mail</FieldLabel>
-                                    <Input
-                                        id="admin-email"
-                                        type="email"
-                                        value={formData.admin_email}
-                                        placeholder="Ex: ana@empresa.com.br"
-                                        onChange={(e) => setFormData({ ...formData, admin_email: e.target.value })}
-                                        autoComplete="off"
-                                        required
-                                    />
-                                </Field>
-                            </FieldGroup>
-                        </FieldSet>
+                            <FieldSet>
+                                <FieldLegend variant="label">Administrador da empresa</FieldLegend>
+                                <FieldDescription>
+                                    Vamos gerar um link de convite. A pessoa cria a conta, ou entra com a que já tem, e vira administradora da empresa.
+                                </FieldDescription>
+                                <FieldGroup className="md:grid md:grid-cols-3">
+                                    <Field>
+                                        <FieldLabel htmlFor="admin-email">E-mail</FieldLabel>
+                                        <Input
+                                            id="admin-email"
+                                            type="email"
+                                            value={formData.admin_email}
+                                            placeholder="Ex: ana@empresa.com.br"
+                                            onChange={(e) => setFormData({ ...formData, admin_email: e.target.value })}
+                                            autoComplete="off"
+                                            required
+                                        />
+                                    </Field>
+                                </FieldGroup>
+                            </FieldSet>
+                        </>
                     )}
                 </form>
             </LoadingWrapper>
