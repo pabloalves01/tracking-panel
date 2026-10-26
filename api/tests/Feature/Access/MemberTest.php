@@ -113,7 +113,8 @@ class MemberTest extends TestCase
         $this->app['auth']->forgetGuards();
         $this->withToken($memberToken)->getJson('/api/registry/entities')
             ->assertForbidden()
-            ->assertJsonPath('message', 'Você não tem acesso a esta empresa');
+            ->assertJsonPath('message', 'Você não tem acesso a esta empresa')
+            ->assertJsonPath('code', 'context_access_lost');
         $this->withToken($memberToken)->getJson('/api/auth/contexts')->assertJsonCount(0, 'companies');
     }
 

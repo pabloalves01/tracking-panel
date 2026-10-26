@@ -25,7 +25,7 @@ api.interceptors.response.use(
             .some((path) => window.location.pathname.startsWith(path))
         // Perdeu o acesso ao contexto do token (ex.: foi removido): volta pra escolha.
         const lostContext = error.response?.status === 403
-            && ['Você não tem acesso a esta empresa', 'Você não tem acesso a este posto'].includes(error.response.data?.message)
+            && error.response.data?.code === 'context_access_lost'
         if (lostContext && !publicPage) {
             window.location.assign('/auth/contextos')
         }

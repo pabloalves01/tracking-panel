@@ -213,7 +213,8 @@ class AuthContextTest extends TestCase
         $this->withToken($token->plainTextToken)
             ->getJson('/api/station/me')
             ->assertForbidden()
-            ->assertJsonPath('message', 'Você não tem acesso a este posto');
+            ->assertJsonPath('message', 'Você não tem acesso a este posto')
+            ->assertJsonPath('code', 'context_access_lost');
     }
 
     public function test_seletor_troca_de_empresa_para_posto_e_volta_no_mesmo_token(): void

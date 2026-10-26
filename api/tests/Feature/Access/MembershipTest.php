@@ -71,7 +71,8 @@ class MembershipTest extends TestCase
 
         $this->withToken($token)->getJson('/api/registry/entities')
             ->assertForbidden()
-            ->assertJsonPath('message', 'Você não tem acesso a esta empresa');
+            ->assertJsonPath('message', 'Você não tem acesso a esta empresa')
+            ->assertJsonPath('code', 'context_access_lost');
         $this->withToken($token)->getJson('/api/auth/me')
             ->assertOk()
             ->assertJsonPath('data.has_company', false);
@@ -88,7 +89,8 @@ class MembershipTest extends TestCase
 
         $this->withToken($token)->getJson('/api/registry/entities')
             ->assertForbidden()
-            ->assertJsonPath('message', 'Você não tem acesso a esta empresa');
+            ->assertJsonPath('message', 'Você não tem acesso a esta empresa')
+            ->assertJsonPath('code', 'context_access_lost');
     }
 
     public function test_empresa_nao_repete_o_mesmo_usuario(): void

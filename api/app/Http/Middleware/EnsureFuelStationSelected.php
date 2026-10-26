@@ -25,7 +25,11 @@ class EnsureFuelStationSelected
         $belongs = $request->user()->fuelStations()->whereKey($token->fuel_station_id)->exists();
 
         if (! $belongs) {
-            abort(403, 'Você não tem acesso a este posto');
+            // `code` fixo: o front volta pra escolha de contexto sem depender do texto.
+            return response()->json([
+                'message' => 'Você não tem acesso a este posto',
+                'code' => 'context_access_lost',
+            ], 403);
         }
 
         app()->instance(CurrentFuelStation::class, new CurrentFuelStation($token->fuel_station_id));
