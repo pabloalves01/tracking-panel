@@ -13,8 +13,8 @@ import { invitationStatusLabel } from '@/helpers/labels/linkStatusLabel'
 import { roleLabel } from '@/helpers/labels/roleLabel'
 import { me } from '@/lib/auth/auth'
 import { acceptInvitation, declineInvitation, previewInvitation, registerInvitation } from '@/lib/auth/invitations'
-import { sendVerificationCode } from '@/lib/auth/verification'
-import { apiMessage, notifyError, notifySuccess } from '@/lib/notify'
+import { sendVerificationCode, verificationError } from '@/lib/auth/verification'
+import { notifyError, notifySuccess } from '@/lib/notify'
 
 export default function InvitationPage() {
     const { token } = useParams()
@@ -96,7 +96,7 @@ export default function InvitationPage() {
             await sendCode()
             setStep('code')
         } catch (requestError) {
-            setError(apiMessage(requestError, 'Não foi possível enviar o código.'))
+            setError(verificationError(requestError, 'Não foi possível enviar o código.'))
         } finally {
             setLoading(false)
         }
@@ -116,7 +116,7 @@ export default function InvitationPage() {
             notifySuccess(response)
             goAfterAccept(invite?.organization?.type)
         } catch (requestError) {
-            setError(apiMessage(requestError, 'Não foi possível confirmar o código.'))
+            setError(verificationError(requestError, 'Não foi possível confirmar o código.'))
             setLoading(false)
         }
     }
@@ -229,7 +229,7 @@ export default function InvitationPage() {
                                             try {
                                                 return await sendCode()
                                             } catch (requestError) {
-                                                setError(apiMessage(requestError, 'Não foi possível reenviar o código.'))
+                                                setError(verificationError(requestError, 'Não foi possível reenviar o código.'))
                                                 return 0
                                             }
                                         }}

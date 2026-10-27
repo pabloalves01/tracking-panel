@@ -11,8 +11,8 @@ import { Input } from "@/components/ui/input"
 import { CodeStep } from "@/components/auth/CodeStep"
 import { me } from "@/lib/auth/auth"
 import { lookupStationCnpj, storeStationForUser, storeStationSignup } from "@/lib/auth/stationSignup"
-import { sendVerificationCode } from "@/lib/auth/verification"
-import { apiMessage, notifyError, notifySuccess } from "@/lib/notify"
+import { sendVerificationCode, verificationError } from "@/lib/auth/verification"
+import { notifyError, notifySuccess } from "@/lib/notify"
 
 function onlyDigits(value) {
   return String(value ?? "").replace(/\D/g, "").slice(0, 14)
@@ -138,7 +138,7 @@ export default function RegisterFuelStationPage() {
     try {
       await finishSignup(code)
     } catch (error) {
-      setCodeError(apiMessage(error, "Não foi possível confirmar o código."))
+      setCodeError(verificationError(error, "Não foi possível confirmar o código."))
     } finally {
       setLoading(false)
     }
@@ -224,7 +224,7 @@ export default function RegisterFuelStationPage() {
                         try {
                           return await sendCode()
                         } catch (error) {
-                          setCodeError(apiMessage(error, "Não foi possível reenviar o código."))
+                          setCodeError(verificationError(error, "Não foi possível reenviar o código."))
                           return 0
                         }
                       }}

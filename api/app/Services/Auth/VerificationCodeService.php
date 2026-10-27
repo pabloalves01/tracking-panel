@@ -9,6 +9,9 @@ use App\Models\Invitation;
 use App\Models\User;
 use App\Models\VerificationCode;
 use App\Support\Text;
+use Illuminate\Contracts\Cache\LockTimeoutException;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
@@ -110,45 +113,73 @@ class VerificationCodeService
 
         $this->spendGuessTime($digits);
 
-        if ($this->hourlyAttemptExceeded($email)) {
-            abort(422, self::PUBLIC_REJECTION);
-        }
-
+        $key = $this->attemptKey($email, $purpose);
+        $lock = Cache::lock('lock:'.$key, 20);
+        $acquired = false;
+        $denied = null;
         $rejected = null;
 
-        DB::transaction(function () use ($email, $purpose, $digits, &$rejected) {
-            $code = VerificationCode::query()
-                ->where('email', $email)
-                ->where('purpose', $purpose)
-                ->whereNotNull('code_hash')
-                ->latest('id')
-                ->lockForUpdate()
-                ->first();
+        try {
+            $lock->block(15);
+            $acquired = true;
 
-            if (! $code || $code->invalidated_at || $code->attempts >= self::MAX_ATTEMPTS || $code->consumed_at || ! $code->expires_at || $code->expires_at->isPast()) {
-                $this->spendGuessTime($digits);
-                $rejected = self::PUBLIC_REJECTION;
+            if (RateLimiter::tooManyAttempts($key, self::HOURLY_ATTEMPTS)) {
+                $denied = $this->budgetResponse($key);
+            } else {
+                DB::transaction(function () use ($email, $purpose, $digits, &$rejected) {
+                    $code = VerificationCode::query()
+                        ->where('email', $email)
+                        ->where('purpose', $purpose)
+                        ->whereNotNull('code_hash')
+                        ->latest('id')
+                        ->lockForUpdate()
+                        ->first();
 
-                return;
-            }
+                    if (! $code || $code->invalidated_at || $code->attempts >= self::MAX_ATTEMPTS || $code->consumed_at || ! $code->expires_at || $code->expires_at->isPast()) {
+                        $this->spendGuessTime($digits);
+                        $rejected = self::PUBLIC_REJECTION;
 
-            if (! hash_equals($code->code_hash, hash('sha256', $digits))) {
-                $code->attempts++;
+                        return;
+                    }
 
-                if ($code->attempts >= self::MAX_ATTEMPTS) {
-                    $code->invalidated_at = now();
+                    if (! hash_equals($code->code_hash, hash('sha256', $digits))) {
+                        $code->attempts++;
+
+                        if ($code->attempts >= self::MAX_ATTEMPTS) {
+                            $code->invalidated_at = now();
+                        }
+
+                        $code->save();
+                        $rejected = self::PUBLIC_REJECTION;
+
+                        return;
+                    }
+
+                    $code->forceFill([
+                        'consumed_at' => now(),
+                    ])->save();
+                });
+
+                if ($rejected) {
+                    $hits = RateLimiter::hit($key, 3600);
+
+                    if ($hits > self::HOURLY_ATTEMPTS) {
+                        $denied = $this->budgetResponse($key);
+                        $rejected = null;
+                    }
                 }
-
-                $code->save();
-                $rejected = self::PUBLIC_REJECTION;
-
-                return;
             }
+        } catch (LockTimeoutException) {
+            $denied = $this->budgetResponse($key);
+        } finally {
+            if ($acquired) {
+                $lock->release();
+            }
+        }
 
-            $code->forceFill([
-                'consumed_at' => now(),
-            ])->save();
-        });
+        if ($denied) {
+            abort($denied);
+        }
 
         if ($rejected) {
             abort(422, $rejected);
@@ -156,20 +187,26 @@ class VerificationCodeService
     }
 
     /**
-     * No máximo 10 palpites por e-mail por hora, exista a conta ou não.
-     * O contador fica fora da transação: um código novo não zera a janela.
+     * Dez palpites errados por e-mail e finalidade, na mesma hora.
+     * O acerto não entra na conta. A trava é consultada antes de avaliar o código,
+     * e o incremento fica fora da transação do banco.
      */
-    private function hourlyAttemptExceeded(string $email): bool
+    private function attemptKey(string $email, string $purpose): string
     {
-        $key = 'verification-attempts:'.hash('sha256', $email);
+        return 'verification-attempts:'.hash('sha256', $email.'|'.$purpose);
+    }
 
-        if (RateLimiter::tooManyAttempts($key, self::HOURLY_ATTEMPTS)) {
-            return true;
-        }
+    private function budgetResponse(string $key): JsonResponse
+    {
+        $seconds = max(1, RateLimiter::availableIn($key));
+        $minutes = max(1, (int) ceil($seconds / 60));
 
-        RateLimiter::hit($key, 3600);
-
-        return false;
+        return response()->json([
+            'message' => "Muitas tentativas. Tente novamente em {$minutes} min.",
+            'retry_after' => $seconds,
+        ], 429, [
+            'Retry-After' => $seconds,
+        ]);
     }
 
     private function spendGuessTime(string $digits): void

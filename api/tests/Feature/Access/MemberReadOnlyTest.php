@@ -39,6 +39,10 @@ class MemberReadOnlyTest extends TestCase
             ->getJson('/api/company/users')
             ->assertForbidden()
             ->assertJsonPath('message', 'Você não gerencia os usuários deste contexto.');
+        $this->actingToken($memberToken)
+            ->getJson('/api/company/invitations')
+            ->assertForbidden()
+            ->assertJsonPath('message', 'Você não gerencia os usuários deste contexto.');
         $this->actingToken($this->token($owner, $company))
             ->getJson('/api/company/users')
             ->assertOk();
@@ -112,6 +116,10 @@ class MemberReadOnlyTest extends TestCase
         $this->actingToken($memberToken)->getJson('/api/station/me')->assertOk();
         $this->actingToken($memberToken)
             ->getJson('/api/station/users')
+            ->assertForbidden()
+            ->assertJsonPath('message', 'Você não gerencia os usuários deste contexto.');
+        $this->actingToken($memberToken)
+            ->getJson('/api/station/invitations')
             ->assertForbidden()
             ->assertJsonPath('message', 'Você não gerencia os usuários deste contexto.');
         $this->actingToken($this->stationToken($owner, $station))

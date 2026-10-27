@@ -9,9 +9,12 @@ use App\Models\Invitation;
 use App\Models\User;
 use App\Models\VerificationCode;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\RateLimiter;
+use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
 class VerificationCodeTest extends TestCase
@@ -126,6 +129,7 @@ class VerificationCodeTest extends TestCase
 
     public function test_codigo_novo_nao_libera_mais_palpites(): void
     {
+        $this->freezeTime();
         Mail::fake();
         $email = 'limite.palpite@melo.test';
         User::factory()->create(['email' => $email, 'password' => 'senha-antiga']);
@@ -136,7 +140,7 @@ class VerificationCodeTest extends TestCase
                 ->assertJsonPath('message', 'Código inválido');
         }
 
-        $this->travel(61)->seconds();
+        $this->releasePasswordThrottle();
         $this->postJson('/api/auth/verification-codes', [
             'email' => $email,
             'purpose' => 'password_reset',
@@ -150,8 +154,8 @@ class VerificationCodeTest extends TestCase
         });
 
         $this->postReset($email, (string) $code)
-            ->assertUnprocessable()
-            ->assertJsonPath('message', 'Código inválido');
+            ->assertStatus(429)
+            ->assertJsonPath('message', 'Muitas tentativas. Tente novamente em 60 min.');
 
         $issued = VerificationCode::query()->where('email', $email)->whereNotNull('code_hash')->latest('id')->first();
         $this->assertNotNull($issued);
@@ -160,6 +164,198 @@ class VerificationCodeTest extends TestCase
             'senha-antiga',
             User::query()->where('email', $email)->value('password'),
         ));
+    }
+
+    public function test_codigo_certo_passa_depois_de_nove_errados(): void
+    {
+        $email = 'nove.certo@melo.test';
+        User::factory()->create(['email' => $email, 'password' => 'senha-antiga']);
+
+        for ($attempt = 0; $attempt < 9; $attempt++) {
+            $this->postReset($email, '000000')
+                ->assertUnprocessable()
+                ->assertJsonPath('message', 'Código inválido');
+        }
+
+        $this->plant($email, '123456', VerificationCode::PASSWORD_RESET);
+
+        $this->postReset($email, '123456')
+            ->assertOk()
+            ->assertJsonPath('message', 'Senha atualizada. Entre com a nova senha.');
+
+        $this->assertTrue(Hash::check('senha-nova-1', User::query()->where('email', $email)->value('password')));
+        $this->assertNotNull(
+            VerificationCode::query()->where('email', $email)->whereNotNull('code_hash')->value('consumed_at'),
+        );
+    }
+
+    public function test_decimo_primeiro_palpite_recebe_429_mesmo_com_o_codigo_certo(): void
+    {
+        $this->freezeTime();
+        $email = 'onze.palpite@melo.test';
+        User::factory()->create(['email' => $email, 'password' => 'senha-antiga']);
+        $this->plant($email, '123456', VerificationCode::PASSWORD_RESET);
+
+        for ($attempt = 0; $attempt < 10; $attempt++) {
+            $this->postReset($email, '000000')->assertUnprocessable();
+        }
+
+        $this->releasePasswordThrottle();
+
+        $blocked = $this->postReset($email, '123456');
+        $blocked->assertStatus(429)
+            ->assertHeader('Retry-After')
+            ->assertJsonPath('message', 'Muitas tentativas. Tente novamente em 60 min.');
+        $this->assertSame((int) $blocked->headers->get('Retry-After'), $blocked->json('retry_after'));
+
+        $this->assertNull(VerificationCode::query()->where('email', $email)->value('consumed_at'));
+        $this->assertTrue(Hash::check('senha-antiga', User::query()->where('email', $email)->value('password')));
+    }
+
+    public function test_trava_do_reset_nao_trava_o_convite(): void
+    {
+        $this->freezeTime();
+        $email = 'reset.convite@melo.test';
+        $plain = 'token-reset-convite';
+
+        for ($attempt = 0; $attempt < 10; $attempt++) {
+            $this->postReset($email, '000000')->assertUnprocessable();
+        }
+
+        $company = Company::query()->create([
+            'legal_name' => 'Melo LTDA',
+            'trade_name' => 'Melo',
+            'cnpj' => '00000000000191',
+        ]);
+        Invitation::query()->create([
+            'company_id' => $company->id,
+            'email' => $email,
+            'role' => 'member',
+            'status' => 'pending',
+            'token_hash' => hash('sha256', $plain),
+            'expires_at' => now()->addDays(7),
+        ]);
+        $this->plant($email, '654321', VerificationCode::INVITATION_REGISTER);
+        $this->releasePasswordThrottle();
+
+        $this->postJson('/api/auth/invitations/'.$plain.'/register', [
+            'name' => 'Convidada',
+            'password' => 'senha1234',
+            'password_confirmation' => 'senha1234',
+            'code' => '654321',
+        ])->assertCreated()
+            ->assertJsonPath('user.email', $email);
+
+        $this->postReset($email, '123456')
+            ->assertStatus(429)
+            ->assertJsonPath('message', 'Muitas tentativas. Tente novamente em 60 min.');
+    }
+
+    public function test_429_e_igual_com_ou_sem_conta(): void
+    {
+        $this->freezeTime();
+        User::factory()->create(['email' => 'teto.existe@melo.test', 'password' => 'senha1234']);
+
+        for ($attempt = 0; $attempt < 10; $attempt++) {
+            $this->postReset('teto.existe@melo.test', '000000')->assertUnprocessable();
+        }
+
+        $this->releasePasswordThrottle();
+
+        for ($attempt = 0; $attempt < 10; $attempt++) {
+            $this->postReset('teto.nao@melo.test', '000000')->assertUnprocessable();
+        }
+
+        $this->releasePasswordThrottle();
+
+        $known = $this->timedReset('teto.existe@melo.test', '123456');
+        $unknown = $this->timedReset('teto.nao@melo.test', '123456');
+
+        [$knownResponse, $knownMs] = $known;
+        [$unknownResponse, $unknownMs] = $unknown;
+
+        $knownResponse->assertStatus(429);
+        $unknownResponse->assertStatus(429);
+        $this->assertSame($knownResponse->status(), $unknownResponse->status());
+        $this->assertSame($knownResponse->json(), $unknownResponse->json());
+        $this->assertSame($knownResponse->headers->get('Retry-After'), $unknownResponse->headers->get('Retry-After'));
+        $this->assertSame('Muitas tentativas. Tente novamente em 60 min.', $knownResponse->json('message'));
+        $this->assertLessThan(1000, abs($knownMs - $unknownMs));
+    }
+
+    public function test_palpites_paralelos_nao_passam_de_dez_no_postgres(): void
+    {
+        if (config('database.default') !== 'pgsql' || ! function_exists('proc_open')) {
+            $this->markTestSkipped('Concorrência só roda no PostgreSQL.');
+        }
+
+        $email = 'paralelo.palpite@posto.test';
+        $config = config('database.connections.pgsql');
+        config(['database.connections.guess_outside' => $config]);
+        DB::purge('guess_outside');
+        $outside = DB::connection('guess_outside');
+
+        $outside->table('verification_codes')->where('email', $email)->delete();
+        $outside->table('verification_codes')->insert([
+            'email' => $email,
+            'purpose' => VerificationCode::STATION_SIGNUP,
+            'code_hash' => hash('sha256', '999999'),
+            'expires_at' => now()->addMinutes(10),
+            'attempts' => 0,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $payload = json_encode([
+            'cnpj' => self::CNPJ,
+            'name' => 'Dona do Posto',
+            'email' => $email,
+            'password' => 'senha1234',
+            'password_confirmation' => 'senha1234',
+            'code' => '000000',
+        ], JSON_THROW_ON_ERROR);
+
+        $env = [];
+
+        foreach (array_merge(getenv() ?: [], $_ENV) as $name => $value) {
+            if (is_string($name) && is_scalar($value)) {
+                $env[$name] = (string) $value;
+            }
+        }
+
+        $env = array_merge($env, [
+            'APP_ENV' => 'testing',
+            'CACHE_STORE' => 'file',
+            'CACHE_PREFIX' => 'guess-'.bin2hex(random_bytes(8)),
+            'DB_CONNECTION' => 'pgsql',
+            'GUESS_PAYLOAD' => $payload,
+        ]);
+
+        try {
+            $processes = [];
+
+            for ($attempt = 0; $attempt < 12; $attempt++) {
+                $process = new Process([PHP_BINARY, base_path('tests/Support/parallel_guess.php')], base_path(), $env);
+                $process->setTimeout(30);
+                $process->start();
+                $processes[] = $process;
+            }
+
+            $statuses = [];
+
+            foreach ($processes as $process) {
+                $process->wait();
+                $statuses[] = (int) strtok($process->getOutput(), "\n");
+                $this->assertTrue($process->isSuccessful(), $process->getErrorOutput().$process->getOutput());
+            }
+
+            $counts = array_count_values($statuses);
+            $this->assertSame(10, $counts[422] ?? 0);
+            $this->assertSame(2, $counts[429] ?? 0);
+            $this->assertNull($outside->table('verification_codes')->where('email', $email)->value('consumed_at'));
+        } finally {
+            $outside->table('verification_codes')->where('email', $email)->delete();
+        }
     }
 
     public function test_codigo_errado_expirado_esgotado_e_reutilizado(): void
@@ -342,6 +538,11 @@ class VerificationCodeTest extends TestCase
         $response = $this->postReset($email, $code);
 
         return [$response, (hrtime(true) - $start) / 1e6];
+    }
+
+    private function releasePasswordThrottle(): void
+    {
+        RateLimiter::clear('password-reset'.sha1('|127.0.0.1'));
     }
 
     private function postReset(string $email, string $code): \Illuminate\Testing\TestResponse

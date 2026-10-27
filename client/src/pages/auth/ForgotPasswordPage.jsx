@@ -8,8 +8,7 @@ import { ThemeToggle } from '@/components/layout/ThemeToggle'
 import { Button } from '@/components/ui/button'
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { forgotPassword, resetPassword } from '@/lib/auth/verification'
-import { apiMessage } from '@/lib/notify'
+import { forgotPassword, resetPassword, verificationError } from '@/lib/auth/verification'
 
 export default function ForgotPasswordPage() {
     const navigate = useNavigate()
@@ -33,7 +32,7 @@ export default function ForgotPasswordPage() {
 
             return seconds
         } catch (requestError) {
-            setError(apiMessage(requestError, 'Não foi possível enviar o código.'))
+            setError(verificationError(requestError, 'Não foi possível enviar o código.'))
         } finally {
             setLoading(false)
         }
@@ -67,7 +66,7 @@ export default function ForgotPasswordPage() {
             })
             navigate('/auth/login', { replace: true })
         } catch (requestError) {
-            setError(apiMessage(requestError, 'Não foi possível atualizar a senha.'))
+            setError(verificationError(requestError, 'Não foi possível atualizar a senha.'))
         } finally {
             setLoading(false)
         }
