@@ -489,21 +489,21 @@ class CompanyFuelStationTest extends TestCase
         $this->assertSame(0, CompanyFuelStation::query()->where('company_id', $company->id)->count());
     }
 
-    public function test_membro_nao_pede_nem_encerra_vinculo(): void
+    public function test_membro_pede_e_cancela_vinculo(): void
     {
         $this->actAsCompany();
         $station = $this->station(self::CNPJ);
         CompanyUser::query()->update(['role' => 'member']);
 
         $this->postJson('/api/registry/fuel-stations', ['cnpj' => self::CNPJ])
-            ->assertForbidden();
-
-        CompanyUser::query()->update(['role' => 'admin']);
-        $this->postJson('/api/registry/fuel-stations', ['cnpj' => self::CNPJ])->assertCreated();
-        CompanyUser::query()->update(['role' => 'member']);
+            ->assertCreated()
+            ->assertJsonPath('message', 'Pedido de vínculo enviado');
 
         $this->deleteJson('/api/registry/fuel-stations/'.$station->uuid)
-            ->assertForbidden();
+            ->assertOk()
+            ->assertJsonPath('message', 'Pedido removido');
+
+        $this->assertSame(0, CompanyFuelStation::query()->count());
     }
 
     public function test_pedido_grava_auditoria(): void
