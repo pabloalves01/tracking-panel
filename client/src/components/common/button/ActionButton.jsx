@@ -1,6 +1,5 @@
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { useCanWrite } from '@/lib/auth/permissions'
 
 /**
  * Botão de ação só com ícone, no tamanho `sm`, com tooltip.
@@ -11,13 +10,7 @@ import { useCanWrite } from '@/lib/auth/permissions'
  * `disabled`: desabilita o clique. Desabilitado, o tooltip não aparece.
  * `variant`: mesmo do `Button`. Padrão `outline`.
  */
-export function ActionButton({ icon: Icon, tooltip, disabled = false, variant = 'outline', onClick, permission = 'write', ...props }) {
-    const canWrite = useCanWrite()
-
-    if (permission === 'write' && !canWrite) {
-        return null
-    }
-
+export function ActionButton({ icon: Icon, tooltip, disabled = false, variant = 'outline', onClick, permission: _permission = 'write', ...props }) {
     return (
         <Tooltip>
             <TooltipTrigger

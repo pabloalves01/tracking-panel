@@ -2,7 +2,6 @@ import { Fragment } from 'react'
 import { Link } from 'react-router'
 
 import { Button } from '@/components/ui/button'
-import { useCanWrite } from '@/lib/auth/permissions'
 import {
     Breadcrumb,
     BreadcrumbItem,
@@ -21,9 +20,7 @@ import {
  * `slot`: qualquer coisa à direita, antes dos botões.
  */
 export function LayoutToolbar({ breadcrumbs = [], buttons = [], slot }) {
-    const canWrite = useCanWrite()
-    const visibleButtons = buttons.filter((button) => button.permission !== 'write' || canWrite)
-    const hasActions = visibleButtons.length > 0 || slot != null
+    const hasActions = buttons.length > 0 || slot != null
 
     return (
         <div className="flex min-h-8 flex-wrap items-center gap-3 mb-6">
@@ -49,7 +46,7 @@ export function LayoutToolbar({ breadcrumbs = [], buttons = [], slot }) {
             {hasActions ? (
                 <div className="ml-auto flex flex-wrap items-center gap-2">
                     {slot}
-                    {visibleButtons.map((button) => (
+                    {buttons.map((button) => (
                         <ToolbarButton key={button.title} button={button} className={button.className} />
                     ))}
                 </div>

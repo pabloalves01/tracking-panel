@@ -22,7 +22,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { invitationStatusLabel } from '@/helpers/labels/linkStatusLabel'
 import { roleLabel } from '@/helpers/labels/roleLabel'
 import { memberApi } from '@/lib/access/members'
-import { useCanWrite } from '@/lib/auth/permissions'
 import { copyText, notifyError, notifySuccess } from '@/lib/notify'
 
 function formatWhen(value) {
@@ -44,7 +43,7 @@ export default function MembersPage({
     actorRole,
 }) {
     const access = useMemo(() => memberApi(apiBase), [apiBase])
-    const canWrite = useCanWrite()
+    const canWrite = true
     const [params, setParams] = useSearchParams()
     const tab = params.get('aba') === 'convites' ? 'convites' : 'usuarios'
     const [members, setMembers] = useState([])

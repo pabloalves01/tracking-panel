@@ -83,7 +83,7 @@ export default function RegisterFuelStationPage() {
     const seconds = Number(response.retry_after) || 60
     setRetryAfter(seconds)
 
-    return seconds
+    return response
   }
 
   async function finishSignup(code) {
@@ -122,7 +122,13 @@ export default function RegisterFuelStationPage() {
         return
       }
 
-      await sendCode()
+      const response = await sendCode()
+
+      if (response.sent === false) {
+        setCodeError(response.message || "Aguarde para reenviar o código.")
+        return
+      }
+
       setStep(3)
     } catch (error) {
       notifyError(error)
@@ -222,7 +228,13 @@ export default function RegisterFuelStationPage() {
                       onResend={async () => {
                         setCodeError("")
                         try {
-                          return await sendCode()
+                          const response = await sendCode()
+
+                          if (response.sent === false) {
+                            setCodeError(response.message || "Aguarde para reenviar o código.")
+                          }
+
+                          return Number(response.retry_after) || 0
                         } catch (error) {
                           setCodeError(verificationError(error, "Não foi possível reenviar o código."))
                           return 0

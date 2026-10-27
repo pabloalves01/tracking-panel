@@ -16,14 +16,17 @@ class PasswordResetController extends Controller
 
     public function forgot(ForgotPasswordRequest $request)
     {
-        $retryAfter = $this->codes->issue(
+        $result = $this->codes->issue(
             $request->validated('email'),
             VerificationCode::PASSWORD_RESET,
         );
 
         return response()->json([
-            'message' => 'Se este e-mail puder receber o código, ele foi enviado.',
-            'retry_after' => $retryAfter,
+            'message' => $result['sent']
+                ? 'Se este e-mail puder receber o código, ele foi enviado.'
+                : $this->codes->waitMessage($result['retry_after']),
+            'sent' => $result['sent'],
+            'retry_after' => $result['retry_after'],
         ]);
     }
 

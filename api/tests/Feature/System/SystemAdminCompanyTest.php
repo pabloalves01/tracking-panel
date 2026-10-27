@@ -95,8 +95,7 @@ class SystemAdminCompanyTest extends TestCase
 
         $this->actingToken($token)
             ->postJson('/api/registry/employees', [])
-            ->assertForbidden()
-            ->assertJsonPath('message', 'Seu papel neste contexto só permite consulta.');
+            ->assertUnprocessable();
 
         $this->actingToken($token)
             ->postJson('/api/system/companies/'.$company->uuid.'/deactivate')

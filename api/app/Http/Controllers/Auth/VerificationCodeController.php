@@ -12,15 +12,33 @@ class VerificationCodeController extends Controller
 
     public function store(SendVerificationCodeRequest $request)
     {
-        $retryAfter = $this->codes->issue(
+        $result = $this->codes->issue(
             $request->validated('email'),
             $request->validated('purpose'),
             $request->input('token'),
         );
 
         return response()->json([
-            'message' => 'Enviamos um código para este e-mail.',
-            'retry_after' => $retryAfter,
+            'message' => $this->message($result),
+            'sent' => $result['sent'],
+            'account_exists' => $result['account_exists'],
+            'retry_after' => $result['retry_after'],
         ]);
+    }
+
+    /**
+     * @param  array{sent: bool, retry_after: int, account_exists: bool}  $result
+     */
+    private function message(array $result): string
+    {
+        if ($result['account_exists']) {
+            return 'Este e-mail já tem conta. Entre para aceitar o convite.';
+        }
+
+        if (! $result['sent']) {
+            return $this->codes->waitMessage($result['retry_after']);
+        }
+
+        return 'Enviamos um código para este e-mail.';
     }
 }

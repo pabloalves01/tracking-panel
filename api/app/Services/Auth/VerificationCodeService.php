@@ -31,13 +31,132 @@ class VerificationCodeService
     public const PUBLIC_REJECTION = 'Código inválido';
 
     /**
-     * Sempre devolve os segundos até o próximo envio.
-     * A resposta pública não diz se o e-mail existe.
+     * Cadastro por convite com token válido envia o código nesta requisição.
+     * Os outros fluxos respondem antes da entrega, para o tempo não dizer se a conta existe.
+     *
+     * @return array{sent: bool, retry_after: int, account_exists: bool}
      */
-    public function issue(string $email, string $purpose, ?string $token = null): int
+    public function issue(string $email, string $purpose, ?string $token = null): array
     {
         $email = Text::email($email);
-        $latest = $this->latest($email, $purpose);
+
+        if ($purpose === VerificationCode::INVITATION_REGISTER && $this->inviteCanReceiveCode($email, $token)) {
+            return $this->issueInvitation($email);
+        }
+
+        return $this->issueOpaque($email, $purpose, $token);
+    }
+
+    public function waitMessage(int $seconds): string
+    {
+        if ($seconds >= 120) {
+            $minutes = max(1, (int) ceil($seconds / 60));
+
+            return "Aguarde {$minutes} min para reenviar o código.";
+        }
+
+        return 'Aguarde '.max(1, $seconds).' segundos para reenviar o código.';
+    }
+
+    /**
+     * Token do convite confere. Conta existente não finge envio.
+     * Cooldown e teto contam só códigos desta finalidade que foram enviados.
+     *
+     * @return array{sent: bool, retry_after: int, account_exists: bool}
+     */
+    private function issueInvitation(string $email): array
+    {
+        if (User::query()->where('email', $email)->exists()) {
+            return [
+                'sent' => false,
+                'retry_after' => 0,
+                'account_exists' => true,
+            ];
+        }
+
+        $retryAfter = $this->blockedFor($email, VerificationCode::INVITATION_REGISTER, true);
+
+        if ($retryAfter !== null) {
+            return [
+                'sent' => false,
+                'retry_after' => $retryAfter,
+                'account_exists' => false,
+            ];
+        }
+
+        $plain = $this->plainCode();
+
+        VerificationCode::query()->create([
+            'email' => $email,
+            'purpose' => VerificationCode::INVITATION_REGISTER,
+            'code_hash' => hash('sha256', $plain),
+            'expires_at' => now()->addMinutes(self::TTL_MINUTES),
+        ]);
+
+        Mail::to($email)->queue(new VerificationCodeMail($plain, self::TTL_MINUTES));
+
+        return [
+            'sent' => true,
+            'retry_after' => self::COOLDOWN_SECONDS,
+            'account_exists' => false,
+        ];
+    }
+
+    /**
+     * A linha entra no cooldown mesmo quando a entrega depois não manda código,
+     * para conta existente e e-mail desconhecido terem a mesma resposta.
+     *
+     * @return array{sent: bool, retry_after: int, account_exists: bool}
+     */
+    private function issueOpaque(string $email, string $purpose, ?string $token): array
+    {
+        $retryAfter = $this->blockedFor($email, $purpose, false);
+
+        if ($retryAfter !== null) {
+            return [
+                'sent' => false,
+                'retry_after' => $retryAfter,
+                'account_exists' => false,
+            ];
+        }
+
+        $plain = $this->plainCode();
+        $record = VerificationCode::query()->create([
+            'email' => $email,
+            'purpose' => $purpose,
+            'code_hash' => null,
+            'expires_at' => null,
+        ]);
+
+        DeliverVerificationCode::dispatch($record->id, $plain, $token)->afterResponse();
+
+        return [
+            'sent' => true,
+            'retry_after' => self::COOLDOWN_SECONDS,
+            'account_exists' => false,
+        ];
+    }
+
+    private function plainCode(): string
+    {
+        return str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Segundos até o próximo envio desta finalidade, ou null se pode enviar agora.
+     * No convite, só código entregue conta: outra finalidade e tentativa sem e-mail não bloqueiam.
+     */
+    private function blockedFor(string $email, string $purpose, bool $deliveredOnly): ?int
+    {
+        $query = VerificationCode::query()
+            ->where('email', $email)
+            ->where('purpose', $purpose);
+
+        if ($deliveredOnly) {
+            $query->whereNotNull('code_hash');
+        }
+
+        $latest = (clone $query)->latest('id')->first();
 
         if ($latest) {
             $elapsed = now()->getTimestamp() - $latest->created_at->getTimestamp();
@@ -47,9 +166,7 @@ class VerificationCodeService
             }
         }
 
-        $recent = VerificationCode::query()
-            ->where('email', $email)
-            ->where('purpose', $purpose)
+        $recent = (clone $query)
             ->where('created_at', '>=', now()->subHour())
             ->orderBy('created_at')
             ->get();
@@ -60,18 +177,7 @@ class VerificationCodeService
             return max(1, $retryAt->getTimestamp() - now()->getTimestamp());
         }
 
-        $record = VerificationCode::query()->create([
-            'email' => $email,
-            'purpose' => $purpose,
-            'code_hash' => null,
-            'expires_at' => null,
-        ]);
-
-        $plain = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-
-        DeliverVerificationCode::dispatch($record->id, $plain, $token)->afterResponse();
-
-        return self::COOLDOWN_SECONDS;
+        return null;
     }
 
     /**
@@ -240,14 +346,5 @@ class VerificationCodeService
             && $invitation->status === Invitation::PENDING
             && $invitation->expires_at->isFuture()
             && strtolower($invitation->email) === $email;
-    }
-
-    private function latest(string $email, string $purpose): ?VerificationCode
-    {
-        return VerificationCode::query()
-            ->where('email', $email)
-            ->where('purpose', $purpose)
-            ->latest('id')
-            ->first();
     }
 }

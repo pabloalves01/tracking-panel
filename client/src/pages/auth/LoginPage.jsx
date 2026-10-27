@@ -7,7 +7,7 @@ import { ThemeToggle } from "@/components/layout/ThemeToggle"
 import { Button } from "@/components/ui/button"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { getAuthContexts, login, me } from "@/lib/auth/auth"
+import { getAuthContexts, login, logout, me } from "@/lib/auth/auth"
 import { safeInternalPath } from "@/lib/auth/redirect"
 import { apiMessage } from "@/lib/notify"
 
@@ -49,10 +49,20 @@ export default function LoginPage() {
     if (!localStorage.getItem("token")) return undefined
 
     let active = true
+    const lockedEmail = (params.get("email") || "").trim().toLowerCase()
 
-    Promise.all([me(), getAuthContexts()])
-      .then(([user, contexts]) => {
+    me()
+      .then(async (user) => {
         if (!active) return
+
+        if (emailLocked && lockedEmail && user?.email?.toLowerCase() !== lockedEmail) {
+          await logout()
+          return
+        }
+
+        const contexts = await getAuthContexts()
+        if (!active) return
+
         navigate(routeAfterLogin({
           user,
           companies: contexts.companies ?? [],
@@ -70,7 +80,7 @@ export default function LoginPage() {
     return () => {
       active = false
     }
-  }, [navigate, redirect])
+  }, [emailLocked, navigate, params, redirect])
 
   function clearError() {
     if (secondsLeft > 0) return
@@ -132,7 +142,9 @@ export default function LoginPage() {
                 <div className="flex flex-col items-center gap-1 text-center">
                   <h1 className="text-2xl font-bold">Entrar na sua conta</h1>
                   <p className="text-sm text-balance text-muted-foreground">
-                    Informe seu e-mail para acessar o sistema
+                    {emailLocked
+                      ? "Entre com este e-mail para aceitar o convite."
+                      : "Informe seu e-mail para acessar o sistema"}
                   </p>
                 </div>
                 <Field>

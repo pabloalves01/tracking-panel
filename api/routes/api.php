@@ -31,7 +31,6 @@ Route::get('/health', function () {
     ]);
 });
 
-
 // =============================== AUTH ROUTES ===============================
 
 Route::prefix('auth')->group(function () {
@@ -86,7 +85,7 @@ Route::middleware('auth:sanctum')->prefix('locations')->group(function () {
 
 // =============================== API COMPANY ROUTES ===============================
 
-Route::middleware(['auth:sanctum', 'ensure.company', 'context.write'])->group(function () {
+Route::middleware(['auth:sanctum', 'ensure.company'])->group(function () {
     Route::get('/ship-operation-perimeters/{shipOperationId}', [ShipOperationPerimeterController::class, 'get']);
     Route::post('/ship-operation-perimeters', [ShipOperationPerimeterController::class, 'create']);
 
@@ -203,7 +202,7 @@ Route::middleware(['auth:sanctum', 'ensure.company', 'context.write'])->group(fu
 
 // =============================== API STATION ROUTES ===============================
 
-Route::middleware(['auth:sanctum', 'ensure.station', 'context.write'])->prefix('station')->group(function () {
+Route::middleware(['auth:sanctum', 'ensure.station'])->prefix('station')->group(function () {
     Route::get('me', [StationController::class, 'me']);
     Route::get('companies', [StationCompanyController::class, 'index']);
     Route::post('companies/{uuid}/accept', [StationCompanyController::class, 'accept']);

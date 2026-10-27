@@ -19,7 +19,6 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { formatCpfCnpj } from "@/helpers/formatters"
 import { linkStatusLabel, statusBadgeClass } from "@/helpers/labels/linkStatusLabel"
-import { useCanWrite } from "@/lib/auth/permissions"
 import { acceptStationCompany, disconnectStationCompany, getStationCompanies, rejectStationCompany } from "@/lib/station/companies"
 import { notifyError, notifySuccess } from "@/lib/notify"
 
@@ -28,7 +27,6 @@ function companyLabel(link) {
 }
 
 export default function StationCompaniesPage() {
-    const canWrite = useCanWrite()
     const [links, setLinks] = useState([])
     const [loading, setLoading] = useState(true)
     const [linkToUndo, setLinkToUndo] = useState(null)
@@ -135,35 +133,33 @@ export default function StationCompaniesPage() {
                                         </Badge>
                                     </TableCell>
                                     <TableCell>
-                                        {canWrite ? (
-                                            <div className="flex gap-2">
-                                                {link.status === "request_sent" ? (
-                                                    <Button type="button" size="sm" onClick={() => handleAccept(link)}>
-                                                        Aceitar
-                                                    </Button>
-                                                ) : null}
-                                                {link.status === "request_sent" ? (
-                                                    <Button
-                                                        type="button"
-                                                        size="sm"
-                                                        variant="outline"
-                                                        onClick={() => setLinkToReject(link)}
-                                                    >
-                                                        Recusar
-                                                    </Button>
-                                                ) : null}
-                                                {link.status === "active" ? (
-                                                    <Button
-                                                        type="button"
-                                                        size="sm"
-                                                        variant="outline"
-                                                        onClick={() => setLinkToUndo(link)}
-                                                    >
-                                                        Desfazer
-                                                    </Button>
-                                                ) : null}
-                                            </div>
-                                        ) : null}
+                                        <div className="flex gap-2">
+                                            {link.status === "request_sent" ? (
+                                                <Button type="button" size="sm" onClick={() => handleAccept(link)}>
+                                                    Aceitar
+                                                </Button>
+                                            ) : null}
+                                            {link.status === "request_sent" ? (
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => setLinkToReject(link)}
+                                                >
+                                                    Recusar
+                                                </Button>
+                                            ) : null}
+                                            {link.status === "active" ? (
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => setLinkToUndo(link)}
+                                                >
+                                                    Desfazer
+                                                </Button>
+                                            ) : null}
+                                        </div>
                                     </TableCell>
                                 </TableRow>
                             ))}

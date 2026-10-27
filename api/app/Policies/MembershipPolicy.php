@@ -21,7 +21,7 @@ class MembershipPolicy
     {
         return Membership::manages($this->role())
             ? Response::allow()
-            : Response::deny('Seu papel neste contexto só permite consulta.');
+            : Response::deny('Você não gerencia os usuários deste contexto.');
     }
 
     private function role(): ?string

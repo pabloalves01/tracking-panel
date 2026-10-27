@@ -20,7 +20,6 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { formatCpfCnpj } from '@/helpers/formatters'
 import { deleteCompanyFuelStation, disconnectCompanyFuelStation, getCompanyFuelStations, resendCompanyFuelStationRequest } from '@/lib/registry/fuelStations'
-import { useCanWrite } from '@/lib/auth/permissions'
 import { notifyError, notifySuccess } from '@/lib/notify'
 
 const listPath = '/app/cadastros/entidades/postos'
@@ -32,7 +31,6 @@ function stationLabel(link) {
 }
 
 export default function FuelStationsPage() {
-    const canWrite = useCanWrite()
     const [links, setLinks] = useState([])
     const [loading, setLoading] = useState(false)
     const [linkToRemove, setLinkToRemove] = useState(null)
@@ -91,9 +89,9 @@ export default function FuelStationsPage() {
                     { text: 'Entidades', to: '/app/cadastros/entidades' },
                     { text: 'Postos' },
                 ]}
-                buttons={canWrite ? [
+                buttons={[
                     { title: 'Novo posto', icon: PlusIcon, to: `${listPath}/novo`, permission: 'write' },
-                ] : []}
+                ]}
             />
 
             <LoadingWrapper loading={loading}>
@@ -128,34 +126,32 @@ export default function FuelStationsPage() {
                                         </Badge>
                                     </TableCell>
                                     <TableCell>
-                                        {canWrite ? (
-                                            <div className="flex items-center gap-2">
-                                                {link.status === 'request_sent' && link.fuel_station?.uuid ? (
-                                                    <ActionButton
-                                                        icon={Trash2Icon}
-                                                        tooltip="Remover pedido"
-                                                        variant="destructive"
-                                                        onClick={() => setLinkToRemove(link)}
-                                                    />
-                                                ) : null}
-                                                {link.status === 'active' && link.fuel_station?.uuid ? (
-                                                    <ActionButton
-                                                        icon={Link2Off}
-                                                        tooltip="Encerrar conexão"
-                                                        variant="destructive"
-                                                        onClick={() => setLinkToRemove(link)}
-                                                    />
-                                                ) : null}
-                                                {(link.status === 'rejected' || link.status === 'disconnected') && link.fuel_station?.uuid ? (
-                                                    <ActionButton
-                                                        icon={RefreshCw}
-                                                        tooltip="Reenviar convite"
-                                                        variant="outline"
-                                                        onClick={() => handleResendRequest(link)}
-                                                    />
-                                                ) : null}
-                                            </div>
-                                        ) : null}
+                                        <div className="flex items-center gap-2">
+                                            {link.status === 'request_sent' && link.fuel_station?.uuid ? (
+                                                <ActionButton
+                                                    icon={Trash2Icon}
+                                                    tooltip="Remover pedido"
+                                                    variant="destructive"
+                                                    onClick={() => setLinkToRemove(link)}
+                                                />
+                                            ) : null}
+                                            {link.status === 'active' && link.fuel_station?.uuid ? (
+                                                <ActionButton
+                                                    icon={Link2Off}
+                                                    tooltip="Encerrar conexão"
+                                                    variant="destructive"
+                                                    onClick={() => setLinkToRemove(link)}
+                                                />
+                                            ) : null}
+                                            {(link.status === 'rejected' || link.status === 'disconnected') && link.fuel_station?.uuid ? (
+                                                <ActionButton
+                                                    icon={RefreshCw}
+                                                    tooltip="Reenviar convite"
+                                                    variant="outline"
+                                                    onClick={() => handleResendRequest(link)}
+                                                />
+                                            ) : null}
+                                        </div>
                                     </TableCell>
                                 </TableRow>
                             ))}

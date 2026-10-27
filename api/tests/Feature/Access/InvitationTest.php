@@ -40,6 +40,42 @@ class InvitationTest extends TestCase
         $this->assertDatabaseHas('audit_logs', ['action' => 'invitation.accepted']);
     }
 
+    public function test_sair_revoga_o_token_e_o_email_do_convite_aceita(): void
+    {
+        [$token, $company] = $this->companyInvite('dona@melo.test');
+        $other = User::factory()->create([
+            'email' => 'postosim@gmail.com',
+            'password' => 'senha1234',
+        ]);
+        $plain = $other->createToken('web')->plainTextToken;
+
+        $this->actingToken($plain)
+            ->postJson('/api/auth/logout')
+            ->assertOk()
+            ->assertJsonPath('message', 'Sessão encerrada.');
+
+        $this->app['auth']->forgetGuards();
+        $this->flushHeaders();
+
+        $this->withToken($plain)->getJson('/api/auth/me')->assertUnauthorized();
+        $this->assertSame(0, $other->tokens()->count());
+
+        $this->flushHeaders();
+        $this->app['auth']->forgetGuards();
+
+        $owner = User::factory()->create([
+            'email' => 'dona@melo.test',
+            'password' => 'senha1234',
+        ]);
+
+        $this->actingToken($owner->createToken('web')->plainTextToken)
+            ->postJson('/api/auth/invitations/'.$token.'/accept')
+            ->assertOk()
+            ->assertJsonPath('message', 'Convite aceito');
+
+        $this->assertTrue($owner->companies()->whereKey($company->id)->exists());
+    }
+
     public function test_conta_existente_aceita_e_outro_email_nao(): void
     {
         [$token, $company] = $this->companyInvite('dona@melo.test');

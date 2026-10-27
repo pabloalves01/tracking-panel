@@ -11,7 +11,7 @@ import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { invitationStatusLabel } from '@/helpers/labels/linkStatusLabel'
 import { roleLabel } from '@/helpers/labels/roleLabel'
-import { me } from '@/lib/auth/auth'
+import { logout, me } from '@/lib/auth/auth'
 import { acceptInvitation, declineInvitation, previewInvitation, registerInvitation } from '@/lib/auth/invitations'
 import { sendVerificationCode, verificationError } from '@/lib/auth/verification'
 import { notifyError, notifySuccess } from '@/lib/notify'
@@ -70,10 +70,26 @@ export default function InvitationPage() {
             purpose: 'invitation_register',
             token,
         })
-        const seconds = Number(response.retry_after) || 60
-        setRetryAfter(seconds)
+        const seconds = Number(response.retry_after) || 0
+        setRetryAfter(seconds > 0 ? seconds : 60)
 
-        return seconds
+        return response
+    }
+
+    function openInviteLogin() {
+        navigate(loginRedirect)
+    }
+
+    async function switchToInviteEmail() {
+        setLoading(true)
+
+        try {
+            await logout()
+        } catch {
+            localStorage.removeItem('token')
+        }
+
+        navigate(loginRedirect)
     }
 
     async function handleRegisterDetails(event) {
@@ -93,7 +109,18 @@ export default function InvitationPage() {
         setLoading(true)
 
         try {
-            await sendCode()
+            const response = await sendCode()
+
+            if (response.account_exists) {
+                openInviteLogin()
+                return
+            }
+
+            if (response.sent === false) {
+                setError(response.message || 'Aguarde para reenviar o código.')
+                return
+            }
+
             setStep('code')
         } catch (requestError) {
             setError(verificationError(requestError, 'Não foi possível enviar o código.'))
@@ -179,6 +206,16 @@ export default function InvitationPage() {
                                     <form className="flex flex-col gap-6" onSubmit={handleRegisterDetails}>
                                         <FieldGroup>
                                             <Field>
+                                                <FieldLabel htmlFor="invite-email">E-mail</FieldLabel>
+                                                <Input
+                                                    id="invite-email"
+                                                    type="email"
+                                                    value={invite.email}
+                                                    readOnly
+                                                    autoComplete="email"
+                                                />
+                                            </Field>
+                                            <Field>
                                                 <FieldLabel htmlFor="invite-name">Nome</FieldLabel>
                                                 <Input
                                                     id="invite-name"
@@ -227,7 +264,18 @@ export default function InvitationPage() {
                                         onResend={async () => {
                                             setError('')
                                             try {
-                                                return await sendCode()
+                                                const response = await sendCode()
+
+                                                if (response.account_exists) {
+                                                    openInviteLogin()
+                                                    return 0
+                                                }
+
+                                                if (response.sent === false) {
+                                                    setError(response.message || 'Aguarde para reenviar o código.')
+                                                }
+
+                                                return Number(response.retry_after) || 0
                                             } catch (requestError) {
                                                 setError(verificationError(requestError, 'Não foi possível reenviar o código.'))
                                                 return 0
@@ -250,7 +298,7 @@ export default function InvitationPage() {
                                         <AlertDescription>
                                             Você entrou como {user.email}. Este convite é para {invite.email}. Saia e entre com o e-mail do convite.
                                         </AlertDescription>
-                                        <Button className="mt-3" render={<Link to={loginRedirect} />}>
+                                        <Button className="mt-3" type="button" onClick={switchToInviteEmail}>
                                             Entrar com o e-mail do convite
                                         </Button>
                                     </Alert>

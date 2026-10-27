@@ -5,6 +5,8 @@ namespace Tests\Feature\Auth;
 use App\Mail\StationSignupExistingAccountMail;
 use App\Mail\VerificationCodeMail;
 use App\Models\Company;
+use App\Models\FuelStation;
+use App\Models\FuelStationUser;
 use App\Models\Invitation;
 use App\Models\User;
 use App\Models\VerificationCode;
@@ -14,6 +16,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Testing\TestResponse;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
@@ -514,6 +517,121 @@ class VerificationCodeTest extends TestCase
         $this->assertNotNull(User::query()->where('email', 'dona@melo.test')->first()->email_verified_at);
     }
 
+    public function test_cadastro_por_convite_envia_codigo_mesmo_com_codigo_de_outra_finalidade(): void
+    {
+        Mail::fake();
+        $stationToken = $this->inviteLink('posto.novo@logiv.test', station: true);
+        $companyToken = $this->inviteLink('empresa.nova@melo.test', station: false);
+
+        foreach ([
+            ['posto.novo@logiv.test', $stationToken, 'station'],
+            ['empresa.nova@melo.test', $companyToken, 'company'],
+        ] as [$email, $plain, $kind]) {
+            VerificationCode::query()->create([
+                'email' => $email,
+                'purpose' => VerificationCode::STATION_SIGNUP,
+                'code_hash' => hash('sha256', '111111'),
+                'expires_at' => now()->addMinutes(10),
+            ]);
+            VerificationCode::query()->create([
+                'email' => $email,
+                'purpose' => VerificationCode::INVITATION_REGISTER,
+                'code_hash' => null,
+                'expires_at' => null,
+            ]);
+
+            $sent = $this->postJson('/api/auth/verification-codes', [
+                'email' => $email,
+                'purpose' => 'invitation_register',
+                'token' => $plain,
+            ])->assertOk()
+                ->assertJsonPath('sent', true)
+                ->assertJsonPath('account_exists', false)
+                ->assertJsonPath('message', 'Enviamos um código para este e-mail.');
+
+            $this->assertSame(60, $sent->json('retry_after'));
+
+            $again = $this->postJson('/api/auth/verification-codes', [
+                'email' => $email,
+                'purpose' => 'invitation_register',
+                'token' => $plain,
+            ])->assertOk()
+                ->assertJsonPath('sent', false)
+                ->assertJsonPath('account_exists', false);
+
+            $this->assertStringContainsString('Aguarde', (string) $again->json('message'));
+            $this->assertGreaterThan(0, $again->json('retry_after'));
+            $this->assertLessThanOrEqual(60, $again->json('retry_after'));
+
+            $code = null;
+            Mail::assertQueued(VerificationCodeMail::class, function (VerificationCodeMail $mail) use (&$code, $email) {
+                if (! $mail->hasTo($email)) {
+                    return false;
+                }
+
+                $code = $mail->code;
+
+                return true;
+            });
+
+            $this->postJson('/api/auth/invitations/'.$plain.'/register', [
+                'name' => 'Marcos',
+                'password' => 'senha1234',
+                'password_confirmation' => 'senha1234',
+                'code' => $code,
+            ])->assertCreated()
+                ->assertJsonPath('user.email', $email);
+
+            $user = User::query()->where('email', $email)->first();
+            $this->assertNotNull($user->email_verified_at);
+
+            if ($kind === 'station') {
+                $this->assertTrue(FuelStationUser::query()->where('user_id', $user->id)->where('role', 'member')->where('status', 'active')->exists());
+            } else {
+                $this->assertTrue($user->companies()->where('companies.cnpj', '00000000000191')->exists());
+            }
+        }
+
+        Mail::assertQueued(VerificationCodeMail::class, 2);
+    }
+
+    public function test_convite_de_conta_existente_nao_finge_o_envio(): void
+    {
+        Mail::fake();
+        User::factory()->create(['email' => 'dona@melo.test', 'password' => 'senha1234']);
+        $plain = $this->inviteLink('dona@melo.test', station: false);
+
+        $this->postJson('/api/auth/verification-codes', [
+            'email' => 'dona@melo.test',
+            'purpose' => 'invitation_register',
+        ])->assertOk()
+            ->assertJsonPath('sent', true)
+            ->assertJsonPath('account_exists', false)
+            ->assertJsonPath('message', 'Enviamos um código para este e-mail.');
+
+        Mail::assertNotQueued(VerificationCodeMail::class);
+
+        $this->travel(61)->seconds();
+
+        $this->postJson('/api/auth/verification-codes', [
+            'email' => 'dona@melo.test',
+            'purpose' => 'invitation_register',
+            'token' => $plain,
+        ])->assertOk()
+            ->assertJsonPath('sent', false)
+            ->assertJsonPath('account_exists', true)
+            ->assertJsonPath('message', 'Este e-mail já tem conta. Entre para aceitar o convite.');
+
+        Mail::assertNotQueued(VerificationCodeMail::class);
+        $this->assertNull(
+            VerificationCode::query()
+                ->where('email', 'dona@melo.test')
+                ->where('purpose', VerificationCode::INVITATION_REGISTER)
+                ->whereNotNull('code_hash')
+                ->value('code_hash'),
+        );
+    }
+
     public function test_envio_publico_respeita_o_limite(): void
     {
         for ($attempt = 0; $attempt < 10; $attempt++) {
@@ -531,7 +649,49 @@ class VerificationCodeTest extends TestCase
     }
 
     /**
-     * @return array{0: \Illuminate\Testing\TestResponse, 1: float}
+     * @return array{0: TestResponse, 1: float}
+     */
+    private function inviteLink(string $email, bool $station): string
+    {
+        $plain = $station ? 'token-posto-novo' : 'token-empresa-nova';
+
+        if ($station) {
+            $place = FuelStation::query()->create([
+                'cnpj' => '34028316000103',
+                'corporate_name' => 'SIM REDE DE POSTOS',
+                'status' => 'active',
+            ]);
+            Invitation::query()->create([
+                'fuel_station_id' => $place->id,
+                'email' => $email,
+                'role' => 'member',
+                'status' => 'pending',
+                'token_hash' => hash('sha256', $plain),
+                'expires_at' => now()->addDays(7),
+            ]);
+
+            return $plain;
+        }
+
+        $place = Company::query()->create([
+            'legal_name' => 'Melo LTDA',
+            'trade_name' => 'Melo',
+            'cnpj' => '00000000000191',
+        ]);
+        Invitation::query()->create([
+            'company_id' => $place->id,
+            'email' => $email,
+            'role' => 'member',
+            'status' => 'pending',
+            'token_hash' => hash('sha256', $plain),
+            'expires_at' => now()->addDays(7),
+        ]);
+
+        return $plain;
+    }
+
+    /**
+     * @return array{0: TestResponse, 1: float}
      */
     private function timedReset(string $email, string $code): array
     {
@@ -546,7 +706,7 @@ class VerificationCodeTest extends TestCase
         RateLimiter::clear('password-reset'.sha1('|127.0.0.1'));
     }
 
-    private function postReset(string $email, string $code): \Illuminate\Testing\TestResponse
+    private function postReset(string $email, string $code): TestResponse
     {
         return $this->postJson('/api/auth/password/reset', [
             'email' => $email,
@@ -557,8 +717,8 @@ class VerificationCodeTest extends TestCase
     }
 
     /**
-     * @param  array{0: \Illuminate\Testing\TestResponse, 1: float}  $known
-     * @param  array{0: \Illuminate\Testing\TestResponse, 1: float}  $unknown
+     * @param  array{0: TestResponse, 1: float}  $known
+     * @param  array{0: TestResponse, 1: float}  $unknown
      */
     private function assertSamePublicFailure(array $known, array $unknown): void
     {

@@ -5,7 +5,6 @@ namespace App\Policies;
 use App\Models\User;
 use App\Support\CurrentCompany;
 use App\Support\CurrentFuelStation;
-use App\Support\Membership;
 
 class CompanyFuelStationPolicy
 {
@@ -16,7 +15,7 @@ class CompanyFuelStationPolicy
 
     public function manage(User $user): bool
     {
-        return Membership::manages($this->role());
+        return $this->viewAny($user);
     }
 
     private function role(): ?string

@@ -28,6 +28,12 @@ export default function ForgotPasswordPage() {
             const response = await forgotPassword(email)
             const seconds = Number(response.retry_after) || 60
             setRetryAfter(seconds)
+
+            if (response.sent === false) {
+                setError(response.message || 'Aguarde para reenviar o código.')
+                return seconds
+            }
+
             setStep('code')
 
             return seconds
