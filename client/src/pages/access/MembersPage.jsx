@@ -56,6 +56,7 @@ export default function MembersPage({
     const [memberToEdit, setMemberToEdit] = useState(null)
     const [nextRole, setNextRole] = useState('')
     const [inviteToRevoke, setInviteToRevoke] = useState(null)
+    const [loadError, setLoadError] = useState(false)
 
     useEffect(() => {
         load()
@@ -63,12 +64,16 @@ export default function MembersPage({
 
     function load() {
         setLoading(true)
+        setLoadError(false)
         Promise.all([access.list(), access.invitations()])
             .then(([people, invites]) => {
                 setMembers(people ?? [])
                 setInvitations(invites ?? [])
             })
-            .catch(notifyError)
+            .catch((error) => {
+                setLoadError(true)
+                notifyError(error)
+            })
             .finally(() => setLoading(false))
     }
 
@@ -213,7 +218,9 @@ export default function MembersPage({
             </div>
 
             <LoadingWrapper loading={loading}>
-                {tab === 'usuarios' ? (
+                {loadError ? (
+                    <p className="text-sm text-muted-foreground">Não foi possível carregar esta lista.</p>
+                ) : tab === 'usuarios' ? (
                     <MembersTable
                         loading={loading}
                         members={members}

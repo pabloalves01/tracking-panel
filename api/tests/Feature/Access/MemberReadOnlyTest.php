@@ -35,6 +35,14 @@ class MemberReadOnlyTest extends TestCase
             $this->actingToken($memberToken)->getJson($url)->assertOk();
         }
 
+        $this->actingToken($memberToken)
+            ->getJson('/api/company/users')
+            ->assertForbidden()
+            ->assertJsonPath('message', 'Você não gerencia os usuários deste contexto.');
+        $this->actingToken($this->token($owner, $company))
+            ->getJson('/api/company/users')
+            ->assertOk();
+
         $writes = [
             ['post', '/api/registry/employees'],
             ['put', '/api/registry/entities/00000000-0000-4000-8000-000000000001'],
@@ -102,6 +110,13 @@ class MemberReadOnlyTest extends TestCase
 
         $this->actingToken($memberToken)->getJson('/api/station/companies')->assertOk();
         $this->actingToken($memberToken)->getJson('/api/station/me')->assertOk();
+        $this->actingToken($memberToken)
+            ->getJson('/api/station/users')
+            ->assertForbidden()
+            ->assertJsonPath('message', 'Você não gerencia os usuários deste contexto.');
+        $this->actingToken($this->stationToken($owner, $station))
+            ->getJson('/api/station/users')
+            ->assertOk();
 
         $this->actingToken($memberToken)
             ->postJson('/api/station/companies/00000000-0000-4000-8000-000000000001/accept')

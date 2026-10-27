@@ -6,17 +6,22 @@ use App\Models\User;
 use App\Support\CurrentCompany;
 use App\Support\CurrentFuelStation;
 use App\Support\Membership;
+use Illuminate\Auth\Access\Response;
 
 class MembershipPolicy
 {
-    public function viewAny(User $user): bool
+    public function viewAny(User $user): Response
     {
-        return Membership::manages($this->role());
+        return Membership::manages($this->role())
+            ? Response::allow()
+            : Response::deny('Você não gerencia os usuários deste contexto.');
     }
 
-    public function manage(User $user): bool
+    public function manage(User $user): Response
     {
-        return Membership::manages($this->role());
+        return Membership::manages($this->role())
+            ? Response::allow()
+            : Response::deny('Seu papel neste contexto só permite consulta.');
     }
 
     private function role(): ?string
