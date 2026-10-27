@@ -13,6 +13,8 @@ class EnsureContextCanWrite
 {
     /**
      * Membro só consulta o contexto ativo. Proprietário e administrador escrevem.
+     * As rotas de Sistema não entram aqui: o administrador da Logiv grava a
+     * empresa mesmo quando o contexto ativo é de membro, ou quando não há contexto.
      *
      * @param  Closure(Request): (Response)  $next
      */
