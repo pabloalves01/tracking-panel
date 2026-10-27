@@ -34,7 +34,6 @@ export default function CompanyMembersPage() {
                 listPath={listPath}
                 apiBase={`/system/companies/${uuid}`}
                 roleOptions={systemRoleOptions}
-                canManage
                 actorRole="owner"
             />
         </LoadingWrapper>

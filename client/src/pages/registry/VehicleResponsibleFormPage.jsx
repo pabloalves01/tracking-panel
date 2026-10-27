@@ -251,6 +251,7 @@ export default function VehicleResponsibleFormPage() {
                     { title: 'Cancelar', variant: 'outline', to: listPath },
                     {
                         title: 'Salvar',
+                        permission: 'write',
                         disabled: !isEditing && existingVehicleResponsible,
                         onClick: () => document.getElementById('vehicleResponsible-form')?.requestSubmit(),
                     },

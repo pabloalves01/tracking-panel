@@ -175,7 +175,7 @@ export default function InvitationPage() {
                                     </p>
                                 </div>
 
-                                {pending && !invite.account_exists && step === 'account' ? (
+                                {pending && !user && step === 'account' ? (
                                     <form className="flex flex-col gap-6" onSubmit={handleRegisterDetails}>
                                         <FieldGroup>
                                             <Field>
@@ -210,11 +210,14 @@ export default function InvitationPage() {
                                             </Field>
                                             {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
                                             <Button type="submit" disabled={loading}>Continuar</Button>
+                                            <Button variant="outline" render={<Link to={loginRedirect} />}>
+                                                Já tenho conta
+                                            </Button>
                                         </FieldGroup>
                                     </form>
                                 ) : null}
 
-                                {pending && !invite.account_exists && step === 'code' ? (
+                                {pending && !user && step === 'code' ? (
                                     <CodeStep
                                         email={invite.email}
                                         retryAfter={retryAfter}
@@ -235,18 +238,6 @@ export default function InvitationPage() {
                                             setError('')
                                         }}
                                     />
-                                ) : null}
-
-                                {pending && invite.account_exists && !user ? (
-                                    <Alert>
-                                        <AlertTitle>Entre para aceitar</AlertTitle>
-                                        <AlertDescription>
-                                            Este e-mail já tem conta. Entre com ele para aceitar o convite.
-                                        </AlertDescription>
-                                        <Button className="mt-3" render={<Link to={loginRedirect} />}>
-                                            Entrar para aceitar
-                                        </Button>
-                                    </Alert>
                                 ) : null}
 
                                 {pending && user && sameEmail ? (

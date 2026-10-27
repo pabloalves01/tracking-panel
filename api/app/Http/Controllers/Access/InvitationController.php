@@ -9,9 +9,12 @@ use App\Models\Company;
 use App\Models\CompanyUser;
 use App\Models\FuelStation;
 use App\Models\FuelStationUser;
+use App\Models\User;
 use App\Services\Access\InvitationService;
 use App\Support\CurrentCompany;
 use App\Support\CurrentFuelStation;
+use App\Support\Text;
+use Illuminate\Http\Request;
 
 class InvitationController extends Controller
 {
@@ -32,29 +35,20 @@ class InvitationController extends Controller
         return InvitationResource::collection($this->invitations->listForStation($station));
     }
 
+    public function lookup(Request $request)
+    {
+        $this->authorize('manage', $this->membershipClass());
+        $email = Text::email($request->query('email'));
+
+        return response()->json([
+            'account_exists' => filter_var($email, FILTER_VALIDATE_EMAIL)
+                && User::query()->where('email', $email)->exists(),
+        ]);
+    }
+
     public function store(StoreInvitationRequest $request)
     {
         $this->authorize('manage', $this->membershipClass());
-
-        if (is_array($request->input('emails'))) {
-            $results = app()->bound(CurrentCompany::class)
-                ? $this->invitations->createManyForCompany(
-                    Company::query()->findOrFail(app(CurrentCompany::class)->id),
-                    $request->validated('emails'),
-                    $request->validated('role'),
-                    $request->user(),
-                )
-                : $this->invitations->createManyForStation(
-                    FuelStation::query()->findOrFail(app(CurrentFuelStation::class)->id),
-                    $request->validated('emails'),
-                    $request->validated('role'),
-                    $request->user(),
-                );
-
-            return response()->json([
-                'results' => $results,
-            ]);
-        }
 
         if (app()->bound(CurrentCompany::class)) {
             $company = Company::query()->findOrFail(app(CurrentCompany::class)->id);
@@ -83,7 +77,7 @@ class InvitationController extends Controller
     {
         $this->authorize('manage', $this->membershipClass());
 
-        return new InvitationResource($this->invitations->resend($this->find($uuid)));
+        return new InvitationResource($this->invitations->resend($this->find($uuid), false));
     }
 
     public function destroy(string $uuid)

@@ -77,7 +77,7 @@ export default function CustomersPage() {
                     { text: 'Clientes' },
                 ]}
                 buttons={[
-                    { title: 'Novo cliente', icon: PlusIcon, to: `${listPath}/novo` },
+                    { title: 'Novo cliente', icon: PlusIcon, to: `${listPath}/novo`, permission: 'write' },
                 ]}
             />
 

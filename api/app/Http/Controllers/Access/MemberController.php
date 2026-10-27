@@ -36,6 +36,33 @@ class MemberController extends Controller
         ]);
     }
 
+    public function suspend(Request $request, string $uuid)
+    {
+        return $this->destroy($request, $uuid);
+    }
+
+    public function reactivate(Request $request, string $uuid)
+    {
+        $scope = $this->scope();
+        $this->authorize('manage', $scope->membershipClass === CompanyUser::class ? CompanyUser::class : FuelStationUser::class);
+        $this->members->reactivate($scope, $request->user(), $uuid);
+
+        return response()->json([
+            'message' => 'Pessoa reativada',
+        ]);
+    }
+
+    public function remove(Request $request, string $uuid)
+    {
+        $scope = $this->scope();
+        $this->authorize('manage', $scope->membershipClass === CompanyUser::class ? CompanyUser::class : FuelStationUser::class);
+        $this->members->remove($scope, $request->user(), $uuid);
+
+        return response()->json([
+            'message' => 'Pessoa removida',
+        ]);
+    }
+
     public function destroy(Request $request, string $uuid)
     {
         $scope = $this->scope();
@@ -43,7 +70,7 @@ class MemberController extends Controller
         $this->members->suspend($scope, $request->user(), $uuid);
 
         return response()->json([
-            'message' => 'Pessoa removida',
+            'message' => 'Pessoa suspensa',
         ]);
     }
 

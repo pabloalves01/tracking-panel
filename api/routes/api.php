@@ -31,9 +31,6 @@ Route::get('/health', function () {
     ]);
 });
 
-// todo:: migrar depois para dentro do company routes
-Route::get('/ship-operation-perimeters/{shipOperationId}', [ShipOperationPerimeterController::class, 'get']);
-Route::post('/ship-operation-perimeters', [ShipOperationPerimeterController::class, 'create']);
 
 // =============================== AUTH ROUTES ===============================
 
@@ -89,7 +86,9 @@ Route::middleware('auth:sanctum')->prefix('locations')->group(function () {
 
 // =============================== API COMPANY ROUTES ===============================
 
-Route::middleware(['auth:sanctum', 'ensure.company'])->group(function () {
+Route::middleware(['auth:sanctum', 'ensure.company', 'context.write'])->group(function () {
+    Route::get('/ship-operation-perimeters/{shipOperationId}', [ShipOperationPerimeterController::class, 'get']);
+    Route::post('/ship-operation-perimeters', [ShipOperationPerimeterController::class, 'create']);
 
     Route::prefix('registry')->group(function () {
         Route::get('entities/by-document/{document}', [CommonEntityController::class, 'byDocument']);
@@ -167,10 +166,12 @@ Route::middleware(['auth:sanctum', 'ensure.company'])->group(function () {
             Route::get('/', [FuelStationLinkController::class, 'index']);
             Route::get('/by-cnpj', [FuelStationLinkController::class, 'show'])
                 ->middleware('throttle:20,1,company-fuel-station-cnpj');
-            Route::post('/', [FuelStationLinkController::class, 'store']);
+            Route::post('/', [FuelStationLinkController::class, 'store'])
+                ->middleware('throttle:10,1,company-fuel-station-store');
             Route::delete('/{uuid}', [FuelStationLinkController::class, 'destroy']);
             Route::post('/{uuid}/disconnect', [FuelStationLinkController::class, 'disconnect']);
-            Route::post('/{uuid}/resend-request', [FuelStationLinkController::class, 'resendRequest']);
+            Route::post('/{uuid}/resend-request', [FuelStationLinkController::class, 'resendRequest'])
+                ->middleware('throttle:10,1,company-fuel-station-resend');
         });
 
         Route::prefix('vehicles')->group(function () {
@@ -185,17 +186,24 @@ Route::middleware(['auth:sanctum', 'ensure.company'])->group(function () {
     Route::prefix('company')->group(function () {
         Route::get('users', [MemberController::class, 'index']);
         Route::patch('users/{uuid}', [MemberController::class, 'update']);
+        Route::post('users/{uuid}/suspend', [MemberController::class, 'suspend']);
+        Route::post('users/{uuid}/reactivate', [MemberController::class, 'reactivate']);
+        Route::post('users/{uuid}/remove', [MemberController::class, 'remove']);
         Route::delete('users/{uuid}', [MemberController::class, 'destroy']);
+        Route::get('invitations/lookup', [InvitationController::class, 'lookup'])
+            ->middleware('throttle:30,1,invitation-lookup');
         Route::get('invitations', [InvitationController::class, 'index']);
-        Route::post('invitations', [InvitationController::class, 'store']);
-        Route::post('invitations/{uuid}/resend', [InvitationController::class, 'resend']);
+        Route::post('invitations', [InvitationController::class, 'store'])
+            ->middleware('throttle:10,1,invitation-store');
+        Route::post('invitations/{uuid}/resend', [InvitationController::class, 'resend'])
+            ->middleware('throttle:10,1,invitation-resend');
         Route::delete('invitations/{uuid}', [InvitationController::class, 'destroy']);
     });
 });
 
 // =============================== API STATION ROUTES ===============================
 
-Route::middleware(['auth:sanctum', 'ensure.station'])->prefix('station')->group(function () {
+Route::middleware(['auth:sanctum', 'ensure.station', 'context.write'])->prefix('station')->group(function () {
     Route::get('me', [StationController::class, 'me']);
     Route::get('companies', [StationCompanyController::class, 'index']);
     Route::post('companies/{uuid}/accept', [StationCompanyController::class, 'accept']);
@@ -203,10 +211,17 @@ Route::middleware(['auth:sanctum', 'ensure.station'])->prefix('station')->group(
     Route::post('companies/{uuid}/disconnect', [StationCompanyController::class, 'disconnect']);
     Route::get('users', [MemberController::class, 'index']);
     Route::patch('users/{uuid}', [MemberController::class, 'update']);
+    Route::post('users/{uuid}/suspend', [MemberController::class, 'suspend']);
+    Route::post('users/{uuid}/reactivate', [MemberController::class, 'reactivate']);
+    Route::post('users/{uuid}/remove', [MemberController::class, 'remove']);
     Route::delete('users/{uuid}', [MemberController::class, 'destroy']);
+    Route::get('invitations/lookup', [InvitationController::class, 'lookup'])
+        ->middleware('throttle:30,1,station-invitation-lookup');
     Route::get('invitations', [InvitationController::class, 'index']);
-    Route::post('invitations', [InvitationController::class, 'store']);
-    Route::post('invitations/{uuid}/resend', [InvitationController::class, 'resend']);
+    Route::post('invitations', [InvitationController::class, 'store'])
+        ->middleware('throttle:10,1,station-invitation-store');
+    Route::post('invitations/{uuid}/resend', [InvitationController::class, 'resend'])
+        ->middleware('throttle:10,1,station-invitation-resend');
     Route::delete('invitations/{uuid}', [InvitationController::class, 'destroy']);
 });
 
@@ -222,9 +237,17 @@ Route::middleware(['auth:sanctum', 'ensure.system'])->group(function () {
             Route::post('/{uuid}/deactivate', [CompanyController::class, 'deactivate']);
             Route::post('/{uuid}/activate', [CompanyController::class, 'activate']);
             Route::get('/{uuid}/users', [CompanyAccessController::class, 'users']);
+            Route::patch('/{uuid}/users/{user}', [CompanyAccessController::class, 'updateUser']);
+            Route::delete('/{uuid}/users/{user}', [CompanyAccessController::class, 'suspendUser']);
+            Route::post('/{uuid}/users/{user}/reactivate', [CompanyAccessController::class, 'reactivateUser']);
+            Route::post('/{uuid}/users/{user}/remove', [CompanyAccessController::class, 'removeUser']);
+            Route::get('/{uuid}/invitations/lookup', [CompanyAccessController::class, 'lookup'])
+                ->middleware('throttle:30,1,system-invitation-lookup');
             Route::get('/{uuid}/invitations', [CompanyAccessController::class, 'index']);
-            Route::post('/{uuid}/invitations', [CompanyAccessController::class, 'store']);
-            Route::post('/{uuid}/invitations/{invitation}/resend', [CompanyAccessController::class, 'resend']);
+            Route::post('/{uuid}/invitations', [CompanyAccessController::class, 'store'])
+                ->middleware('throttle:10,1,system-invitation-store');
+            Route::post('/{uuid}/invitations/{invitation}/resend', [CompanyAccessController::class, 'resend'])
+                ->middleware('throttle:10,1,system-invitation-resend');
             Route::delete('/{uuid}/invitations/{invitation}', [CompanyAccessController::class, 'destroy']);
         });
     });

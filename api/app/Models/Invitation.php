@@ -27,6 +27,11 @@ class Invitation extends Model
      */
     public ?string $plainToken = null;
 
+    /**
+     * Preenchido na resposta do convidante. Não vai para o preview público.
+     */
+    public ?bool $accountExists = null;
+
     protected $fillable = [
         'company_id',
         'fuel_station_id',

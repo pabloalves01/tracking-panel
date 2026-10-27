@@ -20,7 +20,6 @@ use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
-use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class InvitationService
 {
@@ -31,7 +30,7 @@ class InvitationService
      */
     public function listForCompany(Company $company): Collection
     {
-        return $this->openQuery()->where('company_id', $company->id)->latest()->get();
+        return Invitation::query()->where('company_id', $company->id)->latest()->get();
     }
 
     /**
@@ -39,7 +38,7 @@ class InvitationService
      */
     public function listForStation(FuelStation $station): Collection
     {
-        return $this->openQuery()->where('fuel_station_id', $station->id)->latest()->get();
+        return Invitation::query()->where('fuel_station_id', $station->id)->latest()->get();
     }
 
     public function createForCompany(Company $company, string $email, string $role, ?User $invitedBy, bool $allowOwner = false): Invitation
@@ -56,26 +55,12 @@ class InvitationService
         return $this->create($email, $role, $invitedBy, null, $station);
     }
 
-    /**
-     * @param  array<int, mixed>  $emails
-     * @return array<int, array<string, mixed>>
-     */
-    public function createManyForCompany(Company $company, array $emails, string $role, ?User $invitedBy, bool $allowOwner = false): array
+    public function resend(Invitation $invitation, bool $allowOwner = false): Invitation
     {
-        return $this->createMany($emails, $role, $invitedBy, $company, null, $allowOwner);
-    }
+        if ($invitation->role === Membership::OWNER && ! $allowOwner) {
+            abort(403, 'Você não pode reenviar o convite de proprietário');
+        }
 
-    /**
-     * @param  array<int, mixed>  $emails
-     * @return array<int, array<string, mixed>>
-     */
-    public function createManyForStation(FuelStation $station, array $emails, string $role, ?User $invitedBy): array
-    {
-        return $this->createMany($emails, $role, $invitedBy, null, $station, false);
-    }
-
-    public function resend(Invitation $invitation): Invitation
-    {
         if ($invitation->status === Invitation::REVOKED) {
             abort(422, 'Este convite foi cancelado');
         }
@@ -83,6 +68,9 @@ class InvitationService
         if ($invitation->status === Invitation::ACCEPTED) {
             abort(422, 'Este convite já foi aceito');
         }
+
+        $invitation->loadMissing(['company', 'fuelStation']);
+        $this->assertNotMember($invitation->email, $invitation->company, $invitation->fuelStation);
 
         $plain = Str::random(48);
 
@@ -153,7 +141,6 @@ class InvitationService
             'role' => $invitation->role,
             'status' => $invitation->status,
             'expires_at' => $invitation->expires_at?->toIso8601String(),
-            'account_exists' => User::query()->where('email', $invitation->email)->exists(),
             'organization' => $company ? [
                 'type' => 'company',
                 'name' => $company->trade_name ?: $company->legal_name,
@@ -340,57 +327,10 @@ class InvitationService
         }
 
         $invitation->plainToken = $plain;
+        $invitation->accountExists = User::query()->where('email', $email)->exists();
         $this->sendInvitationMail($invitation);
 
         return $invitation;
-    }
-
-    /**
-     * @param  array<int, mixed>  $emails
-     * @return array<int, array<string, mixed>>
-     */
-    private function createMany(array $emails, string $role, ?User $invitedBy, ?Company $company, ?FuelStation $station, bool $allowOwner): array
-    {
-        $results = [];
-
-        foreach ($emails as $raw) {
-            $email = Text::email($raw);
-
-            if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                $results[] = [
-                    'email' => is_scalar($raw) ? Text::plain($raw) : '',
-                    'ok' => false,
-                    'account_exists' => false,
-                    'message' => 'Informe um e-mail válido',
-                ];
-
-                continue;
-            }
-
-            try {
-                $invitation = $company
-                    ? $this->createForCompany($company, $email, $role, $invitedBy, $allowOwner)
-                    : $this->createForStation($station, $email, $role, $invitedBy);
-                $accountExists = User::query()->where('email', $email)->exists();
-                $results[] = [
-                    'email' => $email,
-                    'ok' => true,
-                    'account_exists' => $accountExists,
-                    'message' => $accountExists ? 'Já tem conta, só vai aceitar' : 'Convite enviado',
-                    'invite_url' => $invitation->inviteUrl(),
-                    'uuid' => $invitation->uuid,
-                ];
-            } catch (HttpException $exception) {
-                $results[] = [
-                    'email' => $email,
-                    'ok' => false,
-                    'account_exists' => User::query()->where('email', $email)->exists(),
-                    'message' => $exception->getMessage() ?: 'Não foi possível convidar',
-                ];
-            }
-        }
-
-        return $results;
     }
 
     private function sendInvitationMail(Invitation $invitation): void
@@ -473,7 +413,17 @@ class InvitationService
 
     private function activateCompanyMembership(Invitation $invitation, User $user): void
     {
-        $membership = CompanyUser::withTrashed()->firstOrNew([
+        $membership = CompanyUser::withTrashed()
+            ->where('company_id', $invitation->company_id)
+            ->where('user_id', $user->id)
+            ->lockForUpdate()
+            ->first();
+
+        if ($membership && ! $membership->trashed() && in_array($membership->status, [Membership::ACTIVE, Membership::SUSPENDED], true)) {
+            abort(422, 'Esta pessoa já faz parte');
+        }
+
+        $membership ??= new CompanyUser([
             'company_id' => $invitation->company_id,
             'user_id' => $user->id,
         ]);
@@ -490,7 +440,17 @@ class InvitationService
 
     private function activateStationMembership(Invitation $invitation, User $user): void
     {
-        $membership = FuelStationUser::query()->firstOrNew([
+        $membership = FuelStationUser::query()
+            ->where('fuel_station_id', $invitation->fuel_station_id)
+            ->where('user_id', $user->id)
+            ->lockForUpdate()
+            ->first();
+
+        if ($membership && in_array($membership->status, [Membership::ACTIVE, Membership::SUSPENDED], true)) {
+            abort(422, 'Esta pessoa já faz parte');
+        }
+
+        $membership ??= new FuelStationUser([
             'fuel_station_id' => $invitation->fuel_station_id,
             'user_id' => $user->id,
         ]);
@@ -582,11 +542,19 @@ class InvitationService
             return;
         }
 
-        if ($company && $user->companies()->whereKey($company->id)->exists()) {
+        if ($company && CompanyUser::query()
+            ->where('company_id', $company->id)
+            ->where('user_id', $user->id)
+            ->whereIn('status', [Membership::ACTIVE, Membership::SUSPENDED])
+            ->exists()) {
             abort(422, 'Esta pessoa já faz parte');
         }
 
-        if ($station && $user->fuelStations()->whereKey($station->id)->exists()) {
+        if ($station && FuelStationUser::query()
+            ->where('fuel_station_id', $station->id)
+            ->where('user_id', $user->id)
+            ->whereIn('status', [Membership::ACTIVE, Membership::SUSPENDED])
+            ->exists()) {
             abort(422, 'Esta pessoa já faz parte');
         }
     }
@@ -618,10 +586,5 @@ class InvitationService
         }
 
         return $invitation;
-    }
-
-    private function openQuery(): Builder
-    {
-        return Invitation::query()->where('status', '!=', Invitation::ACCEPTED);
     }
 }

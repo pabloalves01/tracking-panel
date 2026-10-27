@@ -14,7 +14,7 @@ export default function CompanyInvitePage() {
                 { text: 'Sistema', to: '/app/sistema' },
                 { text: 'Empresas', to: '/app/sistema/empresas' },
                 { text: 'Usuários', to: listPath },
-                { text: 'Convidar' },
+                { text: 'Novo usuário' },
             ]}
             listPath={listPath}
             apiBase={`/system/companies/${uuid}`}

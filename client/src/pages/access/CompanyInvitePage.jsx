@@ -7,7 +7,7 @@ export default function CompanyInvitePage() {
             breadcrumbs={[
                 { text: 'Início', to: '/app' },
                 { text: 'Usuários', to: '/app/usuarios' },
-                { text: 'Convidar' },
+                { text: 'Novo usuário' },
             ]}
             listPath="/app/usuarios"
             apiBase="/company"

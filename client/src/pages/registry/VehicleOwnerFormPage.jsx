@@ -251,6 +251,7 @@ export default function VehicleOwnerFormPage() {
                     { title: 'Cancelar', variant: 'outline', to: listPath },
                     {
                         title: 'Salvar',
+                        permission: 'write',
                         disabled: !isEditing && existingVehicleOwner,
                         onClick: () => document.getElementById('vehicleOwner-form')?.requestSubmit(),
                     },

@@ -19,7 +19,7 @@ class VerificationCodeController extends Controller
         );
 
         return response()->json([
-            'message' => 'Se este e-mail puder receber o código, ele foi enviado.',
+            'message' => 'Enviamos um código para este e-mail.',
             'retry_after' => $retryAfter,
         ]);
     }

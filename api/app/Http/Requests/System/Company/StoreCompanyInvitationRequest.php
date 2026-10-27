@@ -22,22 +22,13 @@ class StoreCompanyInvitationRequest extends FormRequest
             $payload['email'] = Text::email($this->input('email'));
         }
 
-        if (is_array($this->input('emails'))) {
-            $payload['emails'] = array_map(
-                fn (mixed $email) => Text::email($email),
-                $this->input('emails'),
-            );
-        }
-
         $this->merge($payload);
     }
 
     public function rules(): array
     {
         return [
-            'email' => ['required_without:emails', 'nullable', 'email', 'max:255'],
-            'emails' => ['required_without:email', 'array', 'min:1', 'max:20'],
-            'emails.*' => ['string', 'max:255'],
+            'email' => ['required', 'email', 'max:255'],
             'role' => ['required', 'string', Rule::in([Membership::OWNER, Membership::ADMIN])],
         ];
     }

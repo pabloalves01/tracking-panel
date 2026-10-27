@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { MailIcon, PlusIcon, RefreshCw, Trash2Icon, UsersIcon } from 'lucide-react'
+import { useSearchParams } from 'react-router'
+import { BanIcon, CircleCheckIcon, CopyIcon, MailIcon, PlusIcon, RefreshCw, Trash2Icon, UserPenIcon, UsersIcon } from 'lucide-react'
 
 import { ActionButton } from '@/components/common/button/ActionButton'
 import { LayoutToolbar } from '@/components/common/LayoutToolbar'
@@ -15,32 +16,46 @@ import {
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
-import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { invitationStatusLabel, statusBadgeClass } from '@/helpers/labels/linkStatusLabel'
+import { invitationStatusLabel } from '@/helpers/labels/linkStatusLabel'
 import { roleLabel } from '@/helpers/labels/roleLabel'
 import { memberApi } from '@/lib/access/members'
+import { useCanWrite } from '@/lib/auth/permissions'
 import { notifyError, notifySuccess } from '@/lib/notify'
+
+function formatWhen(value) {
+    if (!value) return '—'
+
+    const date = new Date(value)
+
+    if (Number.isNaN(date.getTime())) return '—'
+
+    return date.toLocaleString('pt-BR')
+}
 
 export default function MembersPage({
     breadcrumbs,
     listPath,
     apiBase,
     roleOptions,
-    canManage,
     actorEmail,
     actorRole,
 }) {
     const access = useMemo(() => memberApi(apiBase), [apiBase])
+    const canWrite = useCanWrite()
+    const [params, setParams] = useSearchParams()
+    const tab = params.get('aba') === 'convites' ? 'convites' : 'usuarios'
     const [members, setMembers] = useState([])
     const [invitations, setInvitations] = useState([])
     const [loading, setLoading] = useState(true)
+    const [memberToSuspend, setMemberToSuspend] = useState(null)
     const [memberToRemove, setMemberToRemove] = useState(null)
+    const [memberToReactivate, setMemberToReactivate] = useState(null)
+    const [memberToEdit, setMemberToEdit] = useState(null)
+    const [nextRole, setNextRole] = useState('')
     const [inviteToRevoke, setInviteToRevoke] = useState(null)
-    const [copiedLink, setCopiedLink] = useState(null)
 
     useEffect(() => {
         load()
@@ -57,14 +72,61 @@ export default function MembersPage({
             .finally(() => setLoading(false))
     }
 
-    async function handleRole(member, role) {
-        if (!role || role === member.role) return
+    function selectTab(next) {
+        const query = next === 'convites' ? { aba: 'convites' } : {}
+        setParams(query, { replace: true })
+    }
+
+    function openRole(member) {
+        setMemberToEdit(member)
+        setNextRole(member.role)
+    }
+
+    async function handleRole() {
+        if (!memberToEdit || !nextRole || nextRole === memberToEdit.role) {
+            setMemberToEdit(null)
+            return
+        }
+
         setLoading(true)
+
         try {
-            notifySuccess(await access.updateRole(member.uuid, role))
+            notifySuccess(await access.updateRole(memberToEdit.uuid, nextRole))
             load()
         } catch (error) {
             notifyError(error)
+            setLoading(false)
+        } finally {
+            setMemberToEdit(null)
+        }
+    }
+
+    async function handleSuspend() {
+        if (!memberToSuspend) return
+        setLoading(true)
+
+        try {
+            notifySuccess(await access.suspend(memberToSuspend.uuid))
+            load()
+        } catch (error) {
+            notifyError(error)
+        } finally {
+            setMemberToSuspend(null)
+            setLoading(false)
+        }
+    }
+
+    async function handleReactivate() {
+        if (!memberToReactivate) return
+        setLoading(true)
+
+        try {
+            notifySuccess(await access.reactivate(memberToReactivate.uuid))
+            load()
+        } catch (error) {
+            notifyError(error)
+        } finally {
+            setMemberToReactivate(null)
             setLoading(false)
         }
     }
@@ -72,6 +134,7 @@ export default function MembersPage({
     async function handleRemove() {
         if (!memberToRemove) return
         setLoading(true)
+
         try {
             notifySuccess(await access.remove(memberToRemove.uuid))
             load()
@@ -83,12 +146,27 @@ export default function MembersPage({
         }
     }
 
+    async function copyLink(url) {
+        try {
+            await navigator.clipboard.writeText(url)
+            notifySuccess({ message: 'Link copiado' })
+        } catch (error) {
+            notifyError(error)
+        }
+    }
+
     async function handleResend(invitation) {
         setLoading(true)
+
         try {
             const updated = await access.resend(invitation.uuid)
-            notifySuccess({ message: 'Convite reenviado' })
-            setCopiedLink(updated?.invite_url ?? null)
+            const url = updated?.invite_url
+            notifySuccess(
+                { message: 'Convite reenviado' },
+                url
+                    ? { action: { label: 'Copiar link', onClick: () => copyLink(url) } }
+                    : undefined,
+            )
             load()
         } catch (error) {
             notifyError(error)
@@ -99,6 +177,7 @@ export default function MembersPage({
     async function handleRevoke() {
         if (!inviteToRevoke) return
         setLoading(true)
+
         try {
             notifySuccess(await access.revoke(inviteToRevoke.uuid))
             load()
@@ -110,209 +189,299 @@ export default function MembersPage({
         }
     }
 
-    async function copyLink() {
-        if (!copiedLink) return
-        try {
-            await navigator.clipboard.writeText(copiedLink)
-            notifySuccess({ message: 'Link copiado' })
-        } catch (error) {
-            notifyError(error)
-        }
-    }
-
-    const pending = invitations.filter((invitation) => invitation.status === 'pending')
-    const closed = invitations.filter((invitation) => invitation.status !== 'pending')
+    const pendingCount = invitations.filter((invitation) => invitation.status === 'pending').length
 
     return (
         <>
             <LayoutToolbar
                 breadcrumbs={breadcrumbs}
-                buttons={canManage ? [{ title: 'Convidar', icon: PlusIcon, to: `${listPath}/convidar` }] : []}
+                buttons={canWrite ? [{ title: 'Novo usuário', icon: PlusIcon, to: `${listPath}/convidar`, permission: 'write' }] : []}
             />
 
+            <div role="tablist" aria-label="Usuários e convites" className="mb-6 flex gap-6 border-b">
+                <TabButton selected={tab === 'usuarios'} onClick={() => selectTab('usuarios')}>
+                    Usuários
+                </TabButton>
+                <TabButton selected={tab === 'convites'} onClick={() => selectTab('convites')}>
+                    Convites
+                    {pendingCount > 0 ? (
+                        <Badge variant="outline" className="ml-2">
+                            {pendingCount}
+                        </Badge>
+                    ) : null}
+                </TabButton>
+            </div>
+
             <LoadingWrapper loading={loading}>
-                <section className="mb-10">
-                    {!loading && members.length === 0 ? (
-                        <Empty>
-                            <EmptyHeader>
-                                <EmptyMedia variant="icon">
-                                    <UsersIcon />
-                                </EmptyMedia>
-                                <EmptyTitle>Nenhum usuário</EmptyTitle>
-                                <EmptyDescription>Convide a primeira pessoa para este contexto.</EmptyDescription>
-                            </EmptyHeader>
-                        </Empty>
-                    ) : (
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Nome</TableHead>
-                                    <TableHead>E-mail</TableHead>
-                                    <TableHead>Papel</TableHead>
-                                    {canManage ? <TableHead>Ações</TableHead> : null}
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {members.map((member) => {
-                                    const isSelf = member.email === actorEmail
-                                    const locked = isSelf || (member.role === 'owner' && actorRole !== 'owner')
-
-                                    return (
-                                        <TableRow key={member.uuid}>
-                                            <TableCell>{member.name}</TableCell>
-                                            <TableCell>{member.email}</TableCell>
-                                            <TableCell>
-                                                {canManage && !locked ? (
-                                                    <Select
-                                                        items={roleOptions}
-                                                        value={member.role}
-                                                        onValueChange={(role) => handleRole(member, role)}
-                                                    >
-                                                        <SelectTrigger className="w-44">
-                                                            <SelectValue />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectGroup>
-                                                                {roleOptions.map((option) => (
-                                                                    <SelectItem key={option.value} value={option.value}>
-                                                                        {option.label}
-                                                                    </SelectItem>
-                                                                ))}
-                                                            </SelectGroup>
-                                                        </SelectContent>
-                                                    </Select>
-                                                ) : (
-                                                    <Badge variant="outline">{roleLabel[member.role] ?? member.role}</Badge>
-                                                )}
-                                            </TableCell>
-                                            {canManage ? (
-                                                <TableCell>
-                                                    {locked ? null : (
-                                                        <ActionButton
-                                                            icon={Trash2Icon}
-                                                            tooltip="Remover"
-                                                            variant="destructive"
-                                                            onClick={() => setMemberToRemove(member)}
-                                                        />
-                                                    )}
-                                                </TableCell>
-                                            ) : null}
-                                        </TableRow>
-                                    )
-                                })}
-                            </TableBody>
-                        </Table>
-                    )}
-                </section>
-
-                <section className="flex flex-col gap-4">
-                    <h2 className="text-sm font-medium">Convites</h2>
-                    {!loading && invitations.length === 0 ? (
-                        <Empty>
-                            <EmptyHeader>
-                                <EmptyMedia variant="icon">
-                                    <MailIcon />
-                                </EmptyMedia>
-                                <EmptyTitle>Nenhum convite</EmptyTitle>
-                                <EmptyDescription>Os convites pendentes e encerrados aparecem aqui.</EmptyDescription>
-                            </EmptyHeader>
-                        </Empty>
-                    ) : (
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>E-mail</TableHead>
-                                    <TableHead>Papel</TableHead>
-                                    <TableHead>Situação</TableHead>
-                                    <TableHead>Validade</TableHead>
-                                    {canManage ? <TableHead>Ações</TableHead> : null}
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {[...pending, ...closed].map((invitation) => (
-                                    <TableRow key={invitation.uuid}>
-                                        <TableCell>{invitation.email}</TableCell>
-                                        <TableCell>{roleLabel[invitation.role] ?? invitation.role}</TableCell>
-                                        <TableCell>
-                                            <Badge variant="outline" className={statusBadgeClass(invitation.status)}>
-                                                {invitationStatusLabel[invitation.status] ?? invitation.status}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                            {invitation.expires_at
-                                                ? new Date(invitation.expires_at).toLocaleString('pt-BR')
-                                                : '—'}
-                                        </TableCell>
-                                        {canManage ? (
-                                            <TableCell>
-                                                {invitation.status === 'pending' ? (
-                                                    <div className="flex items-center gap-2">
-                                                        <ActionButton
-                                                            icon={RefreshCw}
-                                                            tooltip="Reenviar"
-                                                            onClick={() => handleResend(invitation)}
-                                                        />
-                                                        <ActionButton
-                                                            icon={Trash2Icon}
-                                                            tooltip="Cancelar convite"
-                                                            variant="destructive"
-                                                            onClick={() => setInviteToRevoke(invitation)}
-                                                        />
-                                                    </div>
-                                                ) : null}
-                                            </TableCell>
-                                        ) : null}
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    )}
-                </section>
+                {tab === 'usuarios' ? (
+                    <MembersTable
+                        loading={loading}
+                        members={members}
+                        canWrite={canWrite}
+                        actorEmail={actorEmail}
+                        actorRole={actorRole}
+                        onRole={openRole}
+                        onSuspend={setMemberToSuspend}
+                        onReactivate={setMemberToReactivate}
+                        onRemove={setMemberToRemove}
+                    />
+                ) : (
+                    <InvitesTable
+                        loading={loading}
+                        invitations={invitations}
+                        canWrite={canWrite}
+                        onResend={handleResend}
+                        onCopy={copyLink}
+                        onRevoke={setInviteToRevoke}
+                    />
+                )}
             </LoadingWrapper>
 
-            {copiedLink ? (
-                <div className="mt-6 flex flex-col gap-3 rounded-xl border p-4">
-                    <p className="text-sm">O novo link do convite. Ele substitui o anterior.</p>
-                    <Input readOnly value={copiedLink} />
-                    <div>
-                        <Button type="button" variant="outline" onClick={copyLink}>Copiar link</Button>
-                    </div>
-                </div>
-            ) : null}
-
-            <AlertDialog open={!!memberToRemove} onOpenChange={(open) => !open && setMemberToRemove(null)}>
+            <AlertDialog open={!!memberToEdit} onOpenChange={(open) => !open && setMemberToEdit(null)}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Remover pessoa</AlertDialogTitle>
+                        <AlertDialogTitle>Alterar papel</AlertDialogTitle>
                         <AlertDialogDescription>
-                            {`Tem certeza que deseja remover ${memberToRemove?.name || memberToRemove?.email}? O acesso a este contexto é suspenso.`}
+                            {`Escolha o papel de ${memberToEdit?.name || memberToEdit?.email}.`}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
+                    <Select items={roleOptions} value={nextRole} onValueChange={setNextRole}>
+                        <SelectTrigger className="w-full">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectGroup>
+                                {roleOptions.map((option) => (
+                                    <SelectItem key={option.value} value={option.value}>
+                                        {option.label}
+                                    </SelectItem>
+                                ))}
+                            </SelectGroup>
+                        </SelectContent>
+                    </Select>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction variant="destructive" onClick={handleRemove}>
-                            Remover
-                        </AlertDialogAction>
+                        <AlertDialogAction onClick={handleRole}>Salvar</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
 
-            <AlertDialog open={!!inviteToRevoke} onOpenChange={(open) => !open && setInviteToRevoke(null)}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Cancelar convite</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            {`Tem certeza que deseja cancelar o convite de ${inviteToRevoke?.email}? O link deixa de valer.`}
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Voltar</AlertDialogCancel>
-                        <AlertDialogAction variant="destructive" onClick={handleRevoke}>
-                            Cancelar convite
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            <Confirm
+                open={!!memberToSuspend}
+                title="Suspender usuário"
+                description={`Tem certeza que deseja suspender ${memberToSuspend?.name || memberToSuspend?.email}? O acesso a este contexto fica bloqueado.`}
+                confirm="Suspender"
+                onOpenChange={(open) => !open && setMemberToSuspend(null)}
+                onConfirm={handleSuspend}
+            />
+            <Confirm
+                open={!!memberToReactivate}
+                title="Reativar usuário"
+                description={`Tem certeza que deseja reativar ${memberToReactivate?.name || memberToReactivate?.email}?`}
+                confirm="Reativar"
+                destructive={false}
+                onOpenChange={(open) => !open && setMemberToReactivate(null)}
+                onConfirm={handleReactivate}
+            />
+            <Confirm
+                open={!!memberToRemove}
+                title="Remover usuário"
+                description={`Tem certeza que deseja remover ${memberToRemove?.name || memberToRemove?.email}? O vínculo deixa de aparecer nesta lista.`}
+                confirm="Remover"
+                onOpenChange={(open) => !open && setMemberToRemove(null)}
+                onConfirm={handleRemove}
+            />
+            <Confirm
+                open={!!inviteToRevoke}
+                title="Cancelar convite"
+                description={`Tem certeza que deseja cancelar o convite de ${inviteToRevoke?.email}? O link deixa de valer.`}
+                confirm="Cancelar convite"
+                cancel="Voltar"
+                onOpenChange={(open) => !open && setInviteToRevoke(null)}
+                onConfirm={handleRevoke}
+            />
         </>
+    )
+}
+
+function TabButton({ selected, onClick, children }) {
+    return (
+        <button
+            type="button"
+            role="tab"
+            aria-selected={selected}
+            className={`-mb-px inline-flex items-center border-b-2 pb-2 text-sm font-medium ${selected ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground'}`}
+            onClick={onClick}
+        >
+            {children}
+        </button>
+    )
+}
+
+function MembersTable({ loading, members, canWrite, actorEmail, actorRole, onRole, onSuspend, onReactivate, onRemove }) {
+    if (!loading && members.length === 0) {
+        return (
+            <Empty>
+                <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                        <UsersIcon />
+                    </EmptyMedia>
+                    <EmptyTitle>Nenhum usuário</EmptyTitle>
+                    <EmptyDescription>Convide a primeira pessoa para este contexto.</EmptyDescription>
+                </EmptyHeader>
+            </Empty>
+        )
+    }
+
+    return (
+        <Table>
+            <TableHeader>
+                <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>E-mail</TableHead>
+                    <TableHead>Papel</TableHead>
+                    <TableHead>Situação</TableHead>
+                    {canWrite ? <TableHead>Ações</TableHead> : null}
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {members.map((member) => {
+                    const isSelf = member.email === actorEmail
+                    const locked = isSelf || (member.role === 'owner' && actorRole !== 'owner')
+                    const suspended = member.status === 'suspended'
+
+                    return (
+                        <TableRow key={member.uuid}>
+                            <TableCell>{member.name}</TableCell>
+                            <TableCell>{member.email}</TableCell>
+                            <TableCell>
+                                <Badge variant="outline">{roleLabel[member.role] ?? member.role}</Badge>
+                            </TableCell>
+                            <TableCell>
+                                <Badge variant="outline">{suspended ? 'Suspenso' : 'Ativo'}</Badge>
+                            </TableCell>
+                            {canWrite ? (
+                                <TableCell>
+                                    {locked ? null : (
+                                        <div className="flex items-center gap-2">
+                                            {suspended ? null : (
+                                                <ActionButton icon={UserPenIcon} tooltip="Alterar papel" onClick={() => onRole(member)} />
+                                            )}
+                                            {suspended ? (
+                                                <ActionButton
+                                                    icon={CircleCheckIcon}
+                                                    tooltip="Reativar"
+                                                    onClick={() => onReactivate(member)}
+                                                />
+                                            ) : (
+                                                <ActionButton
+                                                    icon={BanIcon}
+                                                    tooltip="Suspender"
+                                                    variant="destructive"
+                                                    onClick={() => onSuspend(member)}
+                                                />
+                                            )}
+                                            <ActionButton
+                                                icon={Trash2Icon}
+                                                tooltip="Remover"
+                                                variant="destructive"
+                                                onClick={() => onRemove(member)}
+                                            />
+                                        </div>
+                                    )}
+                                </TableCell>
+                            ) : null}
+                        </TableRow>
+                    )
+                })}
+            </TableBody>
+        </Table>
+    )
+}
+
+function InvitesTable({ loading, invitations, canWrite, onResend, onCopy, onRevoke }) {
+    if (!loading && invitations.length === 0) {
+        return (
+            <Empty>
+                <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                        <MailIcon />
+                    </EmptyMedia>
+                    <EmptyTitle>Nenhum convite</EmptyTitle>
+                    <EmptyDescription>Os convites enviados aparecem aqui.</EmptyDescription>
+                </EmptyHeader>
+            </Empty>
+        )
+    }
+
+    return (
+        <Table>
+            <TableHeader>
+                <TableRow>
+                    <TableHead>E-mail</TableHead>
+                    <TableHead>Papel</TableHead>
+                    <TableHead>Situação</TableHead>
+                    <TableHead>Enviado em</TableHead>
+                    <TableHead>Expira em</TableHead>
+                    {canWrite ? <TableHead>Ações</TableHead> : null}
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {invitations.map((invitation) => (
+                    <TableRow key={invitation.uuid}>
+                        <TableCell>{invitation.email}</TableCell>
+                        <TableCell>
+                            <Badge variant="outline">{roleLabel[invitation.role] ?? invitation.role}</Badge>
+                        </TableCell>
+                        <TableCell>
+                            <Badge variant="outline">
+                                {invitationStatusLabel[invitation.status] ?? invitation.status}
+                            </Badge>
+                        </TableCell>
+                        <TableCell>{formatWhen(invitation.created_at)}</TableCell>
+                        <TableCell>{formatWhen(invitation.expires_at)}</TableCell>
+                        {canWrite ? (
+                            <TableCell>
+                                {invitation.status === 'pending' || invitation.status === 'expired' ? (
+                                    <div className="flex items-center gap-2">
+                                        <ActionButton icon={RefreshCw} tooltip="Reenviar" onClick={() => onResend(invitation)} />
+                                        {invitation.invite_url ? (
+                                            <ActionButton icon={CopyIcon} tooltip="Copiar link" onClick={() => onCopy(invitation.invite_url)} />
+                                        ) : null}
+                                        {invitation.status === 'pending' ? (
+                                            <ActionButton
+                                                icon={Trash2Icon}
+                                                tooltip="Cancelar convite"
+                                                variant="destructive"
+                                                onClick={() => onRevoke(invitation)}
+                                            />
+                                        ) : null}
+                                    </div>
+                                ) : null}
+                            </TableCell>
+                        ) : null}
+                    </TableRow>
+                ))}
+            </TableBody>
+        </Table>
+    )
+}
+
+function Confirm({ open, title, description, confirm, cancel = 'Cancelar', destructive = true, onOpenChange, onConfirm }) {
+    return (
+        <AlertDialog open={open} onOpenChange={onOpenChange}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>{title}</AlertDialogTitle>
+                    <AlertDialogDescription>{description}</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>{cancel}</AlertDialogCancel>
+                    <AlertDialogAction variant={destructive ? 'destructive' : 'default'} onClick={onConfirm}>
+                        {confirm}
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
     )
 }

@@ -19,7 +19,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { formatCpfCnpj } from "@/helpers/formatters"
 import { linkStatusLabel, statusBadgeClass } from "@/helpers/labels/linkStatusLabel"
-import { useSession } from "@/lib/auth/session"
+import { useCanWrite } from "@/lib/auth/permissions"
 import { acceptStationCompany, disconnectStationCompany, getStationCompanies, rejectStationCompany } from "@/lib/station/companies"
 import { notifyError, notifySuccess } from "@/lib/notify"
 
@@ -28,8 +28,7 @@ function companyLabel(link) {
 }
 
 export default function StationCompaniesPage() {
-    const { user } = useSession()
-    const canManage = user?.current_role === "owner" || user?.current_role === "admin"
+    const canWrite = useCanWrite()
     const [links, setLinks] = useState([])
     const [loading, setLoading] = useState(true)
     const [linkToUndo, setLinkToUndo] = useState(null)
@@ -136,7 +135,7 @@ export default function StationCompaniesPage() {
                                         </Badge>
                                     </TableCell>
                                     <TableCell>
-                                        {canManage ? (
+                                        {canWrite ? (
                                             <div className="flex gap-2">
                                                 {link.status === "request_sent" ? (
                                                     <Button type="button" size="sm" onClick={() => handleAccept(link)}>

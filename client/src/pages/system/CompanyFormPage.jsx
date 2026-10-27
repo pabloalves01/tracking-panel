@@ -7,7 +7,6 @@ import { InputCpfCnpj } from "@/components/common/inputs/InputCpfCnpj"
 import { SelectState } from "@/components/common/inputs/SelectState"
 import { LayoutToolbar } from "@/components/common/LayoutToolbar"
 import { LoadingWrapper } from "@/components/common/LoadingWrapper"
-import { Button } from "@/components/ui/button"
 import { createCompany, getCompany, updateCompany } from "@/lib/system/companies"
 import { notifyError, notifySuccess } from "@/lib/notify"
 import { Separator } from "@/components/ui/separator";
@@ -18,7 +17,6 @@ export default function CompanyFormPage() {
     const isEditing = !!uuid
 
     const [loading, setLoading] = useState(isEditing)
-    const [invite, setInvite] = useState(null)
     const [formData, setFormData] = useState({
         legal_name: '',
         trade_name: '',
@@ -64,8 +62,19 @@ export default function CompanyFormPage() {
             }
 
             const response = await createCompany({ ...company, admin_email: formData.admin_email })
-            notifySuccess(response)
-            setInvite(response.invitation)
+            const invitation = response.invitation
+            notifySuccess(response, {
+                description: invitation?.account_exists
+                    ? 'Empresa criada. Esta pessoa já tem conta e só precisa aceitar.'
+                    : 'Empresa criada. O convite do proprietário foi enviado.',
+                action: invitation?.invite_url
+                    ? {
+                        label: 'Copiar link',
+                        onClick: () => navigator.clipboard.writeText(invitation.invite_url),
+                    }
+                    : undefined,
+            })
+            navigate('/app/sistema/empresas')
         } catch (error) {
             notifyError(error)
         } finally {
@@ -82,59 +91,23 @@ export default function CompanyFormPage() {
                     { text: 'Empresas', to: '/app/sistema/empresas' },
                     { text: isEditing ? 'Editar empresa' : 'Nova empresa' },
                 ]}
-                buttons={invite ? [
-                    { title: 'Voltar para empresas', variant: 'outline', to: '/app/sistema/empresas' },
-                ] : [
+                buttons={[
                     { title: 'Cancelar', variant: 'outline', to: '/app/sistema/empresas' },
                     {
                         title: 'Salvar',
+                        permission: 'write',
                         onClick: () => document.getElementById('company-form')?.requestSubmit(),
                     },
                 ]}
             />
 
-            {invite ? (
-                <div className="flex max-w-xl flex-col gap-4">
-                    <FieldSet>
-                        <FieldLegend variant="label">Convite do proprietário</FieldLegend>
-                        <FieldDescription>
-                            A empresa foi criada. O convite também segue por e-mail para {invite.email}. O link vale 7 dias.
-                        </FieldDescription>
-                        <FieldGroup>
-                            <Field>
-                                <FieldLabel htmlFor="company-invite-url">Link</FieldLabel>
-                                <Input id="company-invite-url" readOnly value={invite.invite_url} />
-                            </Field>
-                        </FieldGroup>
-                    </FieldSet>
-                    <div className="flex gap-2">
-                        <Button
-                            type="button"
-                            onClick={async () => {
-                                try {
-                                    await navigator.clipboard.writeText(invite.invite_url)
-                                    notifySuccess({ message: 'Link copiado' })
-                                } catch (error) {
-                                    notifyError(error)
-                                }
-                            }}
-                        >
-                            Copiar link
-                        </Button>
-                        <Button type="button" variant="outline" onClick={() => navigate('/app/sistema/empresas')}>
-                            Voltar para empresas
-                        </Button>
-                    </div>
-                </div>
-            ) : null}
-
             <LoadingWrapper loading={loading}>
-                <form id="company-form" className={`flex w-full flex-col gap-10 ${invite ? 'hidden' : ''}`} onSubmit={handleSubmit}>
+                <form id="company-form" className="flex w-full flex-col gap-10" onSubmit={handleSubmit}>
                     <FieldSet>
                         <FieldLegend variant="label">Dados da empresa</FieldLegend>
                         <FieldDescription>Informações cadastrais usadas na operação.</FieldDescription>
-                        <FieldGroup className="md:grid md:grid-cols-3">
-                            <Field>
+                        <FieldGroup className="md:grid grid-cols-1 md:grid-cols-12">
+                            <Field className="col-span-12 md:col-span-4">
                                 <FieldLabel htmlFor="legal-name">Razão social</FieldLabel>
                                 <Input
                                     id="legal-name"
@@ -146,7 +119,7 @@ export default function CompanyFormPage() {
                                     required
                                 />
                             </Field>
-                            <Field>
+                            <Field className="col-span-12 md:col-span-4">
                                 <FieldLabel htmlFor="trade-name">Nome fantasia</FieldLabel>
                                 <Input
                                     id="trade-name"
@@ -158,7 +131,7 @@ export default function CompanyFormPage() {
                                     required
                                 />
                             </Field>
-                            <Field>
+                            <Field className="col-span-12 md:col-span-4">
                                 <FieldLabel htmlFor="cnpj">CNPJ</FieldLabel>
                                 <InputCpfCnpj
                                     type="cnpj"
@@ -179,8 +152,8 @@ export default function CompanyFormPage() {
                         <FieldDescription>
                             Estado e cidade oficiais do IBGE. A cidade abre depois do estado.
                         </FieldDescription>
-                        <FieldGroup className="md:grid md:grid-cols-3">
-                            <Field>
+                        <FieldGroup className="md:grid grid-cols-1 md:grid-cols-12">
+                            <Field className="col-span-12 md:col-span-4">
                                 <FieldLabel htmlFor="company-state">Estado</FieldLabel>
                                 <SelectState
                                     id="company-state"
@@ -194,7 +167,7 @@ export default function CompanyFormPage() {
                                     }}
                                 />
                             </Field>
-                            <Field data-disabled={formData.state_id ? undefined : true}>
+                            <Field className="col-span-12 md:col-span-4" data-disabled={formData.state_id ? undefined : true}>
                                 <FieldLabel htmlFor="company-city">Cidade</FieldLabel>
                                 <InputCity
                                     id="company-city"
@@ -216,8 +189,8 @@ export default function CompanyFormPage() {
                                 <FieldDescription>
                                     A Logiv não cria a senha. Esta pessoa recebe um convite de proprietário e cria a conta ao aceitar.
                                 </FieldDescription>
-                                <FieldGroup className="md:grid md:grid-cols-2">
-                                    <Field>
+                                <FieldGroup className="md:grid grid-cols-1 md:grid-cols-12">
+                                    <Field className="col-span-12 md:col-span-6">
                                         <FieldLabel htmlFor="admin-email">E-mail</FieldLabel>
                                         <Input
                                             id="admin-email"

@@ -70,7 +70,7 @@ export default function CompaniesPage() {
                     { text: 'Empresas' },
                 ]}
                 buttons={[
-                    { title: 'Nova empresa', icon: PlusIcon, to: '/app/sistema/empresas/novo' },
+                    { title: 'Nova empresa', icon: PlusIcon, to: '/app/sistema/empresas/novo', permission: 'write' },
                 ]}
             />
 

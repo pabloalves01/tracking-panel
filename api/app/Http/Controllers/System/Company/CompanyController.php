@@ -48,6 +48,7 @@ class CompanyController extends Controller
                 'role' => $invitation->role,
                 'expires_at' => $invitation->expires_at?->toIso8601String(),
                 'invite_url' => $invitation->inviteUrl(),
+                'account_exists' => (bool) $invitation->accountExists,
             ],
         ], 201);
     }

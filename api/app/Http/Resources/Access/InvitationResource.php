@@ -18,6 +18,8 @@ class InvitationResource extends JsonResource
             'role' => $this->role,
             'status' => $this->status,
             'expires_at' => $this->expires_at?->toIso8601String(),
+            'created_at' => $this->created_at?->toIso8601String(),
+            'account_exists' => $this->when($this->accountExists !== null, (bool) $this->accountExists),
             'invite_url' => $this->when($this->plainToken !== null, fn () => $this->inviteUrl()),
         ];
     }

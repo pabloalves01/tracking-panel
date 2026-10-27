@@ -7,7 +7,7 @@ export default function StationInvitePage() {
             breadcrumbs={[
                 { text: 'Início', to: '/posto' },
                 { text: 'Usuários', to: '/posto/usuarios' },
-                { text: 'Convidar' },
+                { text: 'Novo usuário' },
             ]}
             listPath="/posto/usuarios"
             apiBase="/station"

@@ -251,6 +251,7 @@ export default function EmployeeFormPage() {
                     { title: 'Cancelar', variant: 'outline', to: listPath },
                     {
                         title: 'Salvar',
+                        permission: 'write',
                         disabled: !isEditing && existingEmployee,
                         onClick: () => document.getElementById('employee-form')?.requestSubmit(),
                     },

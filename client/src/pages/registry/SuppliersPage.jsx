@@ -77,7 +77,7 @@ export default function SuppliersPage() {
                     { text: 'Fornecedores' },
                 ]}
                 buttons={[
-                    { title: 'Novo fornecedor', icon: PlusIcon, to: `${listPath}/novo` },
+                    { title: 'Novo fornecedor', icon: PlusIcon, to: `${listPath}/novo`, permission: 'write' },
                 ]}
             />
 

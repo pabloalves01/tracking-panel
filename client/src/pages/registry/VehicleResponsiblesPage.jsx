@@ -77,7 +77,7 @@ export default function VehicleResponsiblesPage() {
                     { text: 'Responsáveis' },
                 ]}
                 buttons={[
-                    { title: 'Novo responsável', icon: PlusIcon, to: `${listPath}/novo` },
+                    { title: 'Novo responsável', icon: PlusIcon, to: `${listPath}/novo`, permission: 'write' },
                 ]}
             />
 

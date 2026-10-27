@@ -24,7 +24,7 @@ class MemberService
     {
         return $scope->membershipClass::query()
             ->where($scope->foreignKey, $scope->ownerId)
-            ->where('status', Membership::ACTIVE)
+            ->whereIn('status', [Membership::ACTIVE, Membership::SUSPENDED])
             ->with('user')
             ->orderBy('id')
             ->get();
@@ -50,12 +50,19 @@ class MemberService
             abort(403, 'Só o proprietário altera outro proprietário');
         }
 
-        if ($membership->role === Membership::OWNER && $role !== Membership::OWNER && $this->ownerCount($scope) <= 1) {
-            abort(422, 'É preciso manter um proprietário');
-        }
-
         DB::transaction(function () use ($membership, $role, $scope) {
-            $from = $membership->role;
+            $owners = $this->lockOwners($scope);
+            $locked = $membership->newQuery()->whereKey($membership->id)->lockForUpdate()->first();
+
+            if (! $locked || $locked->status !== Membership::ACTIVE) {
+                abort(422, 'Não foi possível alterar o papel');
+            }
+
+            if ($locked->role === Membership::OWNER && $role !== Membership::OWNER && $owners->count() <= 1) {
+                abort(422, 'É preciso manter um proprietário');
+            }
+
+            $from = $locked->role;
             $updated = $membership->newQuery()
                 ->whereKey($membership->id)
                 ->where('status', Membership::ACTIVE)
@@ -89,15 +96,22 @@ class MemberService
             abort(403, 'Só o proprietário remove outro proprietário');
         }
 
-        if ($membership->role === Membership::OWNER && $this->ownerCount($scope) <= 1) {
-            abort(422, 'É preciso manter um proprietário');
-        }
-
-        if ($membership->user_id === $actor->id) {
-            abort(422, 'Você não pode remover a si mesmo');
-        }
-
         DB::transaction(function () use ($membership, $scope, $actor) {
+            $owners = $this->lockOwners($scope);
+            $locked = $membership->newQuery()->whereKey($membership->id)->lockForUpdate()->first();
+
+            if (! $locked || $locked->status !== Membership::ACTIVE) {
+                abort(422, 'Não foi possível remover esta pessoa');
+            }
+
+            if ($locked->role === Membership::OWNER && $owners->count() <= 1) {
+                abort(422, 'É preciso manter um proprietário');
+            }
+
+            if ($locked->user_id === $actor->id) {
+                abort(422, 'Você não pode remover a si mesmo');
+            }
+
             $updated = $membership->newQuery()
                 ->whereKey($membership->id)
                 ->where('status', Membership::ACTIVE)
@@ -111,6 +125,75 @@ class MemberService
             }
 
             $this->audit->log('membership.suspended', $membership, [
+                'user_uuid' => $membership->user?->uuid,
+                'role' => $membership->role,
+                'actor_uuid' => $actor->uuid,
+            ], $scope->companyId, $scope->fuelStationId);
+        });
+    }
+
+    public function reactivate(MembershipScope $scope, User $actor, string $memberUuid): void
+    {
+        $membership = $this->findByStatus($scope, $memberUuid, Membership::SUSPENDED);
+
+        if (! Membership::manages($scope->actorRole)) {
+            abort(403, 'Você não tem permissão para esta ação');
+        }
+
+        if ($scope->actorRole === Membership::ADMIN && $membership->role === Membership::OWNER) {
+            abort(403, 'Só o proprietário altera outro proprietário');
+        }
+
+        DB::transaction(function () use ($membership, $scope, $actor) {
+            $locked = $membership->newQuery()->whereKey($membership->id)->where('status', Membership::SUSPENDED)->lockForUpdate()->first();
+
+            if (! $locked) {
+                abort(422, 'Não foi possível reativar esta pessoa');
+            }
+
+            if (! $locked->update(['status' => Membership::ACTIVE])) {
+                abort(422, 'Não foi possível reativar esta pessoa');
+            }
+
+            $this->audit->log('membership.reactivated', $membership, [
+                'user_uuid' => $membership->user?->uuid,
+                'role' => $membership->role,
+                'actor_uuid' => $actor->uuid,
+            ], $scope->companyId, $scope->fuelStationId);
+        });
+    }
+
+    public function remove(MembershipScope $scope, User $actor, string $memberUuid): void
+    {
+        $membership = $this->findVisible($scope, $memberUuid);
+
+        if (! Membership::manages($scope->actorRole)) {
+            abort(403, 'Você não tem permissão para esta ação');
+        }
+
+        if ($scope->actorRole === Membership::ADMIN && $membership->role === Membership::OWNER) {
+            abort(403, 'Só o proprietário remove outro proprietário');
+        }
+
+        DB::transaction(function () use ($membership, $scope, $actor) {
+            $owners = $this->lockOwners($scope);
+            $locked = $membership->newQuery()->whereKey($membership->id)->lockForUpdate()->first();
+
+            if (! $locked) {
+                abort(422, 'Não foi possível remover esta pessoa');
+            }
+
+            if ($locked->role === Membership::OWNER && $locked->status === Membership::ACTIVE && $owners->count() <= 1) {
+                abort(422, 'É preciso manter um proprietário');
+            }
+
+            if ($locked->user_id === $actor->id) {
+                abort(422, 'Você não pode remover a si mesmo');
+            }
+
+            $locked->delete();
+
+            $this->audit->log('membership.removed', $membership, [
                 'user_uuid' => $membership->user?->uuid,
                 'role' => $membership->role,
                 'actor_uuid' => $actor->uuid,
@@ -138,12 +221,47 @@ class MemberService
         return $membership;
     }
 
-    private function ownerCount(MembershipScope $scope): int
+    private function findByStatus(MembershipScope $scope, string $memberUuid, string $status): Model
+    {
+        return $this->findMembership($scope, $memberUuid, [$status]);
+    }
+
+    private function findVisible(MembershipScope $scope, string $memberUuid): Model
+    {
+        return $this->findMembership($scope, $memberUuid, [Membership::ACTIVE, Membership::SUSPENDED]);
+    }
+
+    /**
+     * @param  array<int, string>  $statuses
+     */
+    private function findMembership(MembershipScope $scope, string $memberUuid, array $statuses): Model
+    {
+        if (! Str::isUuid($memberUuid)) {
+            abort(404, 'Pessoa não encontrada');
+        }
+
+        $membership = $scope->membershipClass::query()
+            ->where($scope->foreignKey, $scope->ownerId)
+            ->whereIn('status', $statuses)
+            ->whereHas('user', fn ($query) => $query->where('uuid', $memberUuid))
+            ->with('user')
+            ->first();
+
+        if (! $membership) {
+            abort(404, 'Pessoa não encontrada');
+        }
+
+        return $membership;
+    }
+
+    private function lockOwners(MembershipScope $scope): Collection
     {
         return $scope->membershipClass::query()
             ->where($scope->foreignKey, $scope->ownerId)
             ->where('status', Membership::ACTIVE)
             ->where('role', Membership::OWNER)
-            ->count();
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get();
     }
 }

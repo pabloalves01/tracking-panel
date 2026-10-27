@@ -12,9 +12,11 @@ const titles = {
  * O título é fixo: sucesso, erro de validação ou erro do servidor.
  * A descrição vem da API (`message` ou o primeiro erro de campo).
  */
-export function notifySuccess(payload) {
+export function notifySuccess(payload, options = {}) {
     toast.success(titles.success, {
-        description: getApiMessage(payload, 'Operação concluída.'),
+        description: options.description ?? getApiMessage(payload, 'Operação concluída.'),
+        action: options.action,
+        duration: options.duration,
     })
 }
 

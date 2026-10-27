@@ -147,28 +147,38 @@ class HardeningTest extends TestCase
             ->assertJsonPath('message', 'Este convite foi cancelado');
     }
 
-    public function test_convite_em_lote_separa_o_resultado_de_cada_email(): void
+    public function test_convite_unico_informa_se_a_conta_existe_so_para_quem_convida(): void
     {
         $company = $this->company('00000000000191', 'dona@melo.test');
         User::factory()->create(['email' => 'ja-tem@melo.test', 'password' => 'senha1234']);
 
-        $response = $this->actingToken($this->companyToken($company['owner'], $company['company']))
+        $this->actingToken($this->companyToken($company['owner'], $company['company']))
             ->postJson('/api/company/invitations', [
-                'emails' => [' novo@melo.test ', 'ja-tem@melo.test', 'nao-e-email', 'dona@melo.test'],
+                'emails' => ['novo@melo.test'],
                 'role' => 'member',
-            ])->assertOk();
+            ])->assertUnprocessable()
+            ->assertJsonValidationErrors(['email']);
 
-        $byEmail = collect($response->json('results'))->keyBy('email');
-        $this->assertTrue($byEmail['novo@melo.test']['ok']);
-        $this->assertFalse($byEmail['novo@melo.test']['account_exists']);
-        $this->assertSame('Convite enviado', $byEmail['novo@melo.test']['message']);
-        $this->assertTrue($byEmail['ja-tem@melo.test']['ok']);
-        $this->assertTrue($byEmail['ja-tem@melo.test']['account_exists']);
-        $this->assertSame('Já tem conta, só vai aceitar', $byEmail['ja-tem@melo.test']['message']);
-        $this->assertFalse($byEmail['nao-e-email']['ok']);
-        $this->assertSame('Informe um e-mail válido', $byEmail['nao-e-email']['message']);
-        $this->assertFalse($byEmail['dona@melo.test']['ok']);
-        $this->assertSame('Esta pessoa já faz parte', $byEmail['dona@melo.test']['message']);
+        $known = $this->actingToken($this->companyToken($company['owner'], $company['company']))
+            ->postJson('/api/company/invitations', [
+                'email' => ' ja-tem@melo.test ',
+                'role' => 'member',
+            ])->assertCreated()
+            ->assertJsonPath('data.email', 'ja-tem@melo.test')
+            ->assertJsonPath('data.account_exists', true);
+
+        $this->assertNotEmpty($known->json('data.invite_url'));
+
+        $fresh = $this->actingToken($this->companyToken($company['owner'], $company['company']))
+            ->postJson('/api/company/invitations', [
+                'email' => 'novo@melo.test',
+                'role' => 'member',
+            ])->assertCreated()
+            ->assertJsonPath('data.account_exists', false);
+
+        $preview = $this->getJson('/api/auth/invitations/'.basename((string) $fresh->json('data.invite_url')))
+            ->assertOk();
+        $this->assertArrayNotHasKey('account_exists', $preview->json());
         $this->assertSame(2, Invitation::query()->count());
     }
 

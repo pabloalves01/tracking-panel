@@ -20,7 +20,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { formatCpfCnpj } from '@/helpers/formatters'
 import { deleteCompanyFuelStation, disconnectCompanyFuelStation, getCompanyFuelStations, resendCompanyFuelStationRequest } from '@/lib/registry/fuelStations'
-import { useSession } from '@/lib/auth/session'
+import { useCanWrite } from '@/lib/auth/permissions'
 import { notifyError, notifySuccess } from '@/lib/notify'
 
 const listPath = '/app/cadastros/entidades/postos'
@@ -32,8 +32,7 @@ function stationLabel(link) {
 }
 
 export default function FuelStationsPage() {
-    const { user } = useSession()
-    const canManage = user?.current_role === 'owner' || user?.current_role === 'admin'
+    const canWrite = useCanWrite()
     const [links, setLinks] = useState([])
     const [loading, setLoading] = useState(false)
     const [linkToRemove, setLinkToRemove] = useState(null)
@@ -92,8 +91,8 @@ export default function FuelStationsPage() {
                     { text: 'Entidades', to: '/app/cadastros/entidades' },
                     { text: 'Postos' },
                 ]}
-                buttons={canManage ? [
-                    { title: 'Novo posto', icon: PlusIcon, to: `${listPath}/novo` },
+                buttons={canWrite ? [
+                    { title: 'Novo posto', icon: PlusIcon, to: `${listPath}/novo`, permission: 'write' },
                 ] : []}
             />
 
@@ -129,7 +128,7 @@ export default function FuelStationsPage() {
                                         </Badge>
                                     </TableCell>
                                     <TableCell>
-                                        {canManage ? (
+                                        {canWrite ? (
                                             <div className="flex items-center gap-2">
                                                 {link.status === 'request_sent' && link.fuel_station?.uuid ? (
                                                     <ActionButton

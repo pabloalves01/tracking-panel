@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Mail\StationSignupExistingAccountMail;
 use App\Mail\VerificationCodeMail;
 use App\Models\Company;
 use App\Models\Invitation;
@@ -35,13 +36,51 @@ class VerificationCodeTest extends TestCase
 
         $this->assertSame($known->json('message'), $unknown->json('message'));
         $this->assertSame(
-            'Se este e-mail puder receber o código, ele foi enviado.',
+            'Enviamos um código para este e-mail.',
             $known->json('message'),
         );
         Mail::assertQueued(VerificationCodeMail::class, 1);
         Mail::assertQueued(VerificationCodeMail::class, fn (VerificationCodeMail $mail) => $mail->hasTo('nova@posto.test'));
+        Mail::assertQueued(StationSignupExistingAccountMail::class, fn (StationSignupExistingAccountMail $mail) => $mail->hasTo('ja@posto.test'));
         $this->assertNull(VerificationCode::query()->where('email', 'ja@posto.test')->value('code_hash'));
         $this->assertNotNull(VerificationCode::query()->where('email', 'nova@posto.test')->value('code_hash'));
+    }
+
+    public function test_cinco_codigos_errados_invalidam_o_codigo_certo(): void
+    {
+        $this->plant('dona@melo.test', '123456', VerificationCode::PASSWORD_RESET);
+
+        for ($attempt = 1; $attempt <= 4; $attempt++) {
+            $this->postJson('/api/auth/password/reset', [
+                'email' => 'dona@melo.test',
+                'code' => '000000',
+                'password' => 'senha-nova-1',
+                'password_confirmation' => 'senha-nova-1',
+            ])->assertUnprocessable()
+                ->assertJsonPath('message', 'Código inválido');
+        }
+
+        $this->postJson('/api/auth/password/reset', [
+            'email' => 'dona@melo.test',
+            'code' => '000000',
+            'password' => 'senha-nova-1',
+            'password_confirmation' => 'senha-nova-1',
+        ])->assertUnprocessable()
+            ->assertJsonPath('message', 'Tentativas esgotadas');
+
+        $this->assertSame(5, VerificationCode::query()->where('email', 'dona@melo.test')->value('attempts'));
+        $this->assertNotNull(VerificationCode::query()->where('email', 'dona@melo.test')->value('invalidated_at'));
+
+        $this->postJson('/api/auth/password/reset', [
+            'email' => 'dona@melo.test',
+            'code' => '123456',
+            'password' => 'senha-nova-1',
+            'password_confirmation' => 'senha-nova-1',
+        ])->assertUnprocessable()
+            ->assertJsonPath('message', 'Tentativas esgotadas');
+
+        $this->assertNull(VerificationCode::query()->where('email', 'dona@melo.test')->value('consumed_at'));
+        $this->assertNull(User::query()->where('email', 'dona@melo.test')->first());
     }
 
     public function test_codigo_errado_expirado_esgotado_e_reutilizado(): void
@@ -230,11 +269,11 @@ class VerificationCodeTest extends TestCase
         ];
     }
 
-    private function plant(string $email, string $code): void
+    private function plant(string $email, string $code, string $purpose = VerificationCode::STATION_SIGNUP): void
     {
         VerificationCode::query()->create([
             'email' => $email,
-            'purpose' => VerificationCode::STATION_SIGNUP,
+            'purpose' => $purpose,
             'code_hash' => hash('sha256', $code),
             'expires_at' => now()->addMinutes(10),
         ]);

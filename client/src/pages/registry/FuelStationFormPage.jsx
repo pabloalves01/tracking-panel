@@ -136,6 +136,7 @@ export default function FuelStationFormPage() {
                     { title: 'Cancelar', variant: 'outline', to: listPath },
                     {
                         title: 'Pedir vínculo',
+                        permission: 'write',
                         disabled: !station || Boolean(cnpjError),
                         onClick: () => document.getElementById('fuel-station-form')?.requestSubmit(),
                     },

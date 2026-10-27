@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureCompanySelected;
+use App\Http\Middleware\EnsureContextCanWrite;
 use App\Http\Middleware\EnsureFuelStationSelected;
 use App\Http\Middleware\EnsureSystemAdmin;
 use Illuminate\Foundation\Application;
@@ -21,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'ensure.company' => EnsureCompanySelected::class, // Verifica se a empresa está selecionada
             'ensure.station' => EnsureFuelStationSelected::class, // Verifica se o posto está selecionado
             'ensure.system' => EnsureSystemAdmin::class, // Verifica se o usuário é um administrador do sistema
+            'context.write' => EnsureContextCanWrite::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

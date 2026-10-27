@@ -46,11 +46,6 @@ class FuelStationSignupService
     public function store(array $data): array
     {
         $email = strtolower(trim((string) $data['email']));
-
-        if (User::query()->where('email', $email)->exists()) {
-            abort(422, 'Este e-mail já tem conta. Entre para cadastrar o posto');
-        }
-
         $digits = $this->availableCnpj((string) $data['cnpj']);
         $this->codes->consume($email, VerificationCode::STATION_SIGNUP, $data['code'] ?? null);
         $payload = $this->brasilApi->cnpj($digits);
@@ -139,7 +134,7 @@ class FuelStationSignupService
                 abort(422, 'Este posto já está cadastrado. Fale com o responsável');
             }
 
-            abort(422, 'Este e-mail já tem conta. Entre para cadastrar o posto');
+            abort(422, 'Não foi possível concluir o cadastro.');
         }
     }
 

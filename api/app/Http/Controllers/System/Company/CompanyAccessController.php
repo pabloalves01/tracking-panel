@@ -3,18 +3,24 @@
 namespace App\Http\Controllers\System\Company;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Access\UpdateMemberRoleRequest;
 use App\Http\Requests\System\Company\StoreCompanyInvitationRequest;
 use App\Http\Resources\Access\InvitationResource;
 use App\Http\Resources\Access\MemberResource;
 use App\Models\Company;
 use App\Models\CompanyUser;
+use App\Models\User;
 use App\Services\Access\InvitationService;
+use App\Services\Access\MemberService;
 use App\Support\Membership;
+use App\Support\MembershipScope;
+use App\Support\Text;
+use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 class CompanyAccessController extends Controller
 {
-    public function __construct(private InvitationService $invitations) {}
+    public function __construct(private InvitationService $invitations, private MemberService $members) {}
 
     public function users(string $uuid)
     {
@@ -22,7 +28,7 @@ class CompanyAccessController extends Controller
 
         $members = CompanyUser::query()
             ->where('company_id', $company->id)
-            ->where('status', Membership::ACTIVE)
+            ->whereIn('status', [Membership::ACTIVE, Membership::SUSPENDED])
             ->with('user')
             ->orderBy('id')
             ->get();
@@ -30,25 +36,60 @@ class CompanyAccessController extends Controller
         return MemberResource::collection($members);
     }
 
+    public function updateUser(UpdateMemberRoleRequest $request, string $uuid, string $user)
+    {
+        $this->members->updateRole($this->scope($uuid), $request->user(), $user, $request->validated('role'));
+
+        return response()->json([
+            'message' => 'Papel atualizado',
+        ]);
+    }
+
+    public function suspendUser(Request $request, string $uuid, string $user)
+    {
+        $this->members->suspend($this->scope($uuid), $request->user(), $user);
+
+        return response()->json([
+            'message' => 'Pessoa suspensa',
+        ]);
+    }
+
+    public function reactivateUser(Request $request, string $uuid, string $user)
+    {
+        $this->members->reactivate($this->scope($uuid), $request->user(), $user);
+
+        return response()->json([
+            'message' => 'Pessoa reativada',
+        ]);
+    }
+
+    public function removeUser(Request $request, string $uuid, string $user)
+    {
+        $this->members->remove($this->scope($uuid), $request->user(), $user);
+
+        return response()->json([
+            'message' => 'Pessoa removida',
+        ]);
+    }
+
     public function index(string $uuid)
     {
         return InvitationResource::collection($this->invitations->listForCompany($this->company($uuid)));
     }
 
+    public function lookup(Request $request, string $uuid)
+    {
+        $this->company($uuid);
+        $email = Text::email($request->query('email'));
+
+        return response()->json([
+            'account_exists' => filter_var($email, FILTER_VALIDATE_EMAIL)
+                && User::query()->where('email', $email)->exists(),
+        ]);
+    }
+
     public function store(StoreCompanyInvitationRequest $request, string $uuid)
     {
-        if (is_array($request->input('emails'))) {
-            return response()->json([
-                'results' => $this->invitations->createManyForCompany(
-                    $this->company($uuid),
-                    $request->validated('emails'),
-                    $request->validated('role'),
-                    $request->user(),
-                    true,
-                ),
-            ]);
-        }
-
         $invitation = $this->invitations->createForCompany(
             $this->company($uuid),
             $request->validated('email'),
@@ -65,7 +106,7 @@ class CompanyAccessController extends Controller
     public function resend(string $uuid, string $invitation)
     {
         return new InvitationResource(
-            $this->invitations->resend($this->invitations->findForCompany($this->company($uuid), $invitation)),
+            $this->invitations->resend($this->invitations->findForCompany($this->company($uuid), $invitation), true),
         );
     }
 
@@ -76,6 +117,13 @@ class CompanyAccessController extends Controller
         return response()->json([
             'message' => 'Convite cancelado',
         ]);
+    }
+
+    private function scope(string $uuid): MembershipScope
+    {
+        $company = $this->company($uuid);
+
+        return new MembershipScope(CompanyUser::class, 'company_id', $company->id, Membership::OWNER, $company->id, null);
     }
 
     private function company(string $uuid): Company

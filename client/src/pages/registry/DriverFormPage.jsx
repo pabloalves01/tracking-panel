@@ -275,6 +275,7 @@ export default function DriverFormPage() {
                     { title: 'Cancelar', variant: 'outline', to: listPath },
                     {
                         title: 'Salvar',
+                        permission: 'write',
                         disabled: !isEditing && existingDriver,
                         onClick: () => document.getElementById('driver-form')?.requestSubmit(),
                     },

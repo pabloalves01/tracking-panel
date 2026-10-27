@@ -27,13 +27,39 @@ return new class extends Migration
         });
     }
 
+    /**
+     * O CNPJ volta a partir do posto vinculado. Sem o posto, a coluna fica vazia:
+     * o valor original da coluna removida não existe mais.
+     */
     public function down(): void
     {
+        Schema::table('company_fuel_station', function (Blueprint $table) {
+            $table->string('cnpj', 14)->nullable();
+        });
+
+        $driver = Schema::getConnection()->getDriverName();
+
+        if ($driver === 'pgsql') {
+            DB::statement('
+                update company_fuel_station as link
+                set cnpj = station.cnpj
+                from fuel_stations as station
+                where station.id = link.fuel_station_id
+            ');
+        } else {
+            DB::statement('
+                update company_fuel_station
+                set cnpj = (
+                    select cnpj from fuel_stations
+                    where fuel_stations.id = company_fuel_station.fuel_station_id
+                )
+            ');
+        }
+
         Schema::table('company_fuel_station', function (Blueprint $table) {
             $table->dropUnique(['company_id', 'fuel_station_id']);
             $table->dropUnique(['uuid']);
             $table->dropColumn('uuid');
-            $table->string('cnpj', 14)->nullable();
             $table->unique(['company_id', 'cnpj']);
         });
     }

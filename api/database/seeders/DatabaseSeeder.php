@@ -21,6 +21,8 @@ class DatabaseSeeder extends Seeder
             'is_system_admin' => true,
         ]);
 
-        $this->call(DemoAccessSeeder::class);
+        if (app()->environment(['local', 'testing'])) {
+            $this->call(DemoAccessSeeder::class);
+        }
     }
 }

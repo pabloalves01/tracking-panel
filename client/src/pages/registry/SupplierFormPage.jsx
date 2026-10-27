@@ -261,6 +261,7 @@ export default function SupplierFormPage() {
                     { title: 'Cancelar', variant: 'outline', to: listPath },
                     {
                         title: 'Salvar',
+                        permission: 'write',
                         disabled: !isEditing && existingSupplier,
                         onClick: () => document.getElementById('supplier-form')?.requestSubmit(),
                     },

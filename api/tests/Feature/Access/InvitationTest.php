@@ -192,7 +192,7 @@ class InvitationTest extends TestCase
             ->assertNotFound();
     }
 
-    public function test_aceite_reativa_membro_suspenso(): void
+    public function test_aceite_nao_reativa_membro_suspenso(): void
     {
         $company = $this->companyWith('owner@melo.test', 'owner');
         $user = User::factory()->create(['email' => 'volta@melo.test', 'password' => 'senha1234']);
@@ -204,20 +204,15 @@ class InvitationTest extends TestCase
         ]);
         $owner = User::query()->where('email', 'owner@melo.test')->first();
 
-        $created = $this->actingToken($this->companyToken($owner, $company))
+        $this->actingToken($this->companyToken($owner, $company))
             ->postJson('/api/company/invitations', [
                 'email' => 'volta@melo.test',
                 'role' => 'member',
-            ])->assertCreated();
+            ])->assertUnprocessable()
+            ->assertJsonPath('message', 'Esta pessoa já faz parte');
 
-        $token = basename((string) $created->json('data.invite_url'));
-        $this->actingToken($user->createToken('web')->plainTextToken)
-            ->postJson('/api/auth/invitations/'.$token.'/accept')
-            ->assertOk();
-
-        $this->assertSame(1, CompanyUser::query()->where('user_id', $user->id)->count());
-        $this->assertSame('member', CompanyUser::query()->where('user_id', $user->id)->value('role'));
-        $this->assertSame('active', CompanyUser::query()->where('user_id', $user->id)->value('status'));
+        $this->assertSame('admin', CompanyUser::query()->where('user_id', $user->id)->value('role'));
+        $this->assertSame('suspended', CompanyUser::query()->where('user_id', $user->id)->value('status'));
     }
 
     public function test_banco_exige_empresa_ou_posto_no_convite(): void

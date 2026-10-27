@@ -131,6 +131,7 @@ export default function EntityFormPage() {
                     { title: 'Cancelar', variant: 'outline', to: listPath },
                     {
                         title: 'Salvar',
+                        permission: 'write',
                         onClick: () => document.getElementById('entity-form')?.requestSubmit(),
                     },
                 ]}

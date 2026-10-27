@@ -77,7 +77,7 @@ export default function CarriersPage() {
                     { text: 'Transportadoras' },
                 ]}
                 buttons={[
-                    { title: 'Nova transportadora', icon: PlusIcon, to: `${listPath}/novo` },
+                    { title: 'Nova transportadora', icon: PlusIcon, to: `${listPath}/novo`, permission: 'write' },
                 ]}
             />
 

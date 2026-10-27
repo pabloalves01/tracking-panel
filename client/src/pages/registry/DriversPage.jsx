@@ -77,7 +77,7 @@ export default function DriversPage() {
                     { text: 'Motoristas' },
                 ]}
                 buttons={[
-                    { title: 'Novo motorista', icon: PlusIcon, to: `${listPath}/novo` },
+                    { title: 'Novo motorista', icon: PlusIcon, to: `${listPath}/novo`, permission: 'write' },
                 ]}
             />
 

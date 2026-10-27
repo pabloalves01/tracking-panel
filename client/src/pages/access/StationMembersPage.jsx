@@ -7,7 +7,6 @@ const listPath = '/posto/usuarios'
 export default function StationMembersPage() {
     const { user } = useSession()
     const actorRole = user?.current_role
-    const canManage = actorRole === 'owner' || actorRole === 'admin'
 
     return (
         <MembersPage
@@ -15,7 +14,6 @@ export default function StationMembersPage() {
             listPath={listPath}
             apiBase="/station"
             roleOptions={actorRole === 'owner' ? ownerRoleOptions : companyRoleOptions}
-            canManage={canManage}
             actorEmail={user?.email}
             actorRole={actorRole}
         />

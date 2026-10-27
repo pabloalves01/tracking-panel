@@ -251,6 +251,7 @@ export default function CustomerFormPage() {
                     { title: 'Cancelar', variant: 'outline', to: listPath },
                     {
                         title: 'Salvar',
+                        permission: 'write',
                         disabled: !isEditing && existingCustomer,
                         onClick: () => document.getElementById('customer-form')?.requestSubmit(),
                     },

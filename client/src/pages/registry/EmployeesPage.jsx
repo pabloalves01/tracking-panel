@@ -77,7 +77,7 @@ export default function EmployeesPage() {
                     { text: 'Funcionários' },
                 ]}
                 buttons={[
-                    { title: 'Novo funcionário', icon: PlusIcon, to: `${listPath}/novo` },
+                    { title: 'Novo funcionário', icon: PlusIcon, to: `${listPath}/novo`, permission: 'write' },
                 ]}
             />
 

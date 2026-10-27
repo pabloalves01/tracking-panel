@@ -234,6 +234,7 @@ export default function CarrierFormPage() {
                     { title: 'Cancelar', variant: 'outline', to: listPath },
                     {
                         title: 'Salvar',
+                        permission: 'write',
                         disabled: !isEditing && existingCarrier,
                         onClick: () => document.getElementById('carrier-form')?.requestSubmit(),
                     },

@@ -202,7 +202,16 @@ class FuelStationSignupTest extends TestCase
             'password_confirmation' => 'senha-atual',
             'code' => '123456',
         ])->assertUnprocessable()
-            ->assertJsonPath('message', 'Este e-mail já tem conta. Entre para cadastrar o posto');
+            ->assertJsonPath('message', 'Código inválido');
+
+        $this->assertStringNotContainsString('já tem conta', (string) $this->postJson('/api/auth/station-signup', [
+            'cnpj' => self::CNPJ,
+            'name' => 'Outro Nome',
+            'email' => 'dono@posto.com',
+            'password' => 'senha-atual',
+            'password_confirmation' => 'senha-atual',
+            'code' => '123456',
+        ])->json('message'));
 
         $this->assertSame(0, FuelStation::query()->count());
         $this->assertSame(1, User::query()->count());
@@ -300,7 +309,7 @@ class FuelStationSignupTest extends TestCase
             'password_confirmation' => 'senha1234',
             'code' => '123456',
         ])->assertUnprocessable()
-            ->assertJsonPath('message', 'Este e-mail já tem conta. Entre para cadastrar o posto');
+            ->assertJsonPath('message', 'Não foi possível concluir o cadastro.');
 
         $this->assertSame(0, FuelStation::query()->count());
     }

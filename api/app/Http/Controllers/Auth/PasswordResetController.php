@@ -43,6 +43,8 @@ class PasswordResetController extends Controller
             'email_verified_at' => $user->email_verified_at ?? now(),
         ])->save();
 
+        $user->tokens()->delete();
+
         return response()->json([
             'message' => 'Senha atualizada. Entre com a nova senha.',
         ]);

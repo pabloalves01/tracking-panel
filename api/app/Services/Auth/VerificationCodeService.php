@@ -2,6 +2,8 @@
 
 namespace App\Services\Auth;
 
+use App\Jobs\DeliverVerificationCode;
+use App\Mail\StationSignupExistingAccountMail;
 use App\Mail\VerificationCodeMail;
 use App\Models\Invitation;
 use App\Models\User;
@@ -9,6 +11,7 @@ use App\Models\VerificationCode;
 use App\Support\Text;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\RateLimiter;
 
 class VerificationCodeService
 {
@@ -50,22 +53,46 @@ class VerificationCodeService
             return max(1, $retryAt->getTimestamp() - now()->getTimestamp());
         }
 
-        $plain = $this->shouldDeliver($email, $purpose, $token)
-            ? str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT)
-            : null;
-
-        VerificationCode::query()->create([
+        $record = VerificationCode::query()->create([
             'email' => $email,
             'purpose' => $purpose,
-            'code_hash' => $plain ? hash('sha256', $plain) : null,
-            'expires_at' => $plain ? now()->addMinutes(self::TTL_MINUTES) : null,
+            'code_hash' => null,
+            'expires_at' => null,
         ]);
 
-        if ($plain) {
-            Mail::to($email)->queue(new VerificationCodeMail($plain, self::TTL_MINUTES));
-        }
+        $plain = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+
+        DeliverVerificationCode::dispatch($record->id, $plain, $token)->afterResponse();
 
         return self::COOLDOWN_SECONDS;
+    }
+
+    /**
+     * Decide o e-mail depois da resposta. Conta existente no cadastro de posto
+     * recebe o aviso para entrar, sem código.
+     */
+    public function deliver(int $codeId, string $plain, ?string $token): void
+    {
+        $code = VerificationCode::query()->find($codeId);
+
+        if (! $code || $code->code_hash) {
+            return;
+        }
+
+        if (! $this->shouldDeliver($code->email, $code->purpose, $token)) {
+            if ($code->purpose === VerificationCode::STATION_SIGNUP && User::query()->where('email', $code->email)->exists()) {
+                Mail::to($code->email)->queue(new StationSignupExistingAccountMail);
+            }
+
+            return;
+        }
+
+        $code->forceFill([
+            'code_hash' => hash('sha256', $plain),
+            'expires_at' => now()->addMinutes(self::TTL_MINUTES),
+        ])->save();
+
+        Mail::to($code->email)->queue(new VerificationCodeMail($plain, self::TTL_MINUTES));
     }
 
     public function consume(string $email, string $purpose, mixed $plain): void
@@ -77,7 +104,11 @@ class VerificationCodeService
             abort(422, 'O código é obrigatório');
         }
 
-        DB::transaction(function () use ($email, $purpose, $digits) {
+        $this->throttleConsume($email, $purpose);
+
+        $rejected = null;
+
+        DB::transaction(function () use ($email, $purpose, $digits, &$rejected) {
             $code = VerificationCode::query()
                 ->where('email', $email)
                 ->where('purpose', $purpose)
@@ -87,19 +118,27 @@ class VerificationCodeService
                 ->first();
 
             if (! $code) {
-                abort(422, 'Código inválido');
+                $rejected = 'Código inválido';
+
+                return;
             }
 
             if ($code->invalidated_at || $code->attempts >= self::MAX_ATTEMPTS) {
-                abort(422, 'Tentativas esgotadas');
+                $rejected = 'Tentativas esgotadas';
+
+                return;
             }
 
             if ($code->consumed_at) {
-                abort(422, 'Este código já foi usado');
+                $rejected = 'Este código já foi usado';
+
+                return;
             }
 
             if (! $code->expires_at || $code->expires_at->isPast()) {
-                abort(422, 'Este código expirou');
+                $rejected = 'Este código expirou';
+
+                return;
             }
 
             if (! hash_equals($code->code_hash, hash('sha256', $digits))) {
@@ -110,14 +149,30 @@ class VerificationCodeService
                 }
 
                 $code->save();
+                $rejected = $code->attempts >= self::MAX_ATTEMPTS ? 'Tentativas esgotadas' : 'Código inválido';
 
-                abort(422, $code->attempts >= self::MAX_ATTEMPTS ? 'Tentativas esgotadas' : 'Código inválido');
+                return;
             }
 
             $code->forceFill([
                 'consumed_at' => now(),
             ])->save();
         });
+
+        if ($rejected) {
+            abort(422, $rejected);
+        }
+    }
+
+    private function throttleConsume(string $email, string $purpose): void
+    {
+        $key = 'verification-consume:'.hash('sha256', $email.'|'.$purpose);
+
+        if (RateLimiter::tooManyAttempts($key, 30)) {
+            abort(429, 'Muitas tentativas. Tente novamente em instantes');
+        }
+
+        RateLimiter::hit($key, 60);
     }
 
     private function shouldDeliver(string $email, string $purpose, ?string $token): bool

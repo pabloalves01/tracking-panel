@@ -5,7 +5,6 @@ import { InputCpfCnpj } from "@/components/common/inputs/InputCpfCnpj"
 import { InputPassword } from "@/components/common/inputs/InputPassword"
 import { LoadingWrapper } from "@/components/common/LoadingWrapper"
 import { ThemeToggle } from "@/components/layout/ThemeToggle"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
@@ -27,7 +26,6 @@ export default function RegisterFuelStationPage() {
   const [cnpj, setCnpj] = useState(() => onlyDigits(params.get("cnpj")))
   const [station, setStation] = useState(null)
   const [email, setEmail] = useState("")
-  const [accountExists, setAccountExists] = useState(false)
   const [name, setName] = useState("")
   const [password, setPassword] = useState("")
   const [passwordConfirmation, setPasswordConfirmation] = useState("")
@@ -104,7 +102,6 @@ export default function RegisterFuelStationPage() {
   async function handleAccountSubmit(event) {
     event.preventDefault()
     setLoading(true)
-    setAccountExists(false)
     setCodeError("")
 
     try {
@@ -128,12 +125,7 @@ export default function RegisterFuelStationPage() {
       await sendCode()
       setStep(3)
     } catch (error) {
-      const message = error?.response?.data?.message ?? ""
-      if (message.includes("já tem conta")) {
-        setAccountExists(true)
-      } else {
-        notifyError(error)
-      }
+      notifyError(error)
     } finally {
       setLoading(false)
     }
@@ -146,19 +138,11 @@ export default function RegisterFuelStationPage() {
     try {
       await finishSignup(code)
     } catch (error) {
-      const message = error?.response?.data?.message ?? ""
-      if (message.includes("já tem conta")) {
-        setAccountExists(true)
-        setStep(2)
-      } else {
-        setCodeError(apiMessage(error, "Não foi possível confirmar o código."))
-      }
+      setCodeError(apiMessage(error, "Não foi possível confirmar o código."))
     } finally {
       setLoading(false)
     }
   }
-
-  const loginHref = `/auth/login?redirect=${encodeURIComponent(`/auth/register/posto?cnpj=${cnpj}`)}`
 
   return (
     <LoadingWrapper loading={loading}>
@@ -229,18 +213,7 @@ export default function RegisterFuelStationPage() {
                       O posto só é criado depois que o código for confirmado.
                     </p>
                   </div>
-                  {accountExists ? (
-                    <Alert>
-                      <AlertTitle>Conta já existente</AlertTitle>
-                      <AlertDescription>
-                        Este e-mail já tem conta. Entre para cadastrar o posto.
-                      </AlertDescription>
-                      <Button className="mt-3" render={<Link to={loginHref} />}>
-                        Entrar
-                      </Button>
-                    </Alert>
-                  ) : (
-                    <CodeStep
+                  <CodeStep
                       email={email}
                       retryAfter={retryAfter}
                       submitting={loading}
@@ -260,7 +233,6 @@ export default function RegisterFuelStationPage() {
                         setCodeError("")
                       }}
                     />
-                  )}
                 </div>
               ) : null}
 
@@ -298,10 +270,7 @@ export default function RegisterFuelStationPage() {
                             value={email}
                             autoComplete="email"
                             required
-                            onChange={(event) => {
-                              setEmail(event.target.value)
-                              setAccountExists(false)
-                            }}
+                            onChange={(event) => setEmail(event.target.value)}
                           />
                         </Field>
                         <Field>
@@ -326,17 +295,6 @@ export default function RegisterFuelStationPage() {
                         </Field>
                       </>
                     )}
-                    {accountExists ? (
-                      <Alert>
-                        <AlertTitle>Conta já existente</AlertTitle>
-                        <AlertDescription>
-                          Este e-mail já tem conta. Entre para cadastrar o posto.
-                        </AlertDescription>
-                        <Button className="mt-3" render={<Link to={loginHref} />}>
-                          Entrar
-                        </Button>
-                      </Alert>
-                    ) : null}
                     {codeError ? <p className="text-sm text-destructive" role="alert">{codeError}</p> : null}
                     <Field>
                       <Button type="submit" disabled={loading}>

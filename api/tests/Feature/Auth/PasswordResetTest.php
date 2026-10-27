@@ -45,6 +45,8 @@ class PasswordResetTest extends TestCase
             'email_verified_at' => null,
         ]);
 
+        $oldToken = $user->createToken('web')->plainTextToken;
+
         $this->postJson('/api/auth/password/forgot', [
             'email' => 'dona@melo.test',
         ])->assertOk();
@@ -66,6 +68,13 @@ class PasswordResetTest extends TestCase
 
         $this->assertTrue(Hash::check('senha-nova-1', $user->fresh()->password));
         $this->assertNotNull($user->fresh()->email_verified_at);
+        $this->assertSame(0, $user->tokens()->count());
+
+        $this->withToken($oldToken)
+            ->getJson('/api/auth/me')
+            ->assertUnauthorized();
+
+        $this->flushHeaders();
 
         $this->postJson('/api/auth/login', [
             'email' => 'dona@melo.test',

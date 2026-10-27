@@ -8,7 +8,7 @@ export default function App() {
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
       <RouterProvider router={router} />
-      <Toaster position="top-right" />
+      <Toaster position="top-right" offset={{ top: 72, right: 16 }} mobileOffset={{ top: 72, right: 16 }} />
     </ThemeProvider>
   )
 }
