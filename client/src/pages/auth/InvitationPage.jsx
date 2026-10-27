@@ -89,7 +89,15 @@ export default function InvitationPage() {
             localStorage.removeItem('token')
         }
 
-        navigate(loginRedirect)
+        setUser(null)
+        setStep('account')
+
+        if (invite?.account_exists) {
+            navigate(loginRedirect)
+            return
+        }
+
+        setLoading(false)
     }
 
     async function handleRegisterDetails(event) {

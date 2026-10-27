@@ -16,7 +16,7 @@ class MemberReadOnlyTest extends TestCase
 
     public function test_membro_grava_cadastros_e_postos_e_nao_gerencia_usuarios(): void
     {
-        [$company, $owner, $member] = $this->company();
+        [$company, $owner, $admin, $member] = $this->company();
         $memberToken = $this->token($member, $company);
 
         $reads = [
@@ -35,6 +35,13 @@ class MemberReadOnlyTest extends TestCase
         foreach ($reads as $url) {
             $this->actingToken($memberToken)->getJson($url)->assertOk();
         }
+
+        $this->actingToken($this->token($owner, $company))
+            ->getJson('/api/company/users')
+            ->assertOk();
+        $this->actingToken($this->token($admin, $company))
+            ->getJson('/api/company/users')
+            ->assertOk();
 
         $this->actingToken($memberToken)
             ->getJson('/api/company/users')
@@ -121,11 +128,18 @@ class MemberReadOnlyTest extends TestCase
             'status' => 'active',
         ]);
         $owner = User::factory()->create(['email' => 'dono@posto.test', 'password' => 'senha1234']);
+        $admin = User::factory()->create(['email' => 'admin@posto.test', 'password' => 'senha1234']);
         $member = User::factory()->create(['email' => 'equipe@posto.test', 'password' => 'senha1234']);
         FuelStationUser::query()->create([
             'fuel_station_id' => $station->id,
             'user_id' => $owner->id,
             'role' => 'owner',
+            'status' => 'active',
+        ]);
+        FuelStationUser::query()->create([
+            'fuel_station_id' => $station->id,
+            'user_id' => $admin->id,
+            'role' => 'admin',
             'status' => 'active',
         ]);
         FuelStationUser::query()->create([
@@ -144,6 +158,13 @@ class MemberReadOnlyTest extends TestCase
 
         $this->actingToken($memberToken)->getJson('/api/station/companies')->assertOk();
         $this->actingToken($memberToken)->getJson('/api/station/me')->assertOk();
+        $this->actingToken($this->stationToken($owner, $station))
+            ->getJson('/api/station/users')
+            ->assertOk();
+        $this->actingToken($this->stationToken($admin, $station))
+            ->getJson('/api/station/users')
+            ->assertOk();
+
         $this->actingToken($memberToken)
             ->getJson('/api/station/users')
             ->assertForbidden()
@@ -174,7 +195,7 @@ class MemberReadOnlyTest extends TestCase
     }
 
     /**
-     * @return array{0: Company, 1: User, 2: User}
+     * @return array{0: Company, 1: User, 2: User, 3: User}
      */
     private function company(): array
     {
@@ -184,11 +205,13 @@ class MemberReadOnlyTest extends TestCase
             'cnpj' => '00000000000191',
         ]);
         $owner = User::factory()->create(['email' => 'owner@melo.test', 'password' => 'senha1234']);
+        $admin = User::factory()->create(['email' => 'admin@melo.test', 'password' => 'senha1234']);
         $member = User::factory()->create(['email' => 'membro@melo.test', 'password' => 'senha1234']);
         $owner->companies()->attach($company->id, ['role' => 'owner', 'status' => 'active']);
+        $admin->companies()->attach($company->id, ['role' => 'admin', 'status' => 'active']);
         $member->companies()->attach($company->id, ['role' => 'member', 'status' => 'active']);
 
-        return [$company, $owner, $member];
+        return [$company, $owner, $admin, $member];
     }
 
     private function actingToken(string $token)

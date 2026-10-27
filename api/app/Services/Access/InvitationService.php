@@ -141,6 +141,7 @@ class InvitationService
             'role' => $invitation->role,
             'status' => $invitation->status,
             'expires_at' => $invitation->expires_at?->toIso8601String(),
+            'account_exists' => User::query()->where('email', Text::email($invitation->email))->exists(),
             'organization' => $company ? [
                 'type' => 'company',
                 'name' => $company->trade_name ?: $company->legal_name,

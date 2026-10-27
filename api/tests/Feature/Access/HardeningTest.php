@@ -147,7 +147,7 @@ class HardeningTest extends TestCase
             ->assertJsonPath('message', 'Este convite foi cancelado');
     }
 
-    public function test_convite_unico_informa_se_a_conta_existe_so_para_quem_convida(): void
+    public function test_convite_informa_conta_existente_a_quem_convida_e_a_quem_tem_o_link(): void
     {
         $company = $this->company('00000000000191', 'dona@melo.test');
         User::factory()->create(['email' => 'ja-tem@melo.test', 'password' => 'senha1234']);
@@ -176,9 +176,17 @@ class HardeningTest extends TestCase
             ])->assertCreated()
             ->assertJsonPath('data.account_exists', false);
 
-        $preview = $this->getJson('/api/auth/invitations/'.basename((string) $fresh->json('data.invite_url')))
-            ->assertOk();
-        $this->assertArrayNotHasKey('account_exists', $preview->json());
+        $this->getJson('/api/auth/invitations/'.basename((string) $fresh->json('data.invite_url')))
+            ->assertOk()
+            ->assertJsonPath('account_exists', false)
+            ->assertJsonPath('email', 'novo@melo.test');
+
+        $this->getJson('/api/auth/invitations/'.basename((string) $known->json('data.invite_url')))
+            ->assertOk()
+            ->assertJsonPath('account_exists', true)
+            ->assertJsonPath('email', 'ja-tem@melo.test');
+
+        $this->getJson('/api/auth/invitations/token-inexistente')->assertNotFound();
         $this->assertSame(2, Invitation::query()->count());
     }
 
