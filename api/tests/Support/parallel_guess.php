@@ -7,11 +7,12 @@ require __DIR__.'/../../vendor/autoload.php';
 $app = require __DIR__.'/../../bootstrap/app.php';
 $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
 $content = getenv('GUESS_PAYLOAD') ?: '{}';
+$ip = getenv('GUESS_IP') ?: '127.0.0.1';
 
 $request = Request::create('/api/auth/station-signup', 'POST', [], [], [], [
     'HTTP_ACCEPT' => 'application/json',
     'CONTENT_TYPE' => 'application/json',
-    'REMOTE_ADDR' => '127.0.0.1',
+    'REMOTE_ADDR' => $ip,
 ], $content);
 
 $response = $kernel->handle($request);

@@ -289,7 +289,7 @@ class VerificationCodeTest extends TestCase
             $this->markTestSkipped('Concorrência só roda no PostgreSQL.');
         }
 
-        $email = 'paralelo.palpite@posto.test';
+        $email = 'paralelo.'.bin2hex(random_bytes(6)).'@posto.test';
         $config = config('database.connections.pgsql');
         config(['database.connections.guess_outside' => $config]);
         DB::purge('guess_outside');
@@ -326,9 +326,9 @@ class VerificationCodeTest extends TestCase
         $env = array_merge($env, [
             'APP_ENV' => 'testing',
             'CACHE_STORE' => 'file',
-            'CACHE_PREFIX' => 'guess-'.bin2hex(random_bytes(8)),
             'DB_CONNECTION' => 'pgsql',
             'GUESS_PAYLOAD' => $payload,
+            'GUESS_IP' => '10.'.random_int(0, 255).'.'.random_int(0, 255).'.'.random_int(1, 254),
         ]);
 
         try {
@@ -350,8 +350,9 @@ class VerificationCodeTest extends TestCase
             }
 
             $counts = array_count_values($statuses);
-            $this->assertSame(10, $counts[422] ?? 0);
-            $this->assertSame(2, $counts[429] ?? 0);
+            $summary = json_encode($statuses);
+            $this->assertSame(10, $counts[422] ?? 0, $summary);
+            $this->assertSame(2, $counts[429] ?? 0, $summary);
             $this->assertNull($outside->table('verification_codes')->where('email', $email)->value('consumed_at'));
         } finally {
             $outside->table('verification_codes')->where('email', $email)->delete();
