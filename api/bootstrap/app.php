@@ -30,8 +30,14 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $exceptions->render(function (ThrottleRequestsException $exception, Request $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
+                $seconds = (int) ($exception->getHeaders()['Retry-After'] ?? 0);
+                $message = $seconds > 0
+                    ? "Muitas tentativas. Tente novamente em {$seconds} segundos."
+                    : 'Muitas tentativas. Tente novamente em instantes';
+
                 return response()->json([
-                    'message' => 'Muitas tentativas. Tente novamente em instantes',
+                    'message' => $message,
+                    'retry_after' => $seconds,
                 ], 429, $exception->getHeaders());
             }
 

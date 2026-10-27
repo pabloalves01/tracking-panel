@@ -19,7 +19,7 @@ export function memberApi(base) {
             return api.get(`${base}/invitations`).then((response) => response.data.data)
         },
         invite(payload) {
-            return api.post(`${base}/invitations`, payload).then((response) => response.data.data)
+            return api.post(`${base}/invitations`, payload).then((response) => response.data)
         },
         resend(uuid) {
             return api.post(`${base}/invitations/${uuid}/resend`).then((response) => response.data.data)

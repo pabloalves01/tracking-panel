@@ -4,6 +4,7 @@ namespace App\Http\Requests\Registry\Supplier;
 
 use App\Models\Registry\Supplier;
 use App\Rules\PixKeyForType;
+use App\Support\Text;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -27,7 +28,7 @@ class UpdateSupplierRequest extends FormRequest
      */
     private function normalizedPix(): array
     {
-        $pixKey = trim((string) $this->input('pix_key', ''));
+        $pixKey = Text::plain($this->input('pix_key', ''));
         $pixKeyType = $this->input('pix_key_type');
 
         if ($pixKey === '') {

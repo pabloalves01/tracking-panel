@@ -19,6 +19,10 @@ class Cpf implements ValidationRule
 
     public static function digits(mixed $value): string
     {
+        if (! is_scalar($value)) {
+            return '';
+        }
+
         return preg_replace('/\D/', '', (string) $value) ?? '';
     }
 

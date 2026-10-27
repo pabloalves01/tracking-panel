@@ -3,6 +3,7 @@
 namespace App\Http\Requests\System\Company;
 
 use App\Support\Membership;
+use App\Support\Text;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -15,16 +16,29 @@ class StoreCompanyInvitationRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $this->merge([
-            'email' => strtolower(trim((string) $this->input('email'))),
-        ]);
+        $payload = [];
+
+        if ($this->exists('email')) {
+            $payload['email'] = Text::email($this->input('email'));
+        }
+
+        if (is_array($this->input('emails'))) {
+            $payload['emails'] = array_map(
+                fn (mixed $email) => Text::email($email),
+                $this->input('emails'),
+            );
+        }
+
+        $this->merge($payload);
     }
 
     public function rules(): array
     {
         return [
-            'email' => ['required', 'email', 'max:255'],
-            'role' => ['required', Rule::in([Membership::OWNER, Membership::ADMIN])],
+            'email' => ['required_without:emails', 'nullable', 'email', 'max:255'],
+            'emails' => ['required_without:email', 'array', 'min:1', 'max:20'],
+            'emails.*' => ['string', 'max:255'],
+            'role' => ['required', 'string', Rule::in([Membership::OWNER, Membership::ADMIN])],
         ];
     }
 

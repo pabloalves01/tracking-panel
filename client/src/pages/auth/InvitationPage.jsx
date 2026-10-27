@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 
+import { CodeStep } from '@/components/auth/CodeStep'
 import { InputPassword } from '@/components/common/inputs/InputPassword'
 import { LoadingWrapper } from '@/components/common/LoadingWrapper'
 import { ThemeToggle } from '@/components/layout/ThemeToggle'
@@ -8,11 +9,12 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { me } from '@/lib/auth/auth'
-import { acceptInvitation, declineInvitation, previewInvitation, registerInvitation } from '@/lib/auth/invitations'
 import { invitationStatusLabel } from '@/helpers/labels/linkStatusLabel'
 import { roleLabel } from '@/helpers/labels/roleLabel'
-import { notifyError, notifySuccess } from '@/lib/notify'
+import { me } from '@/lib/auth/auth'
+import { acceptInvitation, declineInvitation, previewInvitation, registerInvitation } from '@/lib/auth/invitations'
+import { sendVerificationCode } from '@/lib/auth/verification'
+import { apiMessage, notifyError, notifySuccess } from '@/lib/notify'
 
 export default function InvitationPage() {
     const { token } = useParams()
@@ -20,9 +22,12 @@ export default function InvitationPage() {
     const [loading, setLoading] = useState(true)
     const [invite, setInvite] = useState(null)
     const [user, setUser] = useState(null)
+    const [step, setStep] = useState('account')
     const [name, setName] = useState('')
     const [password, setPassword] = useState('')
     const [passwordConfirmation, setPasswordConfirmation] = useState('')
+    const [retryAfter, setRetryAfter] = useState(60)
+    const [error, setError] = useState('')
 
     useEffect(() => {
         let active = true
@@ -41,8 +46,8 @@ export default function InvitationPage() {
                         localStorage.removeItem('token')
                     }
                 }
-            } catch (error) {
-                if (active) notifyError(error)
+            } catch (requestError) {
+                if (active) notifyError(requestError)
             } finally {
                 if (active) setLoading(false)
             }
@@ -59,20 +64,59 @@ export default function InvitationPage() {
         window.location.assign(organizationType === 'fuel_station' ? '/posto' : '/app')
     }
 
-    async function handleRegister(event) {
+    async function sendCode() {
+        const response = await sendVerificationCode({
+            email: invite.email,
+            purpose: 'invitation_register',
+            token,
+        })
+        const seconds = Number(response.retry_after) || 60
+        setRetryAfter(seconds)
+
+        return seconds
+    }
+
+    async function handleRegisterDetails(event) {
         event.preventDefault()
+        setError('')
+
+        if (password.length < 8) {
+            setError('A senha deve ter no mínimo 8 caracteres')
+            return
+        }
+
+        if (password !== passwordConfirmation) {
+            setError('A confirmação da senha não confere')
+            return
+        }
+
         setLoading(true)
+
+        try {
+            await sendCode()
+            setStep('code')
+        } catch (requestError) {
+            setError(apiMessage(requestError, 'Não foi possível enviar o código.'))
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    async function handleCode(code) {
+        setLoading(true)
+        setError('')
 
         try {
             const response = await registerInvitation(token, {
                 name,
                 password,
                 password_confirmation: passwordConfirmation,
+                code,
             })
             notifySuccess(response)
             goAfterAccept(invite?.organization?.type)
-        } catch (error) {
-            notifyError(error)
+        } catch (requestError) {
+            setError(apiMessage(requestError, 'Não foi possível confirmar o código.'))
             setLoading(false)
         }
     }
@@ -84,8 +128,8 @@ export default function InvitationPage() {
             const response = await acceptInvitation(token)
             notifySuccess(response)
             goAfterAccept(invite?.organization?.type)
-        } catch (error) {
-            notifyError(error)
+        } catch (requestError) {
+            notifyError(requestError)
             setLoading(false)
         }
     }
@@ -97,8 +141,8 @@ export default function InvitationPage() {
             const response = await declineInvitation(token)
             notifySuccess(response)
             setInvite((current) => ({ ...current, status: 'declined' }))
-        } catch (error) {
-            notifyError(error)
+        } catch (requestError) {
+            notifyError(requestError)
         } finally {
             setLoading(false)
         }
@@ -106,10 +150,10 @@ export default function InvitationPage() {
 
     const pending = invite?.status === 'pending'
     const sameEmail = user?.email && invite?.email && user.email.toLowerCase() === invite.email.toLowerCase()
-    const loginRedirect = `/auth/login?redirect=${encodeURIComponent(`/auth/convite/${token}`)}`
+    const loginRedirect = `/auth/login?redirect=${encodeURIComponent(`/auth/convite/${token}`)}&email=${encodeURIComponent(invite?.email ?? '')}&email_locked=1`
 
     return (
-        <LoadingWrapper loading={loading}>
+        <LoadingWrapper loading={loading && step !== 'code'}>
             <div className="flex min-h-svh flex-col gap-4 p-6 md:p-10">
                 <div className="flex items-center justify-between">
                     <Link to="/auth/login" className="flex items-center gap-2 font-medium">
@@ -131,8 +175,8 @@ export default function InvitationPage() {
                                     </p>
                                 </div>
 
-                                {pending && !invite.account_exists ? (
-                                    <form className="flex flex-col gap-6" onSubmit={handleRegister}>
+                                {pending && !invite.account_exists && step === 'account' ? (
+                                    <form className="flex flex-col gap-6" onSubmit={handleRegisterDetails}>
                                         <FieldGroup>
                                             <Field>
                                                 <FieldLabel htmlFor="invite-name">Nome</FieldLabel>
@@ -164,9 +208,33 @@ export default function InvitationPage() {
                                                     placeholder="Repita a senha"
                                                 />
                                             </Field>
-                                            <Button type="submit">Criar conta e aceitar</Button>
+                                            {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
+                                            <Button type="submit" disabled={loading}>Continuar</Button>
                                         </FieldGroup>
                                     </form>
+                                ) : null}
+
+                                {pending && !invite.account_exists && step === 'code' ? (
+                                    <CodeStep
+                                        email={invite.email}
+                                        retryAfter={retryAfter}
+                                        submitting={loading}
+                                        error={error}
+                                        onSubmit={handleCode}
+                                        onResend={async () => {
+                                            setError('')
+                                            try {
+                                                return await sendCode()
+                                            } catch (requestError) {
+                                                setError(apiMessage(requestError, 'Não foi possível reenviar o código.'))
+                                                return 0
+                                            }
+                                        }}
+                                        onChangeEmail={() => {
+                                            setStep('account')
+                                            setError('')
+                                        }}
+                                    />
                                 ) : null}
 
                                 {pending && invite.account_exists && !user ? (
@@ -176,7 +244,7 @@ export default function InvitationPage() {
                                             Este e-mail já tem conta. Entre com ele para aceitar o convite.
                                         </AlertDescription>
                                         <Button className="mt-3" render={<Link to={loginRedirect} />}>
-                                            Entrar
+                                            Entrar para aceitar
                                         </Button>
                                     </Alert>
                                 ) : null}
@@ -189,8 +257,11 @@ export default function InvitationPage() {
                                     <Alert>
                                         <AlertTitle>Conta diferente</AlertTitle>
                                         <AlertDescription>
-                                            Você entrou como {user.email}. Este convite é para {invite.email}.
+                                            Você entrou como {user.email}. Este convite é para {invite.email}. Saia e entre com o e-mail do convite.
                                         </AlertDescription>
+                                        <Button className="mt-3" render={<Link to={loginRedirect} />}>
+                                            Entrar com o e-mail do convite
+                                        </Button>
                                     </Alert>
                                 ) : null}
 

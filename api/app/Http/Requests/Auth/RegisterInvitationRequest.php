@@ -15,7 +15,8 @@ class RegisterInvitationRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'password' => ['required', 'string', 'min:8', 'max:255', 'confirmed'],
+            'code' => ['nullable', 'string', 'max:12'],
         ];
     }
 

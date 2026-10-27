@@ -12,6 +12,7 @@ use App\Models\FuelStation;
 use App\Models\Invitation;
 use App\Services\Access\InvitationService;
 use Illuminate\Http\Request;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class InvitationAcceptController extends Controller
 {
@@ -28,6 +29,7 @@ class InvitationAcceptController extends Controller
             $token,
             $request->validated('name'),
             $request->validated('password'),
+            $request->input('code'),
         );
 
         return response()->json($this->session($user, 'Conta criada e convite aceito'), 201);
@@ -41,6 +43,33 @@ class InvitationAcceptController extends Controller
         return response()->json([
             'message' => 'Convite aceito',
             'user' => UserResource::make($request->user()),
+        ]);
+    }
+
+    public function mine(Request $request)
+    {
+        return response()->json([
+            'data' => $this->invitations->pendingFor($request->user()),
+        ]);
+    }
+
+    public function acceptMine(Request $request, string $uuid)
+    {
+        $invitation = $this->invitations->acceptForUser($request->user(), $uuid);
+        $this->enterFromInvitation($request->user(), $invitation);
+
+        return response()->json([
+            'message' => 'Convite aceito',
+            'user' => UserResource::make($request->user()),
+        ]);
+    }
+
+    public function declineMine(Request $request, string $uuid)
+    {
+        $this->invitations->declineForUser($request->user(), $uuid);
+
+        return response()->json([
+            'message' => 'Convite recusado',
         ]);
     }
 
@@ -81,9 +110,17 @@ class InvitationAcceptController extends Controller
     private function enterContext($user, string $plainToken): void
     {
         $invitation = Invitation::query()->where('token_hash', hash('sha256', $plainToken))->first();
+
+        if ($invitation) {
+            $this->enterFromInvitation($user, $invitation);
+        }
+    }
+
+    private function enterFromInvitation($user, Invitation $invitation): void
+    {
         $access = $user->currentAccessToken();
 
-        if (! $invitation || ! $access) {
+        if (! $access instanceof PersonalAccessToken) {
             return;
         }
 

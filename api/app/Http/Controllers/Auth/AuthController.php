@@ -10,11 +10,14 @@ use App\Http\Resources\Auth\UserResource;
 use App\Http\Resources\FuelStation\FuelStationResource;
 use App\Http\Resources\System\Company\CompanyResource;
 use App\Models\Company;
+use App\Services\Access\InvitationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class AuthController extends Controller
 {
+    public function __construct(private InvitationService $invitations) {}
+
     public function login(LoginRequest $request)
     {
         $credentials = $request->only('email', 'password');
@@ -41,6 +44,7 @@ class AuthController extends Controller
             'user' => UserResource::make($user),
             'companies' => CompanyResource::collection($companies),
             'fuel_stations' => FuelStationResource::collection($stations),
+            'invitations' => $this->invitations->pendingFor($user),
         ]);
     }
 
@@ -94,12 +98,14 @@ class AuthController extends Controller
             'fuel_stations' => FuelStationResource::collection(
                 $request->user()->fuelStations()->with(['city', 'state'])->get()
             ),
+            'invitations' => $this->invitations->pendingFor($request->user()),
         ]);
     }
 
     public function logout(Request $request)
     {
         $request->user()->currentAccessToken()->delete();
+
         return response()->json(['message' => 'Sessão encerrada.']);
     }
 }

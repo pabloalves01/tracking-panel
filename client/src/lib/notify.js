@@ -18,6 +18,10 @@ export function notifySuccess(payload) {
     })
 }
 
+export function apiMessage(error, fallback = 'Não foi possível completar a operação.') {
+    return getApiMessage(error?.response?.data ?? error, fallback)
+}
+
 export function notifyError(error) {
     const status = error?.response?.status
     const title = !status || status >= 500 ? titles.server : titles.error

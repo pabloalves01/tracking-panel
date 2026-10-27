@@ -5,6 +5,8 @@ use App\Http\Controllers\Access\MemberController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\FuelStationSignupController;
 use App\Http\Controllers\Auth\InvitationAcceptController;
+use App\Http\Controllers\Auth\PasswordResetController;
+use App\Http\Controllers\Auth\VerificationCodeController;
 use App\Http\Controllers\FuelStation\StationCompanyController;
 use App\Http\Controllers\FuelStation\StationController;
 use App\Http\Controllers\Location\LocationController;
@@ -38,6 +40,12 @@ Route::post('/ship-operation-perimeters', [ShipOperationPerimeterController::cla
 Route::prefix('auth')->group(function () {
     Route::post('login', [AuthController::class, 'login'])
         ->middleware('throttle:20,1,login');
+    Route::post('verification-codes', [VerificationCodeController::class, 'store'])
+        ->middleware('throttle:10,1,verification-send');
+    Route::post('password/forgot', [PasswordResetController::class, 'forgot'])
+        ->middleware('throttle:5,1,password-forgot');
+    Route::post('password/reset', [PasswordResetController::class, 'reset'])
+        ->middleware('throttle:10,1,password-reset');
 
     Route::prefix('station-signup')->group(function () {
         Route::get('cnpj/{cnpj}', [FuelStationSignupController::class, 'cnpj'])
@@ -66,6 +74,9 @@ Route::prefix('auth')->group(function () {
             ->middleware('throttle:20,1,station-create');
         Route::post('invitations/{token}/accept', [InvitationAcceptController::class, 'accept'])
             ->middleware('throttle:20,1,invitation-accept');
+        Route::get('pending-invitations', [InvitationAcceptController::class, 'mine']);
+        Route::post('pending-invitations/{uuid}/accept', [InvitationAcceptController::class, 'acceptMine']);
+        Route::post('pending-invitations/{uuid}/decline', [InvitationAcceptController::class, 'declineMine']);
     });
 });
 

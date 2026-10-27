@@ -5,6 +5,7 @@ namespace App\Http\Requests\Registry\CommonEntity;
 use App\Models\Registry\CommonEntity;
 use App\Rules\CpfCnpjForPersonType;
 use App\Support\CurrentCompany;
+use App\Support\Text;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -17,7 +18,7 @@ class UpdateCommonEntityRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $document = preg_replace('/\D/', '', (string) $this->input('cpf_cnpj', '')) ?? '';
+        $document = Text::digits($this->input('cpf_cnpj', ''));
 
         $optional = [];
 
@@ -30,7 +31,7 @@ class UpdateCommonEntityRequest extends FormRequest
         }
 
         if (filled($optional['emergency_phone'] ?? null)) {
-            $optional['emergency_phone'] = preg_replace('/\D/', '', (string) $optional['emergency_phone']) ?? '';
+            $optional['emergency_phone'] = Text::digits($optional['emergency_phone']);
         }
 
         $this->merge([

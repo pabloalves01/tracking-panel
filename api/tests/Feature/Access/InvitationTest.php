@@ -8,6 +8,7 @@ use App\Models\FuelStation;
 use App\Models\FuelStationUser;
 use App\Models\Invitation;
 use App\Models\User;
+use App\Models\VerificationCode;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -20,11 +21,13 @@ class InvitationTest extends TestCase
     public function test_convite_cria_conta_e_entra_na_empresa(): void
     {
         [$token] = $this->companyInvite('dona@melo.test');
+        $this->plantCode('dona@melo.test', VerificationCode::INVITATION_REGISTER);
 
         $this->postJson('/api/auth/invitations/'.$token.'/register', [
             'name' => 'Dona',
             'password' => 'senha1234',
             'password_confirmation' => 'senha1234',
+            'code' => '123456',
             'is_system_admin' => true,
         ])->assertCreated()
             ->assertJsonPath('user.email', 'dona@melo.test')
@@ -32,6 +35,7 @@ class InvitationTest extends TestCase
             ->assertJsonPath('user.current_role', 'owner')
             ->assertJsonPath('user.has_company', true);
 
+        $this->assertNotNull(User::query()->where('email', 'dona@melo.test')->first()->email_verified_at);
         $this->assertSame(1, CompanyUser::query()->where('role', 'owner')->where('status', 'active')->count());
         $this->assertDatabaseHas('audit_logs', ['action' => 'invitation.accepted']);
     }
@@ -305,6 +309,16 @@ class InvitationTest extends TestCase
         ]);
 
         return $station;
+    }
+
+    private function plantCode(string $email, string $purpose, string $code = '123456'): void
+    {
+        VerificationCode::query()->create([
+            'email' => $email,
+            'purpose' => $purpose,
+            'code_hash' => hash('sha256', $code),
+            'expires_at' => now()->addMinutes(10),
+        ]);
     }
 
     private function actingToken(string $token)

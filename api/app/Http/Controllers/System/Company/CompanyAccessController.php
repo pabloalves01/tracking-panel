@@ -37,6 +37,18 @@ class CompanyAccessController extends Controller
 
     public function store(StoreCompanyInvitationRequest $request, string $uuid)
     {
+        if (is_array($request->input('emails'))) {
+            return response()->json([
+                'results' => $this->invitations->createManyForCompany(
+                    $this->company($uuid),
+                    $request->validated('emails'),
+                    $request->validated('role'),
+                    $request->user(),
+                    true,
+                ),
+            ]);
+        }
+
         $invitation = $this->invitations->createForCompany(
             $this->company($uuid),
             $request->validated('email'),

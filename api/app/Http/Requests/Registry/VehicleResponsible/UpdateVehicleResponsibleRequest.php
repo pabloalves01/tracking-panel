@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Registry\VehicleResponsible;
 
 use App\Rules\PixKeyForType;
+use App\Support\Text;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateVehicleResponsibleRequest extends FormRequest
@@ -24,7 +25,7 @@ class UpdateVehicleResponsibleRequest extends FormRequest
      */
     private function normalizedPix(): array
     {
-        $pixKey = trim((string) $this->input('pix_key', ''));
+        $pixKey = Text::plain($this->input('pix_key', ''));
         $pixKeyType = $this->input('pix_key_type');
 
         if ($pixKey === '') {
@@ -61,5 +62,4 @@ class UpdateVehicleResponsibleRequest extends FormRequest
             'pix_key.max' => 'A chave PIX deve ter no máximo 255 caracteres',
         ];
     }
-
 }

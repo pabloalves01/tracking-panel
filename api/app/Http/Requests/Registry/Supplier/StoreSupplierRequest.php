@@ -4,6 +4,7 @@ namespace App\Http\Requests\Registry\Supplier;
 
 use App\Rules\CpfCnpjForPersonType;
 use App\Rules\PixKeyForType;
+use App\Support\Text;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -23,7 +24,7 @@ class StoreSupplierRequest extends FormRequest
         }
 
         if (array_key_exists('cpf_cnpj', $entity)) {
-            $entity['cpf_cnpj'] = preg_replace('/\D/', '', (string) $entity['cpf_cnpj']) ?? '';
+            $entity['cpf_cnpj'] = Text::digits($entity['cpf_cnpj']);
         }
 
         $this->merge([
@@ -38,7 +39,7 @@ class StoreSupplierRequest extends FormRequest
      */
     private function normalizedPix(): array
     {
-        $pixKey = trim((string) $this->input('pix_key', ''));
+        $pixKey = Text::plain($this->input('pix_key', ''));
         $pixKeyType = $this->input('pix_key_type');
 
         if ($pixKey === '') {

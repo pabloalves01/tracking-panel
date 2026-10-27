@@ -15,10 +15,10 @@ import {
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
+import { linkStatusLabel, statusBadgeClass } from '@/helpers/labels/linkStatusLabel'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { formatCpfCnpj } from '@/helpers/formatters'
-import { linkStatusLabel } from '@/helpers/labels/linkStatusLabel'
 import { deleteCompanyFuelStation, disconnectCompanyFuelStation, getCompanyFuelStations, resendCompanyFuelStationRequest } from '@/lib/registry/fuelStations'
 import { useSession } from '@/lib/auth/session'
 import { notifyError, notifySuccess } from '@/lib/notify'
@@ -124,7 +124,7 @@ export default function FuelStationsPage() {
                                     <TableCell>{stationLabel(link)}</TableCell>
                                     <TableCell>{formatCpfCnpj(link.cnpj)}</TableCell>
                                     <TableCell>
-                                        <Badge variant={link.status === 'active' ? 'secondary' : 'outline'}>
+                                        <Badge variant="outline" className={statusBadgeClass(link.status)}>
                                             {linkStatusLabel[link.status] ?? link.status}
                                         </Badge>
                                     </TableCell>

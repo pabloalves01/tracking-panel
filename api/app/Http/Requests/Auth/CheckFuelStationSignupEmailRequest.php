@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Support\Text;
 use Illuminate\Foundation\Http\FormRequest;
 
 class CheckFuelStationSignupEmailRequest extends FormRequest
@@ -14,7 +15,7 @@ class CheckFuelStationSignupEmailRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $this->merge([
-            'email' => strtolower(trim((string) $this->input('email'))),
+            'email' => Text::email($this->input('email')),
         ]);
     }
 

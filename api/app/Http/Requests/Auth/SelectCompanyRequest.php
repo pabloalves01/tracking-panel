@@ -11,6 +11,13 @@ class SelectCompanyRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if (! is_string($this->input('uuid'))) {
+            $this->merge(['uuid' => '']);
+        }
+    }
+
     public function rules(): array
     {
         return [

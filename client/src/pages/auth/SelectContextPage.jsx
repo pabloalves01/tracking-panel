@@ -7,14 +7,26 @@ import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTi
 import { roleLabel } from "@/helpers/labels/roleLabel"
 import { LoadingWrapper } from "@/components/common/LoadingWrapper"
 import { formatCpfCnpj } from "@/helpers/formatters"
-import { getAuthContexts, logout, me, selectCompany, selectFuelStation } from "@/lib/auth/auth"
-import { notifyError } from "@/lib/notify"
+import { acceptPendingInvitation, declinePendingInvitation, getAuthContexts, logout, me, selectCompany, selectFuelStation } from "@/lib/auth/auth"
+import { notifyError, notifySuccess } from "@/lib/notify"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 export default function SelectContextPage() {
     const navigate = useNavigate()
     const [user, setUser] = useState(null)
     const [companies, setCompanies] = useState([])
     const [stations, setStations] = useState([])
+    const [invitations, setInvitations] = useState([])
+    const [inviteToDecline, setInviteToDecline] = useState(null)
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
@@ -23,6 +35,7 @@ export default function SelectContextPage() {
                 setUser(currentUser)
                 setCompanies(contexts.companies ?? [])
                 setStations(contexts.fuel_stations ?? [])
+                setInvitations(contexts.invitations ?? [])
             })
             .catch(notifyError)
             .finally(() => setLoading(false))
@@ -48,6 +61,36 @@ export default function SelectContextPage() {
             navigate("/posto")
         } catch (error) {
             notifyError(error)
+            setLoading(false)
+        }
+    }
+
+    async function handleAcceptInvite(invitation) {
+        setLoading(true)
+
+        try {
+            const response = await acceptPendingInvitation(invitation.uuid)
+            notifySuccess(response)
+            window.location.assign(invitation.organization?.type === "fuel_station" ? "/posto" : "/app")
+        } catch (error) {
+            notifyError(error)
+            setLoading(false)
+        }
+    }
+
+    async function handleDeclineInvite() {
+        if (!inviteToDecline) return
+
+        setLoading(true)
+
+        try {
+            const response = await declinePendingInvitation(inviteToDecline.uuid)
+            notifySuccess(response)
+            setInvitations((current) => current.filter((item) => item.uuid !== inviteToDecline.uuid))
+            setInviteToDecline(null)
+        } catch (error) {
+            notifyError(error)
+        } finally {
             setLoading(false)
         }
     }
@@ -78,6 +121,26 @@ export default function SelectContextPage() {
                                 Escolha em qual empresa ou posto você quer entrar.
                             </p>
                         </div>
+
+                        {invitations.length > 0 ? (
+                            <section className="flex w-full flex-col items-center gap-4">
+                                <h2 className="text-lg font-semibold">Convites pendentes</h2>
+                                <div className="flex w-full flex-wrap justify-center gap-4">
+                                    {invitations.map((invitation) => (
+                                        <article key={invitation.uuid} className="flex w-full max-w-sm flex-col gap-3 rounded-xl border bg-card/95 p-5 text-card-foreground shadow-sm sm:w-72">
+                                            <p className="font-medium">{invitation.organization?.name}</p>
+                                            <p className="text-sm text-muted-foreground">
+                                                {roleLabel[invitation.role] ?? invitation.role}
+                                            </p>
+                                            <div className="flex gap-2">
+                                                <Button type="button" onClick={() => handleAcceptInvite(invitation)}>Aceitar</Button>
+                                                <Button type="button" variant="outline" onClick={() => setInviteToDecline(invitation)}>Recusar</Button>
+                                            </div>
+                                        </article>
+                                    ))}
+                                </div>
+                            </section>
+                        ) : null}
 
                         {!loading && companies.length === 0 && stations.length === 0 ? (
                             <Empty>
@@ -130,6 +193,21 @@ export default function SelectContextPage() {
                         </Button>
                     </div>
                 </div>
+
+                <AlertDialog open={!!inviteToDecline} onOpenChange={(open) => !open && setInviteToDecline(null)}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Recusar convite</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Recusar o convite de {inviteToDecline?.organization?.name}? Você pode receber outro depois.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Voltar</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleDeclineInvite}>Recusar</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
 
                 <footer className="relative z-10 flex flex-col items-center gap-1 px-6 pb-6 text-center text-xs text-muted-foreground">
                     <p>VF3M TECNOLOGIA LTDA · CNPJ 63.005.739/0001-06 © Todos os direitos reservados.</p>

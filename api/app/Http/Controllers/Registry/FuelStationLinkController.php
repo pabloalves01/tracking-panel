@@ -10,6 +10,7 @@ use App\Models\CompanyFuelStation;
 use App\Rules\Cnpj;
 use App\Services\FuelStation\CompanyFuelStationService;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class FuelStationLinkController extends Controller
 {
@@ -27,9 +28,16 @@ class FuelStationLinkController extends Controller
     public function show(Request $request)
     {
         $this->authorize('viewAny', CompanyFuelStation::class);
+        $cnpj = $request->query('cnpj');
+
+        if (! is_scalar($cnpj)) {
+            throw ValidationException::withMessages([
+                'cnpj' => 'Informe um CNPJ válido',
+            ]);
+        }
 
         return new FuelStationResource(
-            $this->companyFuelStationService->findByCnpj(Cnpj::digits($request->query('cnpj'))),
+            $this->companyFuelStationService->findByCnpj(Cnpj::digits($cnpj)),
         );
     }
 

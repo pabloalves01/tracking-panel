@@ -32,3 +32,11 @@ export function logout() {
         localStorage.removeItem('token')
     })
 }
+
+export function acceptPendingInvitation(uuid) {
+    return api.post(`/auth/pending-invitations/${uuid}/accept`).then((response) => response.data)
+}
+
+export function declinePendingInvitation(uuid) {
+    return api.post(`/auth/pending-invitations/${uuid}/decline`).then((response) => response.data)
+}

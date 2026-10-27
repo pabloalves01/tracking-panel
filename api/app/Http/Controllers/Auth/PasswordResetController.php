@@ -1,0 +1,50 @@
+<?php
+
+namespace App\Http\Controllers\Auth;
+
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\ForgotPasswordRequest;
+use App\Http\Requests\Auth\ResetPasswordRequest;
+use App\Models\User;
+use App\Models\VerificationCode;
+use App\Services\Auth\VerificationCodeService;
+use App\Support\Text;
+
+class PasswordResetController extends Controller
+{
+    public function __construct(private VerificationCodeService $codes) {}
+
+    public function forgot(ForgotPasswordRequest $request)
+    {
+        $retryAfter = $this->codes->issue(
+            $request->validated('email'),
+            VerificationCode::PASSWORD_RESET,
+        );
+
+        return response()->json([
+            'message' => 'Se este e-mail puder receber o código, ele foi enviado.',
+            'retry_after' => $retryAfter,
+        ]);
+    }
+
+    public function reset(ResetPasswordRequest $request)
+    {
+        $email = Text::email($request->validated('email'));
+        $this->codes->consume($email, VerificationCode::PASSWORD_RESET, $request->validated('code'));
+
+        $user = User::query()->where('email', $email)->first();
+
+        if (! $user) {
+            abort(422, 'Código inválido');
+        }
+
+        $user->forceFill([
+            'password' => $request->validated('password'),
+            'email_verified_at' => $user->email_verified_at ?? now(),
+        ])->save();
+
+        return response()->json([
+            'message' => 'Senha atualizada. Entre com a nova senha.',
+        ]);
+    }
+}

@@ -65,7 +65,7 @@ export default function CompaniesPage() {
         <>
             <LayoutToolbar
                 breadcrumbs={[
-                    { text: 'Início', to: '/' },
+                    { text: 'Início', to: '/app' },
                     { text: 'Sistema', to: '/app/sistema' },
                     { text: 'Empresas' },
                 ]}

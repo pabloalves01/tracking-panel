@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button"
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { formatCpfCnpj } from "@/helpers/formatters"
-import { linkStatusLabel } from "@/helpers/labels/linkStatusLabel"
+import { linkStatusLabel, statusBadgeClass } from "@/helpers/labels/linkStatusLabel"
 import { useSession } from "@/lib/auth/session"
 import { acceptStationCompany, disconnectStationCompany, getStationCompanies, rejectStationCompany } from "@/lib/station/companies"
 import { notifyError, notifySuccess } from "@/lib/notify"
@@ -131,7 +131,7 @@ export default function StationCompaniesPage() {
                                     </TableCell>
                                     <TableCell>{formatCpfCnpj(link.company.cnpj)}</TableCell>
                                     <TableCell>
-                                        <Badge variant={link.status === "active" ? "secondary" : "outline"}>
+                                        <Badge variant="outline" className={statusBadgeClass(link.status)}>
                                             {linkStatusLabel[link.status] ?? link.status}
                                         </Badge>
                                     </TableCell>

@@ -20,7 +20,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { invitationStatusLabel } from '@/helpers/labels/linkStatusLabel'
+import { invitationStatusLabel, statusBadgeClass } from '@/helpers/labels/linkStatusLabel'
 import { roleLabel } from '@/helpers/labels/roleLabel'
 import { memberApi } from '@/lib/access/members'
 import { notifyError, notifySuccess } from '@/lib/notify'
@@ -234,7 +234,7 @@ export default function MembersPage({
                                         <TableCell>{invitation.email}</TableCell>
                                         <TableCell>{roleLabel[invitation.role] ?? invitation.role}</TableCell>
                                         <TableCell>
-                                            <Badge variant={invitation.status === 'pending' ? 'secondary' : 'outline'}>
+                                            <Badge variant="outline" className={statusBadgeClass(invitation.status)}>
                                                 {invitationStatusLabel[invitation.status] ?? invitation.status}
                                             </Badge>
                                         </TableCell>

@@ -2,23 +2,29 @@
 
 namespace App\Services\Access;
 
+use App\Mail\InvitationMail;
 use App\Models\Company;
 use App\Models\CompanyUser;
 use App\Models\FuelStation;
 use App\Models\FuelStationUser;
 use App\Models\Invitation;
 use App\Models\User;
+use App\Models\VerificationCode;
 use App\Services\AuditLogger;
+use App\Services\Auth\VerificationCodeService;
 use App\Support\Membership;
+use App\Support\Text;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class InvitationService
 {
-    public function __construct(private AuditLogger $audit) {}
+    public function __construct(private AuditLogger $audit, private VerificationCodeService $codes) {}
 
     /**
      * @return Collection<int, Invitation>
@@ -50,8 +56,30 @@ class InvitationService
         return $this->create($email, $role, $invitedBy, null, $station);
     }
 
+    /**
+     * @param  array<int, mixed>  $emails
+     * @return array<int, array<string, mixed>>
+     */
+    public function createManyForCompany(Company $company, array $emails, string $role, ?User $invitedBy, bool $allowOwner = false): array
+    {
+        return $this->createMany($emails, $role, $invitedBy, $company, null, $allowOwner);
+    }
+
+    /**
+     * @param  array<int, mixed>  $emails
+     * @return array<int, array<string, mixed>>
+     */
+    public function createManyForStation(FuelStation $station, array $emails, string $role, ?User $invitedBy): array
+    {
+        return $this->createMany($emails, $role, $invitedBy, null, $station, false);
+    }
+
     public function resend(Invitation $invitation): Invitation
     {
+        if ($invitation->status === Invitation::REVOKED) {
+            abort(422, 'Este convite foi cancelado');
+        }
+
         if ($invitation->status === Invitation::ACCEPTED) {
             abort(422, 'Este convite já foi aceito');
         }
@@ -77,6 +105,7 @@ class InvitationService
         }
 
         $invitation->plainToken = $plain;
+        $this->sendInvitationMail($invitation);
 
         return $invitation;
     }
@@ -135,7 +164,7 @@ class InvitationService
         ];
     }
 
-    public function registerAndAccept(string $plainToken, string $name, string $password): User
+    public function registerAndAccept(string $plainToken, string $name, string $password, mixed $code): User
     {
         $invitation = $this->lockPending($plainToken);
 
@@ -143,12 +172,15 @@ class InvitationService
             abort(422, 'Este e-mail já tem conta. Entre para aceitar o convite');
         }
 
+        $this->codes->consume($invitation->email, VerificationCode::INVITATION_REGISTER, $code);
+
         return DB::transaction(function () use ($invitation, $name, $password) {
             $user = User::query()->create([
                 'name' => $name,
                 'email' => $invitation->email,
                 'password' => $password,
             ]);
+            $user->forceFill(['email_verified_at' => now()])->save();
 
             $this->acceptLocked($invitation, $user);
 
@@ -161,6 +193,66 @@ class InvitationService
         $invitation = $this->lockPending($plainToken);
         $this->assertSameEmail($invitation, $user);
         $this->acceptLocked($invitation, $user);
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function pendingFor(User $user): array
+    {
+        return Invitation::query()
+            ->where('email', Text::email($user->email))
+            ->where('status', Invitation::PENDING)
+            ->where('expires_at', '>', now())
+            ->with(['company', 'fuelStation'])
+            ->latest('id')
+            ->get()
+            ->map(fn (Invitation $invitation) => [
+                'uuid' => $invitation->uuid,
+                'email' => $invitation->email,
+                'role' => $invitation->role,
+                'expires_at' => $invitation->expires_at?->toIso8601String(),
+                'organization' => $invitation->company_id ? [
+                    'type' => 'company',
+                    'name' => $invitation->company?->trade_name ?: $invitation->company?->legal_name,
+                ] : [
+                    'type' => 'fuel_station',
+                    'name' => $invitation->fuelStation?->trade_name ?: $invitation->fuelStation?->corporate_name,
+                ],
+            ])
+            ->all();
+    }
+
+    public function acceptForUser(User $user, string $uuid): Invitation
+    {
+        $invitation = $this->invitationForUser($user, $uuid);
+        $this->acceptLocked($invitation, $user);
+
+        return $invitation->fresh();
+    }
+
+    public function declineForUser(User $user, string $uuid): void
+    {
+        $invitation = $this->invitationForUser($user, $uuid);
+
+        DB::transaction(function () use ($invitation) {
+            $updated = Invitation::query()
+                ->whereKey($invitation->id)
+                ->where('status', Invitation::PENDING)
+                ->update([
+                    'status' => Invitation::DECLINED,
+                    'responded_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+            if ($updated === 0) {
+                abort(422, 'Este convite não está pendente');
+            }
+
+            $this->audit->log('invitation.declined', $invitation, [
+                'email' => $invitation->email,
+            ], $invitation->company_id, $invitation->fuel_station_id);
+        });
     }
 
     public function decline(string $plainToken, ?User $user = null): void
@@ -248,6 +340,100 @@ class InvitationService
         }
 
         $invitation->plainToken = $plain;
+        $this->sendInvitationMail($invitation);
+
+        return $invitation;
+    }
+
+    /**
+     * @param  array<int, mixed>  $emails
+     * @return array<int, array<string, mixed>>
+     */
+    private function createMany(array $emails, string $role, ?User $invitedBy, ?Company $company, ?FuelStation $station, bool $allowOwner): array
+    {
+        $results = [];
+
+        foreach ($emails as $raw) {
+            $email = Text::email($raw);
+
+            if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $results[] = [
+                    'email' => is_scalar($raw) ? Text::plain($raw) : '',
+                    'ok' => false,
+                    'account_exists' => false,
+                    'message' => 'Informe um e-mail válido',
+                ];
+
+                continue;
+            }
+
+            try {
+                $invitation = $company
+                    ? $this->createForCompany($company, $email, $role, $invitedBy, $allowOwner)
+                    : $this->createForStation($station, $email, $role, $invitedBy);
+                $accountExists = User::query()->where('email', $email)->exists();
+                $results[] = [
+                    'email' => $email,
+                    'ok' => true,
+                    'account_exists' => $accountExists,
+                    'message' => $accountExists ? 'Já tem conta, só vai aceitar' : 'Convite enviado',
+                    'invite_url' => $invitation->inviteUrl(),
+                    'uuid' => $invitation->uuid,
+                ];
+            } catch (HttpException $exception) {
+                $results[] = [
+                    'email' => $email,
+                    'ok' => false,
+                    'account_exists' => User::query()->where('email', $email)->exists(),
+                    'message' => $exception->getMessage() ?: 'Não foi possível convidar',
+                ];
+            }
+        }
+
+        return $results;
+    }
+
+    private function sendInvitationMail(Invitation $invitation): void
+    {
+        $url = $invitation->inviteUrl();
+
+        if (! $url) {
+            return;
+        }
+
+        $invitation->loadMissing(['company', 'fuelStation']);
+        $organization = $invitation->company
+            ? ($invitation->company->trade_name ?: $invitation->company->legal_name)
+            : ($invitation->fuelStation?->trade_name ?: $invitation->fuelStation?->corporate_name);
+
+        Mail::to($invitation->email)->queue(new InvitationMail(
+            (string) $organization,
+            $url,
+            $invitation->expires_at?->timezone(config('app.timezone'))->format('d/m/Y H:i') ?? '',
+        ));
+    }
+
+    private function invitationForUser(User $user, string $uuid): Invitation
+    {
+        if (! Str::isUuid($uuid)) {
+            abort(404, 'Convite não encontrado');
+        }
+
+        $invitation = Invitation::query()
+            ->where('uuid', $uuid)
+            ->where('email', Text::email($user->email))
+            ->first();
+
+        if (! $invitation) {
+            abort(404, 'Convite não encontrado');
+        }
+
+        $this->expireIfNeeded($invitation);
+        $invitation->refresh();
+
+        if ($invitation->status !== Invitation::PENDING) {
+            abort(422, $this->closedMessage($invitation));
+        }
 
         return $invitation;
     }
@@ -255,6 +441,8 @@ class InvitationService
     private function acceptLocked(Invitation $invitation, User $user): void
     {
         DB::transaction(function () use ($invitation, $user) {
+            Invitation::query()->whereKey($invitation->id)->lockForUpdate()->first();
+
             $updated = Invitation::query()
                 ->whereKey($invitation->id)
                 ->where('status', Invitation::PENDING)

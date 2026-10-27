@@ -77,7 +77,7 @@ export default function CompanyFormPage() {
         <>
             <LayoutToolbar
                 breadcrumbs={[
-                    { text: 'Início', to: '/' },
+                    { text: 'Início', to: '/app' },
                     { text: 'Sistema', to: '/app/sistema' },
                     { text: 'Empresas', to: '/app/sistema/empresas' },
                     { text: isEditing ? 'Editar empresa' : 'Nova empresa' },
@@ -98,7 +98,7 @@ export default function CompanyFormPage() {
                     <FieldSet>
                         <FieldLegend variant="label">Convite do proprietário</FieldLegend>
                         <FieldDescription>
-                            A empresa foi criada. Envie este link para {invite.email}. Ele vale 7 dias e não é enviado por e-mail.
+                            A empresa foi criada. O convite também segue por e-mail para {invite.email}. O link vale 7 dias.
                         </FieldDescription>
                         <FieldGroup>
                             <Field>

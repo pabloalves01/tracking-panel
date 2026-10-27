@@ -7,8 +7,10 @@ use App\Models\FuelStationUser;
 use App\Models\Location\City;
 use App\Models\Location\State;
 use App\Models\User;
+use App\Models\VerificationCode;
 use App\Rules\Cnpj;
 use App\Services\AuditLogger;
+use App\Services\Auth\VerificationCodeService;
 use App\Services\External\BrasilApiService;
 use App\Support\Membership;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -17,7 +19,11 @@ use Illuminate\Support\Facades\DB;
 
 class FuelStationSignupService
 {
-    public function __construct(private BrasilApiService $brasilApi, private AuditLogger $audit) {}
+    public function __construct(
+        private BrasilApiService $brasilApi,
+        private AuditLogger $audit,
+        private VerificationCodeService $codes,
+    ) {}
 
     /**
      * @return array<string, mixed>
@@ -46,6 +52,7 @@ class FuelStationSignupService
         }
 
         $digits = $this->availableCnpj((string) $data['cnpj']);
+        $this->codes->consume($email, VerificationCode::STATION_SIGNUP, $data['code'] ?? null);
         $payload = $this->brasilApi->cnpj($digits);
         $station = $this->createStation($digits, $payload, null, $data);
 
@@ -109,6 +116,7 @@ class FuelStationSignupService
                         'email' => $data['email'],
                         'password' => $data['password'],
                     ]);
+                    $owner->forceFill(['email_verified_at' => now()])->save();
                 }
 
                 $membership = FuelStationUser::create([

@@ -7,6 +7,7 @@ use App\Models\FuelStationUser;
 use App\Models\Location\City;
 use App\Models\Location\State;
 use App\Models\User;
+use App\Models\VerificationCode;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
@@ -199,6 +200,7 @@ class FuelStationSignupTest extends TestCase
             'email' => ' DONO@POSTO.COM ',
             'password' => 'senha-atual',
             'password_confirmation' => 'senha-atual',
+            'code' => '123456',
         ])->assertUnprocessable()
             ->assertJsonPath('message', 'Este e-mail já tem conta. Entre para cadastrar o posto');
 
@@ -237,6 +239,7 @@ class FuelStationSignupTest extends TestCase
             'email' => 'segunda@posto.com',
             'password' => 'senha1234',
             'password_confirmation' => 'senha1234',
+            'code' => '123456',
         ])->assertUnprocessable()
             ->assertJsonPath('message', 'Este posto já está cadastrado. Fale com o responsável');
 
@@ -287,12 +290,15 @@ class FuelStationSignupTest extends TestCase
             ]);
         });
 
+        $this->plantCode('nova@posto.com');
+
         $this->postJson('/api/auth/station-signup', [
             'cnpj' => self::CNPJ,
             'name' => 'Dona do Posto',
             'email' => 'nova@posto.com',
             'password' => 'senha1234',
             'password_confirmation' => 'senha1234',
+            'code' => '123456',
         ])->assertUnprocessable()
             ->assertJsonPath('message', 'Este e-mail já tem conta. Entre para cadastrar o posto');
 
@@ -364,13 +370,26 @@ class FuelStationSignupTest extends TestCase
 
     private function registerStation(string $email = 'nova@posto.com', string $name = 'Dona do Posto'): void
     {
+        $this->plantCode($email);
+
         $this->postJson('/api/auth/station-signup', [
             'cnpj' => self::CNPJ,
             'name' => $name,
             'email' => $email,
             'password' => 'senha1234',
             'password_confirmation' => 'senha1234',
+            'code' => '123456',
         ])->assertCreated()
             ->assertJsonPath('message', 'Posto cadastrado com sucesso');
+    }
+
+    private function plantCode(string $email): void
+    {
+        VerificationCode::query()->create([
+            'email' => $email,
+            'purpose' => VerificationCode::STATION_SIGNUP,
+            'code_hash' => hash('sha256', '123456'),
+            'expires_at' => now()->addMinutes(10),
+        ]);
     }
 }

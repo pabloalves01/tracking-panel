@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Registry\Employee;
 
 use App\Rules\CpfCnpjForPersonType;
+use App\Support\Text;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreEmployeeRequest extends FormRequest
@@ -21,7 +22,7 @@ class StoreEmployeeRequest extends FormRequest
         }
 
         if (array_key_exists('cpf_cnpj', $entity)) {
-            $entity['cpf_cnpj'] = preg_replace('/\D/', '', (string) $entity['cpf_cnpj']) ?? '';
+            $entity['cpf_cnpj'] = Text::digits($entity['cpf_cnpj']);
         }
 
         foreach (['rg', 'ie', 'emergency_phone', 'emergency_phone_type'] as $field) {
@@ -33,7 +34,7 @@ class StoreEmployeeRequest extends FormRequest
         }
 
         if (filled($entity['emergency_phone'] ?? null)) {
-            $entity['emergency_phone'] = preg_replace('/\D/', '', (string) $entity['emergency_phone']) ?? '';
+            $entity['emergency_phone'] = Text::digits($entity['emergency_phone']);
         }
 
         $this->merge([

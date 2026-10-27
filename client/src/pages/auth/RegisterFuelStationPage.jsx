@@ -9,9 +9,11 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { CodeStep } from "@/components/auth/CodeStep"
 import { me } from "@/lib/auth/auth"
 import { lookupStationCnpj, storeStationForUser, storeStationSignup } from "@/lib/auth/stationSignup"
-import { notifyError, notifySuccess } from "@/lib/notify"
+import { sendVerificationCode } from "@/lib/auth/verification"
+import { apiMessage, notifyError, notifySuccess } from "@/lib/notify"
 
 function onlyDigits(value) {
   return String(value ?? "").replace(/\D/g, "").slice(0, 14)
@@ -29,6 +31,8 @@ export default function RegisterFuelStationPage() {
   const [name, setName] = useState("")
   const [password, setPassword] = useState("")
   const [passwordConfirmation, setPasswordConfirmation] = useState("")
+  const [retryAfter, setRetryAfter] = useState(60)
+  const [codeError, setCodeError] = useState("")
 
   const cnpjReady = station?.cnpj === cnpj
 
@@ -73,30 +77,81 @@ export default function RegisterFuelStationPage() {
     }
   }
 
+  async function sendCode() {
+    const response = await sendVerificationCode({
+      email,
+      purpose: "station_signup",
+    })
+    const seconds = Number(response.retry_after) || 60
+    setRetryAfter(seconds)
+
+    return seconds
+  }
+
+  async function finishSignup(code) {
+    const result = await storeStationSignup({
+      cnpj: station.cnpj,
+      name,
+      email,
+      password,
+      password_confirmation: passwordConfirmation,
+      code,
+    })
+    notifySuccess(result)
+    window.location.assign("/posto")
+  }
+
   async function handleAccountSubmit(event) {
     event.preventDefault()
     setLoading(true)
     setAccountExists(false)
+    setCodeError("")
 
     try {
-      const result = loggedIn
-        ? await storeStationForUser(station.cnpj)
-        : await storeStationSignup({
-            cnpj: station.cnpj,
-            name,
-            email,
-            password,
-            password_confirmation: passwordConfirmation,
-          })
+      if (loggedIn) {
+        const result = await storeStationForUser(station.cnpj)
+        notifySuccess(result)
+        window.location.assign("/posto")
+        return
+      }
 
-      notifySuccess(result)
-      window.location.assign("/posto")
+      if (password.length < 8) {
+        setCodeError("A senha deve ter no mínimo 8 caracteres")
+        return
+      }
+
+      if (password !== passwordConfirmation) {
+        setCodeError("A confirmação da senha não confere")
+        return
+      }
+
+      await sendCode()
+      setStep(3)
     } catch (error) {
       const message = error?.response?.data?.message ?? ""
       if (message.includes("já tem conta")) {
         setAccountExists(true)
       } else {
         notifyError(error)
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleCode(code) {
+    setLoading(true)
+    setCodeError("")
+
+    try {
+      await finishSignup(code)
+    } catch (error) {
+      const message = error?.response?.data?.message ?? ""
+      if (message.includes("já tem conta")) {
+        setAccountExists(true)
+        setStep(2)
+      } else {
+        setCodeError(apiMessage(error, "Não foi possível confirmar o código."))
       }
     } finally {
       setLoading(false)
@@ -164,6 +219,49 @@ export default function RegisterFuelStationPage() {
                     </p>
                   </FieldGroup>
                 </form>
+              ) : null}
+
+              {step === 3 ? (
+                <div className="flex flex-col gap-6">
+                  <div className="flex flex-col items-center gap-1 text-center">
+                    <h1 className="text-2xl font-bold">Confirme o e-mail</h1>
+                    <p className="text-sm text-balance text-muted-foreground">
+                      O posto só é criado depois que o código for confirmado.
+                    </p>
+                  </div>
+                  {accountExists ? (
+                    <Alert>
+                      <AlertTitle>Conta já existente</AlertTitle>
+                      <AlertDescription>
+                        Este e-mail já tem conta. Entre para cadastrar o posto.
+                      </AlertDescription>
+                      <Button className="mt-3" render={<Link to={loginHref} />}>
+                        Entrar
+                      </Button>
+                    </Alert>
+                  ) : (
+                    <CodeStep
+                      email={email}
+                      retryAfter={retryAfter}
+                      submitting={loading}
+                      error={codeError}
+                      onSubmit={handleCode}
+                      onResend={async () => {
+                        setCodeError("")
+                        try {
+                          return await sendCode()
+                        } catch (error) {
+                          setCodeError(apiMessage(error, "Não foi possível reenviar o código."))
+                          return 0
+                        }
+                      }}
+                      onChangeEmail={() => {
+                        setStep(2)
+                        setCodeError("")
+                      }}
+                    />
+                  )}
+                </div>
               ) : null}
 
               {step === 2 ? (
@@ -239,9 +337,10 @@ export default function RegisterFuelStationPage() {
                         </Button>
                       </Alert>
                     ) : null}
+                    {codeError ? <p className="text-sm text-destructive" role="alert">{codeError}</p> : null}
                     <Field>
                       <Button type="submit" disabled={loading}>
-                        Cadastrar posto
+                        {loggedIn ? "Cadastrar posto" : "Continuar"}
                       </Button>
                     </Field>
                     <Button type="button" variant="outline" onClick={() => setStep(1)}>

@@ -36,6 +36,26 @@ class InvitationController extends Controller
     {
         $this->authorize('manage', $this->membershipClass());
 
+        if (is_array($request->input('emails'))) {
+            $results = app()->bound(CurrentCompany::class)
+                ? $this->invitations->createManyForCompany(
+                    Company::query()->findOrFail(app(CurrentCompany::class)->id),
+                    $request->validated('emails'),
+                    $request->validated('role'),
+                    $request->user(),
+                )
+                : $this->invitations->createManyForStation(
+                    FuelStation::query()->findOrFail(app(CurrentFuelStation::class)->id),
+                    $request->validated('emails'),
+                    $request->validated('role'),
+                    $request->user(),
+                );
+
+            return response()->json([
+                'results' => $results,
+            ]);
+        }
+
         if (app()->bound(CurrentCompany::class)) {
             $company = Company::query()->findOrFail(app(CurrentCompany::class)->id);
             $invitation = $this->invitations->createForCompany(

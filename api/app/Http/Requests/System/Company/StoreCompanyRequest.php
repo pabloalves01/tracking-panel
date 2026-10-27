@@ -3,6 +3,7 @@
 namespace App\Http\Requests\System\Company;
 
 use App\Rules\Cnpj;
+use App\Support\Text;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreCompanyRequest extends FormRequest
@@ -16,7 +17,7 @@ class StoreCompanyRequest extends FormRequest
     {
         $this->merge([
             'cnpj' => Cnpj::digits($this->input('cnpj')),
-            'admin_email' => strtolower(trim((string) $this->input('admin_email'))),
+            'admin_email' => Text::email($this->input('admin_email')),
         ]);
     }
 

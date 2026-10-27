@@ -93,6 +93,10 @@ class MemberService
             abort(422, 'É preciso manter um proprietário');
         }
 
+        if ($membership->user_id === $actor->id) {
+            abort(422, 'Você não pode remover a si mesmo');
+        }
+
         DB::transaction(function () use ($membership, $scope, $actor) {
             $updated = $membership->newQuery()
                 ->whereKey($membership->id)

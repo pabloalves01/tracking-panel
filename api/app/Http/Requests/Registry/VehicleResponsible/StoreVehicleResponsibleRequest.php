@@ -4,6 +4,7 @@ namespace App\Http\Requests\Registry\VehicleResponsible;
 
 use App\Rules\CpfCnpjForPersonType;
 use App\Rules\PixKeyForType;
+use App\Support\Text;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreVehicleResponsibleRequest extends FormRequest
@@ -22,7 +23,7 @@ class StoreVehicleResponsibleRequest extends FormRequest
         }
 
         if (array_key_exists('cpf_cnpj', $entity)) {
-            $entity['cpf_cnpj'] = preg_replace('/\D/', '', (string) $entity['cpf_cnpj']) ?? '';
+            $entity['cpf_cnpj'] = Text::digits($entity['cpf_cnpj']);
         }
 
         $this->merge([
@@ -36,7 +37,7 @@ class StoreVehicleResponsibleRequest extends FormRequest
      */
     private function normalizedPix(): array
     {
-        $pixKey = trim((string) $this->input('pix_key', ''));
+        $pixKey = Text::plain($this->input('pix_key', ''));
         $pixKeyType = $this->input('pix_key_type');
 
         if ($pixKey === '') {
@@ -104,5 +105,4 @@ class StoreVehicleResponsibleRequest extends FormRequest
             'pix_key.max' => 'A chave PIX deve ter no máximo 255 caracteres',
         ];
     }
-
 }

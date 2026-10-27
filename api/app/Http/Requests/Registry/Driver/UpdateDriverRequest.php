@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Registry\Driver;
 
+use App\Support\Text;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateDriverRequest extends FormRequest
@@ -48,7 +49,7 @@ class UpdateDriverRequest extends FormRequest
         return [
             'license_expires_on' => filled($this->input('license_expires_on')) ? $this->input('license_expires_on') : null,
             'license_issued_state' => filled($this->input('license_issued_state'))
-                ? strtoupper((string) $this->input('license_issued_state'))
+                ? strtoupper(Text::plain($this->input('license_issued_state')))
                 : null,
             'residence_proof_path' => filled($this->input('residence_proof_path')) ? $this->input('residence_proof_path') : null,
         ];

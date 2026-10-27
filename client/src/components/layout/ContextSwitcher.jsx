@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Building2, ChevronsUpDown, Fuel } from 'lucide-react'
+import { Link, useNavigate } from 'react-router'
 
 import {
     DropdownMenu,
@@ -18,18 +19,27 @@ import { useSession } from '@/lib/auth/session'
  * Pílula do contexto atual. Lista empresas e postos da mesma conta.
  */
 export function ContextSwitcher() {
+    const navigate = useNavigate()
     const { user, currentCompany, companies = [], stations = [], switchCompany, switchStation } = useSession()
     const [switching, setSwitching] = useState(false)
     const currentStation = user?.current_fuel_station
     const onStation = Boolean(currentStation)
 
     if (!companies.length && !stations.length) {
-        return null
+        return (
+            <Link
+                to="/auth/contextos"
+                className="flex items-center gap-2 rounded-lg border bg-background px-3 py-1.5 text-sm transition-colors hover:bg-muted"
+            >
+                <Building2 className="size-4 shrink-0 text-muted-foreground" />
+                <span className="font-medium">Selecionar contexto</span>
+            </Link>
+        )
     }
 
     const title = onStation
         ? (currentStation.trade_name || currentStation.corporate_name)
-        : currentCompany?.trade_name
+        : (currentCompany?.trade_name || 'Selecionar contexto')
     const document = onStation ? currentStation.cnpj : currentCompany?.cnpj
     const Icon = onStation ? Fuel : Building2
 
@@ -98,6 +108,10 @@ export function ContextSwitcher() {
                         ))}
                     </DropdownMenuGroup>
                 ) : null}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate('/auth/contextos')}>
+                    Ver contextos e convites
+                </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
     )
