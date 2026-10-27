@@ -23,6 +23,10 @@ class VerificationCodeService
 
     public const HOURLY_CAP = 5;
 
+    public const HOURLY_ATTEMPTS = 10;
+
+    public const PUBLIC_REJECTION = 'Código inválido';
+
     /**
      * Sempre devolve os segundos até o próximo envio.
      * A resposta pública não diz se o e-mail existe.
@@ -104,7 +108,11 @@ class VerificationCodeService
             abort(422, 'O código é obrigatório');
         }
 
-        $this->throttleConsume($email, $purpose);
+        $this->spendGuessTime($digits);
+
+        if ($this->hourlyAttemptExceeded($email)) {
+            abort(422, self::PUBLIC_REJECTION);
+        }
 
         $rejected = null;
 
@@ -117,26 +125,9 @@ class VerificationCodeService
                 ->lockForUpdate()
                 ->first();
 
-            if (! $code) {
-                $rejected = 'Código inválido';
-
-                return;
-            }
-
-            if ($code->invalidated_at || $code->attempts >= self::MAX_ATTEMPTS) {
-                $rejected = 'Tentativas esgotadas';
-
-                return;
-            }
-
-            if ($code->consumed_at) {
-                $rejected = 'Este código já foi usado';
-
-                return;
-            }
-
-            if (! $code->expires_at || $code->expires_at->isPast()) {
-                $rejected = 'Este código expirou';
+            if (! $code || $code->invalidated_at || $code->attempts >= self::MAX_ATTEMPTS || $code->consumed_at || ! $code->expires_at || $code->expires_at->isPast()) {
+                $this->spendGuessTime($digits);
+                $rejected = self::PUBLIC_REJECTION;
 
                 return;
             }
@@ -149,7 +140,7 @@ class VerificationCodeService
                 }
 
                 $code->save();
-                $rejected = $code->attempts >= self::MAX_ATTEMPTS ? 'Tentativas esgotadas' : 'Código inválido';
+                $rejected = self::PUBLIC_REJECTION;
 
                 return;
             }
@@ -164,15 +155,26 @@ class VerificationCodeService
         }
     }
 
-    private function throttleConsume(string $email, string $purpose): void
+    /**
+     * No máximo 10 palpites por e-mail por hora, exista a conta ou não.
+     * O contador fica fora da transação: um código novo não zera a janela.
+     */
+    private function hourlyAttemptExceeded(string $email): bool
     {
-        $key = 'verification-consume:'.hash('sha256', $email.'|'.$purpose);
+        $key = 'verification-attempts:'.hash('sha256', $email);
 
-        if (RateLimiter::tooManyAttempts($key, 30)) {
-            abort(429, 'Muitas tentativas. Tente novamente em instantes');
+        if (RateLimiter::tooManyAttempts($key, self::HOURLY_ATTEMPTS)) {
+            return true;
         }
 
-        RateLimiter::hit($key, 60);
+        RateLimiter::hit($key, 3600);
+
+        return false;
+    }
+
+    private function spendGuessTime(string $digits): void
+    {
+        hash_equals(hash('sha256', '000000'), hash('sha256', $digits));
     }
 
     private function shouldDeliver(string $email, string $purpose, ?string $token): bool

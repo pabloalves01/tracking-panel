@@ -24,6 +24,15 @@ export function apiMessage(error, fallback = 'Não foi possível completar a ope
     return getApiMessage(error?.response?.data ?? error, fallback)
 }
 
+export async function copyText(text) {
+    try {
+        await navigator.clipboard.writeText(text)
+        notifySuccess({ message: 'Link copiado' })
+    } catch {
+        notifyError({ response: { status: 400, data: { message: 'Não foi possível copiar o link.' } } })
+    }
+}
+
 export function notifyError(error) {
     const status = error?.response?.status
     const title = !status || status >= 500 ? titles.server : titles.error

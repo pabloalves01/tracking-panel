@@ -7,7 +7,7 @@ import { Field, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet 
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { memberApi } from '@/lib/access/members'
-import { notifyError, notifySuccess } from '@/lib/notify'
+import { copyText, notifyError, notifySuccess } from '@/lib/notify'
 
 function looksLikeEmail(email) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
@@ -55,7 +55,7 @@ export default function InviteFormPage({ breadcrumbs, listPath, apiBase, roleOpt
             const exists = Boolean(created.account_exists)
             notifySuccess(
                 { message: exists ? 'Convite enviado. Esta pessoa já tem conta e só precisa aceitar.' : 'Convite enviado' },
-                url ? { action: { label: 'Copiar link', onClick: () => navigator.clipboard.writeText(url) } } : undefined,
+                url ? { action: { label: 'Copiar link', onClick: () => copyText(url) } } : undefined,
             )
             navigate(`${listPath}?aba=convites`)
         } catch (error) {

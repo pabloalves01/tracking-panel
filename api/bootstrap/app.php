@@ -4,11 +4,13 @@ use App\Http\Middleware\EnsureCompanySelected;
 use App\Http\Middleware\EnsureContextCanWrite;
 use App\Http\Middleware\EnsureFuelStationSelected;
 use App\Http\Middleware\EnsureSystemAdmin;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -29,6 +31,22 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
+
+        $exceptions->render(function (AuthorizationException|AccessDeniedHttpException $exception, Request $request) {
+            if (! ($request->is('api/*') || $request->expectsJson())) {
+                return null;
+            }
+
+            $message = $exception->getMessage();
+            $english = $message === ''
+                || $message === 'This action is unauthorized.'
+                || $message === 'This action is unauthorized'
+                || $message === 'Forbidden';
+
+            return response()->json([
+                'message' => $english ? 'Você não tem permissão para esta ação.' : $message,
+            ], 403);
+        });
 
         $exceptions->render(function (ThrottleRequestsException $exception, Request $request) {
             if ($request->is('api/*') || $request->expectsJson()) {

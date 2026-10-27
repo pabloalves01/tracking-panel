@@ -9,6 +9,7 @@ use App\Models\Invitation;
 use App\Models\User;
 use App\Models\VerificationCode;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
@@ -66,7 +67,7 @@ class VerificationCodeTest extends TestCase
             'password' => 'senha-nova-1',
             'password_confirmation' => 'senha-nova-1',
         ])->assertUnprocessable()
-            ->assertJsonPath('message', 'Tentativas esgotadas');
+            ->assertJsonPath('message', 'Código inválido');
 
         $this->assertSame(5, VerificationCode::query()->where('email', 'dona@melo.test')->value('attempts'));
         $this->assertNotNull(VerificationCode::query()->where('email', 'dona@melo.test')->value('invalidated_at'));
@@ -77,10 +78,88 @@ class VerificationCodeTest extends TestCase
             'password' => 'senha-nova-1',
             'password_confirmation' => 'senha-nova-1',
         ])->assertUnprocessable()
-            ->assertJsonPath('message', 'Tentativas esgotadas');
+            ->assertJsonPath('message', 'Código inválido');
 
         $this->assertNull(VerificationCode::query()->where('email', 'dona@melo.test')->value('consumed_at'));
         $this->assertNull(User::query()->where('email', 'dona@melo.test')->first());
+    }
+
+    public function test_codigo_errado_responde_igual_com_ou_sem_conta(): void
+    {
+        User::factory()->create(['email' => 'errado.existe@melo.test', 'password' => 'senha1234']);
+        $this->plant('errado.existe@melo.test', '123456', VerificationCode::PASSWORD_RESET);
+
+        $this->assertSamePublicFailure(
+            $this->timedReset('errado.existe@melo.test', '000000'),
+            $this->timedReset('errado.nao@melo.test', '000000'),
+        );
+    }
+
+    public function test_codigo_esgotado_responde_igual_com_ou_sem_conta(): void
+    {
+        User::factory()->create(['email' => 'esgotado.existe@melo.test', 'password' => 'senha1234']);
+        $this->plant('esgotado.existe@melo.test', '123456', VerificationCode::PASSWORD_RESET);
+
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $this->postReset('esgotado.existe@melo.test', '000000')->assertUnprocessable();
+        }
+
+        $this->assertSamePublicFailure(
+            $this->timedReset('esgotado.existe@melo.test', '123456'),
+            $this->timedReset('esgotado.nao@melo.test', '123456'),
+        );
+    }
+
+    public function test_codigo_expirado_responde_igual_com_ou_sem_conta(): void
+    {
+        User::factory()->create(['email' => 'expirado.existe@melo.test', 'password' => 'senha1234']);
+        $this->plant('expirado.existe@melo.test', '123456', VerificationCode::PASSWORD_RESET);
+        VerificationCode::query()->where('email', 'expirado.existe@melo.test')->update([
+            'expires_at' => now()->subMinute(),
+        ]);
+
+        $this->assertSamePublicFailure(
+            $this->timedReset('expirado.existe@melo.test', '123456'),
+            $this->timedReset('expirado.nao@melo.test', '123456'),
+        );
+    }
+
+    public function test_codigo_novo_nao_libera_mais_palpites(): void
+    {
+        Mail::fake();
+        $email = 'limite.palpite@melo.test';
+        User::factory()->create(['email' => $email, 'password' => 'senha-antiga']);
+
+        for ($attempt = 0; $attempt < 10; $attempt++) {
+            $this->postReset($email, '000000')
+                ->assertUnprocessable()
+                ->assertJsonPath('message', 'Código inválido');
+        }
+
+        $this->travel(61)->seconds();
+        $this->postJson('/api/auth/verification-codes', [
+            'email' => $email,
+            'purpose' => 'password_reset',
+        ])->assertOk();
+
+        $code = null;
+        Mail::assertQueued(VerificationCodeMail::class, function (VerificationCodeMail $mail) use (&$code) {
+            $code = $mail->code;
+
+            return strlen($mail->code) === 6;
+        });
+
+        $this->postReset($email, (string) $code)
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Código inválido');
+
+        $issued = VerificationCode::query()->where('email', $email)->whereNotNull('code_hash')->latest('id')->first();
+        $this->assertNotNull($issued);
+        $this->assertNull($issued->consumed_at);
+        $this->assertTrue(Hash::check(
+            'senha-antiga',
+            User::query()->where('email', $email)->value('password'),
+        ));
     }
 
     public function test_codigo_errado_expirado_esgotado_e_reutilizado(): void
@@ -95,7 +174,7 @@ class VerificationCodeTest extends TestCase
 
         $this->postJson('/api/auth/station-signup', $this->signup('123456'))
             ->assertUnprocessable()
-            ->assertJsonPath('message', 'Este código expirou');
+            ->assertJsonPath('message', 'Código inválido');
 
         VerificationCode::query()->update([
             'expires_at' => now()->addMinutes(10),
@@ -105,7 +184,7 @@ class VerificationCodeTest extends TestCase
 
         $this->postJson('/api/auth/station-signup', $this->signup('000000'))
             ->assertUnprocessable()
-            ->assertJsonPath('message', 'Tentativas esgotadas');
+            ->assertJsonPath('message', 'Código inválido');
 
         VerificationCode::query()->update([
             'attempts' => 0,
@@ -115,7 +194,7 @@ class VerificationCodeTest extends TestCase
 
         $this->postJson('/api/auth/station-signup', $this->signup('123456'))
             ->assertUnprocessable()
-            ->assertJsonPath('message', 'Este código já foi usado');
+            ->assertJsonPath('message', 'Código inválido');
     }
 
     public function test_reenvio_espera_um_minuto_e_o_sexto_pedido_da_hora_para(): void
@@ -252,6 +331,44 @@ class VerificationCodeTest extends TestCase
             'purpose' => 'station_signup',
         ])->assertStatus(429)
             ->assertJsonStructure(['retry_after']);
+    }
+
+    /**
+     * @return array{0: \Illuminate\Testing\TestResponse, 1: float}
+     */
+    private function timedReset(string $email, string $code): array
+    {
+        $start = hrtime(true);
+        $response = $this->postReset($email, $code);
+
+        return [$response, (hrtime(true) - $start) / 1e6];
+    }
+
+    private function postReset(string $email, string $code): \Illuminate\Testing\TestResponse
+    {
+        return $this->postJson('/api/auth/password/reset', [
+            'email' => $email,
+            'code' => $code,
+            'password' => 'senha-nova-1',
+            'password_confirmation' => 'senha-nova-1',
+        ]);
+    }
+
+    /**
+     * @param  array{0: \Illuminate\Testing\TestResponse, 1: float}  $known
+     * @param  array{0: \Illuminate\Testing\TestResponse, 1: float}  $unknown
+     */
+    private function assertSamePublicFailure(array $known, array $unknown): void
+    {
+        [$knownResponse, $knownMs] = $known;
+        [$unknownResponse, $unknownMs] = $unknown;
+
+        $knownResponse->assertUnprocessable();
+        $unknownResponse->assertUnprocessable();
+        $this->assertSame($knownResponse->status(), $unknownResponse->status());
+        $this->assertSame('Código inválido', $knownResponse->json('message'));
+        $this->assertSame($knownResponse->json('message'), $unknownResponse->json('message'));
+        $this->assertLessThan(1000, abs($knownMs - $unknownMs));
     }
 
     /**

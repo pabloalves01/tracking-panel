@@ -8,7 +8,7 @@ import { SelectState } from "@/components/common/inputs/SelectState"
 import { LayoutToolbar } from "@/components/common/LayoutToolbar"
 import { LoadingWrapper } from "@/components/common/LoadingWrapper"
 import { createCompany, getCompany, updateCompany } from "@/lib/system/companies"
-import { notifyError, notifySuccess } from "@/lib/notify"
+import { copyText, notifyError, notifySuccess } from "@/lib/notify"
 import { Separator } from "@/components/ui/separator";
 
 export default function CompanyFormPage() {
@@ -70,7 +70,7 @@ export default function CompanyFormPage() {
                 action: invitation?.invite_url
                     ? {
                         label: 'Copiar link',
-                        onClick: () => navigator.clipboard.writeText(invitation.invite_url),
+                        onClick: () => copyText(invitation.invite_url),
                     }
                     : undefined,
             })

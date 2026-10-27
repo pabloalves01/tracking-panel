@@ -92,7 +92,7 @@ class PasswordResetTest extends TestCase
             'password' => 'outra-senha-2',
             'password_confirmation' => 'outra-senha-2',
         ])->assertUnprocessable()
-            ->assertJsonPath('message', 'Este código já foi usado');
+            ->assertJsonPath('message', 'Código inválido');
     }
 
     public function test_codigo_errado_nao_troca_a_senha(): void

@@ -28,6 +28,21 @@ api.interceptors.response.use(
 
         const isLogin = error.config?.url?.includes('/auth/login')
         const onAuthScreen = window.location.pathname.startsWith('/auth/')
+        if (error.response?.status === 403) {
+            const data = error.response.data
+            const message = data && typeof data === 'object' ? data.message : ''
+            const english = !message
+                || message === 'This action is unauthorized.'
+                || message === 'This action is unauthorized'
+                || message === 'Forbidden'
+            if (english) {
+                error.response.data = {
+                    ...(data && typeof data === 'object' ? data : {}),
+                    message: 'Você não tem permissão para esta ação.',
+                }
+            }
+        }
+
         if (error.response?.status === 401 && !isLogin && !onAuthScreen) {
             localStorage.removeItem('token')
             if (window.location.pathname !== '/auth/login') {

@@ -23,7 +23,7 @@ import { invitationStatusLabel } from '@/helpers/labels/linkStatusLabel'
 import { roleLabel } from '@/helpers/labels/roleLabel'
 import { memberApi } from '@/lib/access/members'
 import { useCanWrite } from '@/lib/auth/permissions'
-import { notifyError, notifySuccess } from '@/lib/notify'
+import { copyText, notifyError, notifySuccess } from '@/lib/notify'
 
 function formatWhen(value) {
     if (!value) return '—'
@@ -151,15 +151,6 @@ export default function MembersPage({
         }
     }
 
-    async function copyLink(url) {
-        try {
-            await navigator.clipboard.writeText(url)
-            notifySuccess({ message: 'Link copiado' })
-        } catch (error) {
-            notifyError(error)
-        }
-    }
-
     async function handleResend(invitation) {
         setLoading(true)
 
@@ -169,7 +160,7 @@ export default function MembersPage({
             notifySuccess(
                 { message: 'Convite reenviado' },
                 url
-                    ? { action: { label: 'Copiar link', onClick: () => copyLink(url) } }
+                    ? { action: { label: 'Copiar link', onClick: () => copyText(url) } }
                     : undefined,
             )
             load()
@@ -238,7 +229,7 @@ export default function MembersPage({
                         invitations={invitations}
                         canWrite={canWrite}
                         onResend={handleResend}
-                        onCopy={copyLink}
+                        onCopy={copyText}
                         onRevoke={setInviteToRevoke}
                     />
                 )}

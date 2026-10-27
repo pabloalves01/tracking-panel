@@ -12,9 +12,11 @@ use App\Models\User;
 use App\Providers\AppServiceProvider;
 use App\Services\Access\CompanyOwnershipRepair;
 use Database\Seeders\DatabaseSeeder;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use RuntimeException;
 use Tests\TestCase;
@@ -170,6 +172,113 @@ class ReviewFixesTest extends TestCase
         $this->assertSame('owner', CompanyUser::query()->where('user_id', $staff->id)->value('role'));
         $this->assertSame('owner', CompanyUser::query()->where('user_id', $owner->id)->value('role'));
         $this->assertSame(1, CompanyUser::query()->where('company_id', $company->id)->where('role', 'owner')->count());
+    }
+
+    public function test_reparo_nao_promove_suspenso_removido_nem_empresa_so_da_logiv(): void
+    {
+        $warnings = [];
+        Log::listen(function ($log) use (&$warnings) {
+            if ($log->level === 'warning') {
+                $warnings[] = $log;
+            }
+        });
+
+        $stuck = Company::query()->create([
+            'legal_name' => 'Parada LTDA',
+            'trade_name' => 'Parada',
+            'cnpj' => '00000000000272',
+        ]);
+        $onlyLogiv = Company::query()->create([
+            'legal_name' => 'So Logiv LTDA',
+            'trade_name' => 'So Logiv',
+            'cnpj' => '00000000000353',
+        ]);
+        $mixed = Company::query()->create([
+            'legal_name' => 'Mista LTDA',
+            'trade_name' => 'Mista',
+            'cnpj' => '00000000000434',
+        ]);
+
+        $suspended = User::factory()->create(['email' => 'suspenso@melo.test']);
+        $removed = User::factory()->create(['email' => 'removido@melo.test']);
+        $system = User::factory()->create(['email' => 'logiv.reparo@logiv.test', 'is_system_admin' => true]);
+        $member = User::factory()->create(['email' => 'ativo@melo.test']);
+
+        $suspendedLink = CompanyUser::query()->create([
+            'company_id' => $stuck->id,
+            'user_id' => $suspended->id,
+            'role' => 'admin',
+            'status' => 'suspended',
+        ]);
+        $removedLink = CompanyUser::query()->create([
+            'company_id' => $stuck->id,
+            'user_id' => $removed->id,
+            'role' => 'member',
+            'status' => 'active',
+        ]);
+        $removedLink->delete();
+
+        CompanyUser::query()->create([
+            'company_id' => $onlyLogiv->id,
+            'user_id' => $system->id,
+            'role' => 'admin',
+            'status' => 'active',
+        ]);
+        CompanyUser::query()->create([
+            'company_id' => $mixed->id,
+            'user_id' => $suspended->id,
+            'role' => 'admin',
+            'status' => 'suspended',
+        ]);
+        CompanyUser::query()->create([
+            'company_id' => $mixed->id,
+            'user_id' => $member->id,
+            'role' => 'member',
+            'status' => 'active',
+        ]);
+
+        app(CompanyOwnershipRepair::class)->run();
+
+        $suspendedLink->refresh();
+        $this->assertSame('admin', $suspendedLink->role);
+        $this->assertSame('suspended', $suspendedLink->status);
+        $this->assertNull($suspendedLink->deleted_at);
+
+        $removedLink = CompanyUser::withTrashed()->find($removedLink->id);
+        $this->assertNotNull($removedLink->deleted_at);
+        $this->assertSame('member', $removedLink->role);
+        $this->assertSame(0, CompanyUser::query()->where('company_id', $stuck->id)->where('role', 'owner')->count());
+
+        $this->assertDatabaseMissing('company_user', ['company_id' => $onlyLogiv->id]);
+        $this->assertSame('owner', CompanyUser::query()->where('company_id', $mixed->id)->where('user_id', $member->id)->value('role'));
+        $this->assertSame('suspended', CompanyUser::query()->where('company_id', $mixed->id)->where('user_id', $suspended->id)->value('status'));
+
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'company.owner_missing',
+            'company_id' => $stuck->id,
+        ]);
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'company.owner_missing',
+            'company_id' => $onlyLogiv->id,
+        ]);
+        $this->assertDatabaseMissing('audit_logs', [
+            'action' => 'company.owner_missing',
+            'company_id' => $mixed->id,
+        ]);
+        $loggedIds = array_map(fn ($log) => $log->context['company_id'] ?? null, $warnings);
+        $this->assertContains($stuck->id, $loggedIds);
+        $this->assertContains($onlyLogiv->id, $loggedIds);
+    }
+
+    public function test_negacao_padrao_responde_em_portugues(): void
+    {
+        Route::get('/api/negacao-padrao', function () {
+            throw new AuthorizationException;
+        });
+
+        $this->getJson('/api/negacao-padrao')
+            ->assertForbidden()
+            ->assertJsonPath('message', 'Você não tem permissão para esta ação.');
     }
 
     public function test_down_do_vinculo_recupera_o_cnpj_do_posto(): void

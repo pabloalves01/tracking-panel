@@ -2,16 +2,22 @@
 
 namespace App\Services\Access;
 
+use App\Models\Company;
 use App\Models\CompanyUser;
 use App\Models\User;
+use App\Services\AuditLogger;
 use App\Support\Membership;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class CompanyOwnershipRepair
 {
+    public function __construct(private AuditLogger $audit) {}
+
     /**
-     * Tira o administrador da Logiv dos vínculos legados e garante um proprietário por empresa.
-     * Rodar de novo não muda uma empresa que já tem proprietário ativo.
+     * Tira o administrador da Logiv dos vínculos legados e promove um proprietário
+     * só entre vínculos ativos. Suspenso ou removido não volta. Sem candidato, a
+     * empresa fica sem proprietário e o suporte vê o registro.
      */
     public function run(): void
     {
@@ -35,30 +41,56 @@ class CompanyOwnershipRepair
                     continue;
                 }
 
-                $candidate = CompanyUser::query()
-                    ->where('company_id', $companyId)
-                    ->where('role', Membership::ADMIN)
-                    ->where('status', Membership::ACTIVE)
-                    ->orderBy('id')
-                    ->first();
+                $candidate = $this->activeCandidate($companyId);
 
                 if (! $candidate) {
-                    $candidate = CompanyUser::withTrashed()
-                        ->where('company_id', $companyId)
-                        ->orderBy('id')
-                        ->first();
-                }
+                    $this->recordMissingOwner($companyId);
 
-                if (! $candidate) {
                     continue;
                 }
 
                 $candidate->forceFill([
                     'role' => Membership::OWNER,
                     'status' => Membership::ACTIVE,
-                    'deleted_at' => null,
                 ])->save();
             }
         });
+    }
+
+    private function activeCandidate(int $companyId): ?CompanyUser
+    {
+        $admin = CompanyUser::query()
+            ->where('company_id', $companyId)
+            ->where('role', Membership::ADMIN)
+            ->where('status', Membership::ACTIVE)
+            ->orderBy('id')
+            ->first();
+
+        if ($admin) {
+            return $admin;
+        }
+
+        return CompanyUser::query()
+            ->where('company_id', $companyId)
+            ->where('status', Membership::ACTIVE)
+            ->orderBy('id')
+            ->first();
+    }
+
+    private function recordMissingOwner(int $companyId): void
+    {
+        Log::warning('Empresa sem proprietário ativo. O suporte precisa definir um.', [
+            'company_id' => $companyId,
+        ]);
+
+        $company = Company::query()->find($companyId);
+
+        if (! $company) {
+            return;
+        }
+
+        $this->audit->log('company.owner_missing', $company, [
+            'reason' => 'nenhum vínculo ativo elegível',
+        ], $companyId);
     }
 }
