@@ -15,8 +15,10 @@ return new class extends Migration
             $table->id();
             $table->uuid('uuid')->unique();
             $table->foreignId('company_id')->constrained('companies');
-            $table->foreignId('vehicle_owner_id')->constrained('vehicle_owners');
-            $table->foreignId('vehicle_responsible_id')->constrained('vehicle_responsibles');
+            // Proprietário e responsável são entidades com o papel
+            // correspondente em `entity_roles`.
+            $table->foreignId('vehicle_owner_id')->constrained('entities');
+            $table->foreignId('vehicle_responsible_id')->constrained('entities');
             $table->string('plate');
             $table->string('status', 50)->default('active');
             // todo:: chassi, renavam, validade crlv, 
