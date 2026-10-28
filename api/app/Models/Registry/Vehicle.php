@@ -2,7 +2,7 @@
 
 namespace App\Models\Registry;
 
-use App\Models\Company;
+use App\Models\Organization;
 use App\Models\Concerns\BelongsToCompany;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
@@ -32,7 +32,7 @@ class Vehicle extends Model
      */
     public function company()
     {
-        return $this->belongsTo(Company::class);
+        return $this->belongsTo(Organization::class, 'company_id');
     }
 
     /**

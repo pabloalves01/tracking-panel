@@ -2,10 +2,16 @@
 
 namespace App\Models\Concerns;
 
-use App\Support\CurrentCompany;
+use App\Support\CurrentOrganization;
 use Illuminate\Database\Eloquent\Builder;
 use LogicException;
 
+/**
+ * Restringe o model à organização ativa.
+ *
+ * A coluna continua se chamando `company_id` porque é a empresa dona do
+ * cadastro — um posto não tem motoristas nem clientes próprios.
+ */
 trait BelongsToCompany
 {
     protected static function bootBelongsToCompany(): void
@@ -13,30 +19,29 @@ trait BelongsToCompany
         static::addGlobalScope('company', function (Builder $query) {
             $query->where(
                 $query->getModel()->getTable().'.company_id',
-                self::currentCompany()->id
+                self::currentOrganization()->id()
             );
         });
 
         static::creating(function ($model) {
-            $model->company_id ??= self::currentCompany()->id;
+            $model->company_id ??= self::currentOrganization()->id();
         });
     }
 
     /**
-     * O contexto é registrado pelo middleware de empresa. Fora dele — num job,
-     * num comando, no contexto de posto — resolver a classe pelo container
-     * levantava `BindingResolutionException`, porque o construtor exige um
-     * `int`. O erro agora diz o que de fato aconteceu.
+     * Fora do contexto de uma organização — num job, num comando — resolver
+     * a classe pelo container levantava `BindingResolutionException`. O erro
+     * agora diz o que de fato aconteceu.
      */
-    private static function currentCompany(): CurrentCompany
+    private static function currentOrganization(): CurrentOrganization
     {
-        if (! app()->bound(CurrentCompany::class)) {
+        if (! app()->bound(CurrentOrganization::class)) {
             throw new LogicException(sprintf(
-                '%s só pode ser consultado dentro do contexto de uma empresa.',
+                '%s só pode ser consultado dentro do contexto de uma organização.',
                 static::class
             ));
         }
 
-        return app(CurrentCompany::class);
+        return app(CurrentOrganization::class);
     }
 }

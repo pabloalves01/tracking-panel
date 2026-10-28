@@ -17,8 +17,7 @@ return new class extends Migration
             $table->string('action');
             $table->string('subject_type');
             $table->unsignedBigInteger('subject_id')->nullable();
-            $table->foreignId('company_id')->nullable()->constrained('companies');
-            $table->foreignId('fuel_station_id')->nullable()->constrained('fuel_stations');
+            $table->foreignId('organization_id')->nullable()->constrained('organizations');
             $table->json('metadata')->nullable();
             $table->timestamp('created_at')->useCurrent();
 

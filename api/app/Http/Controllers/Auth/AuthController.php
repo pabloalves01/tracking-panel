@@ -4,36 +4,43 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
-use App\Http\Requests\Auth\SelectCompanyRequest;
-use App\Http\Requests\Auth\SelectFuelStationRequest;
+use App\Http\Requests\Auth\SelectOrganizationRequest;
 use App\Http\Resources\Auth\UserResource;
-use App\Http\Resources\FuelStation\FuelStationResource;
-use App\Http\Resources\System\Company\CompanyResource;
-use App\Models\Company;
+use App\Http\Resources\OrganizationResource;
+use App\Models\Organization;
 use App\Services\Access\InvitationService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
+/**
+ * Entrar, sair e escolher a organização da sessão.
+ *
+ * Eram dois caminhos quase iguais — `selectCompany` e `selectStation`, duas
+ * colunas no token, duas rotas de listagem. Agora é um só: a organização
+ * tem tipo, e o tipo decide para onde o client navega.
+ */
 class AuthController extends Controller
 {
-    public function __construct(private InvitationService $invitations) {}
+    public function __construct(private readonly InvitationService $invitations) {}
 
-    public function login(LoginRequest $request)
+    public function login(LoginRequest $request): JsonResponse
     {
-        $credentials = $request->only('email', 'password');
-
-        if (! Auth::attempt($credentials)) {
-            abort(401, 'E-mail ou senha inválidos.');
+        if (! Auth::attempt($request->only('email', 'password'))) {
+            abort(401, 'E-mail ou senha inválidos');
         }
+
         $user = $request->user();
         $token = $user->createToken('web');
-        $companies = $user->companies()->get();
-        $stations = $user->fuelStations()->with(['city', 'state'])->get();
 
-        if ($companies->count() + $stations->count() === 1) {
+        $organizations = $user->organizations()->with(['city', 'state'])->get();
+        $pending = $this->invitations->pendingFor($user);
+
+        // Com uma organização só e nenhum convite pendente, não há o que
+        // escolher: a sessão já entra nela.
+        if ($organizations->count() === 1 && $pending === []) {
             $token->accessToken->forceFill([
-                'company_id' => $companies->first()?->id,
-                'fuel_station_id' => $stations->first()?->id,
+                'organization_id' => $organizations->first()->getKey(),
             ])->save();
         }
 
@@ -42,70 +49,77 @@ class AuthController extends Controller
         return response()->json([
             'token' => $token->plainTextToken,
             'user' => UserResource::make($user),
-            'companies' => CompanyResource::collection($companies),
-            'fuel_stations' => FuelStationResource::collection($stations),
+            'organizations' => OrganizationResource::collection($organizations),
+            'invitations' => $pending,
+        ]);
+    }
+
+    /**
+     * Troca a organização da sessão.
+     *
+     * Devolve a organização escolhida com o caminho para onde ir, para o
+     * client navegar sem recarregar a página inteira — antes era um
+     * `location.assign`, que piscava a tela e recarregava o bundle.
+     */
+    public function selectOrganization(SelectOrganizationRequest $request): JsonResponse
+    {
+        $organization = $request->user()->organizations()
+            ->where('organizations.uuid', $request->validated('uuid'))
+            ->with(['city', 'state'])
+            ->first();
+
+        if (! $organization) {
+            abort(403, 'Você não tem acesso a esta organização');
+        }
+
+        $request->user()->currentAccessToken()->forceFill([
+            'organization_id' => $organization->getKey(),
+        ])->save();
+
+        return response()->json([
+            'data' => OrganizationResource::make($organization),
+            'redirect_to' => $organization->type->homePath(),
+        ]);
+    }
+
+    /**
+     * Quem está logado, onde está e onde mais pode entrar.
+     *
+     * O client lia isso de três rotas diferentes e remontava o estado; agora
+     * vem resolvido de uma vez.
+     */
+    public function me(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $currentId = $request->user()->currentAccessToken()->organization_id;
+
+        $organizations = $user->organizations()->with(['city', 'state'])->get();
+        $current = $currentId
+            ? $organizations->firstWhere((fn (Organization $o) => $o->getKey() === $currentId))
+            : null;
+
+        return response()->json([
+            'user' => UserResource::make($user),
+            'current_organization' => $current ? OrganizationResource::make($current) : null,
+            'organizations' => OrganizationResource::collection($organizations),
             'invitations' => $this->invitations->pendingFor($user),
         ]);
     }
 
-    public function selectCompany(SelectCompanyRequest $request)
-    {
-        $company = Company::where('uuid', $request->validated('uuid'))->firstOrFail();
-        $belongs = $request->user()->companies()->whereKey($company->id)->exists();
-        if (! $belongs) {
-            abort(403, 'Você não tem acesso a esta empresa.');
-        }
-        $request->user()->currentAccessToken()->forceFill([
-            'company_id' => $company->id,
-            'fuel_station_id' => null,
-        ])->save();
-
-        return CompanyResource::make($company);
-    }
-
-    public function selectStation(SelectFuelStationRequest $request)
-    {
-        $station = $request->user()->fuelStations()
-            ->where('fuel_stations.uuid', $request->validated('uuid'))
-            ->first();
-
-        if (! $station) {
-            abort(403, 'Você não tem acesso a este posto.');
-        }
-
-        $request->user()->currentAccessToken()->forceFill([
-            'company_id' => null,
-            'fuel_station_id' => $station->id,
-        ])->save();
-
-        return FuelStationResource::make($station);
-    }
-
-    public function me(Request $request)
-    {
-        return UserResource::make($request->user());
-    }
-
-    public function companies(Request $request)
-    {
-        return CompanyResource::collection($request->user()->companies()->get());
-    }
-
-    public function contexts(Request $request)
+    public function organizations(Request $request): JsonResponse
     {
         return response()->json([
-            'companies' => CompanyResource::collection($request->user()->companies()->get()),
-            'fuel_stations' => FuelStationResource::collection(
-                $request->user()->fuelStations()->with(['city', 'state'])->get()
+            'organizations' => OrganizationResource::collection(
+                $request->user()->organizations()->with(['city', 'state'])->get()
             ),
             'invitations' => $this->invitations->pendingFor($request->user()),
         ]);
     }
 
-    public function logout(Request $request)
+    public function logout(Request $request): JsonResponse
     {
         $request->user()->currentAccessToken()->delete();
 
-        return response()->json(['message' => 'Sessão encerrada.']);
+        return response()->json(['message' => 'Sessão encerrada']);
     }
 }

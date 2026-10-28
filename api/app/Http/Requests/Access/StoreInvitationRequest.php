@@ -2,10 +2,8 @@
 
 namespace App\Http\Requests\Access;
 
-use App\Support\Membership;
 use App\Support\Text;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class StoreInvitationRequest extends FormRequest
 {
@@ -16,30 +14,23 @@ class StoreInvitationRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $payload = [];
-
-        if ($this->exists('email')) {
-            $payload['email'] = Text::email($this->input('email'));
+        if ($this->has('email')) {
+            $this->merge(['email' => Text::email($this->input('email'))]);
         }
-
-        $this->merge($payload);
     }
 
     public function rules(): array
     {
         return [
             'email' => ['required', 'email', 'max:255'],
-            'role' => ['required', 'string', Rule::in([Membership::ADMIN, Membership::MEMBER])],
         ];
     }
 
     public function messages(): array
     {
         return [
-            'email.required' => 'O e-mail é obrigatório',
+            'email.required' => 'Informe o e-mail de quem você quer convidar',
             'email.email' => 'Informe um e-mail válido',
-            'role.required' => 'O papel é obrigatório',
-            'role.in' => 'Papel inválido para este convite',
         ];
     }
 }

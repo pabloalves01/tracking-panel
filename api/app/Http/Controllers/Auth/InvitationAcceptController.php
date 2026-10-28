@@ -5,128 +5,126 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\RegisterInvitationRequest;
 use App\Http\Resources\Auth\UserResource;
-use App\Http\Resources\FuelStation\FuelStationResource;
-use App\Http\Resources\System\Company\CompanyResource;
-use App\Models\Company;
-use App\Models\FuelStation;
+use App\Http\Resources\OrganizationResource;
 use App\Models\Invitation;
+use App\Models\User;
 use App\Services\Access\InvitationService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Laravel\Sanctum\PersonalAccessToken;
 
+/**
+ * O lado de quem recebeu o convite: ver, aceitar, recusar e criar conta.
+ */
 class InvitationAcceptController extends Controller
 {
-    public function __construct(private InvitationService $invitations) {}
+    public function __construct(private readonly InvitationService $invitations) {}
 
-    public function show(string $token)
+    /** O que a tela pública do convite mostra. */
+    public function show(string $token): JsonResponse
     {
-        return response()->json($this->invitations->preview($token));
+        return response()->json(['data' => $this->invitations->preview($token)]);
     }
 
-    public function register(RegisterInvitationRequest $request, string $token)
+    /** Sem conta: cria a conta, entra na organização e já devolve a sessão. */
+    public function register(RegisterInvitationRequest $request, string $token): JsonResponse
     {
         $user = $this->invitations->registerAndAccept(
             $token,
             $request->validated('name'),
             $request->validated('password'),
-            $request->input('code'),
+            $request->validated('code'),
         );
 
-        return response()->json($this->session($user, 'Conta criada e convite aceito'), 201);
+        return $this->session($user, $this->acceptedOrganizationFor($user, $token));
     }
 
-    public function accept(Request $request, string $token)
+    /** Com conta: aceita e já troca a sessão para a organização nova. */
+    public function accept(Request $request, string $token): JsonResponse
     {
-        $this->invitations->accept($token, $request->user());
-        $this->enterContext($request->user(), $token);
+        $invitation = $this->invitations->accept($token, $request->user());
+        $organization = $invitation->organization;
+
+        $request->user()->currentAccessToken()->forceFill([
+            'organization_id' => $organization->getKey(),
+        ])->save();
 
         return response()->json([
             'message' => 'Convite aceito',
-            'user' => UserResource::make($request->user()),
+            'organization' => OrganizationResource::make($organization),
+            'redirect_to' => $organization->type->homePath(),
         ]);
     }
 
-    public function mine(Request $request)
+    /** Quem tem o link pode recusar sem entrar. */
+    public function decline(string $token): JsonResponse
     {
-        return response()->json([
-            'data' => $this->invitations->pendingFor($request->user()),
-        ]);
+        $this->invitations->decline($token);
+
+        return response()->json(['message' => 'Convite recusado']);
     }
 
-    public function acceptMine(Request $request, string $uuid)
+    public function mine(Request $request): JsonResponse
+    {
+        return response()->json(['data' => $this->invitations->pendingFor($request->user())]);
+    }
+
+    public function acceptMine(Request $request, string $uuid): JsonResponse
     {
         $invitation = $this->invitations->acceptForUser($request->user(), $uuid);
-        $this->enterFromInvitation($request->user(), $invitation);
+        $organization = $invitation->organization;
+
+        $request->user()->currentAccessToken()->forceFill([
+            'organization_id' => $organization->getKey(),
+        ])->save();
 
         return response()->json([
             'message' => 'Convite aceito',
-            'user' => UserResource::make($request->user()),
+            'organization' => OrganizationResource::make($organization),
+            'redirect_to' => $organization->type->homePath(),
         ]);
     }
 
-    public function declineMine(Request $request, string $uuid)
+    public function declineMine(Request $request, string $uuid): JsonResponse
     {
         $this->invitations->declineForUser($request->user(), $uuid);
 
-        return response()->json([
-            'message' => 'Convite recusado',
-        ]);
+        return response()->json(['message' => 'Convite recusado']);
     }
 
-    public function decline(string $token)
-    {
-        // O token é o segredo. Quem tem o link pode recusar sem entrar.
-        $this->invitations->decline($token);
-
-        return response()->json([
-            'message' => 'Convite recusado',
-        ]);
-    }
+    // ================================ INTERNALS ================================
 
     /**
-     * @return array<string, mixed>
+     * A organização do convite que acabou de ser aceito.
+     *
+     * A versão anterior escolhia pelo último convite aceito daquele e-mail,
+     * o que punha na organização errada quem aceitava dois em sequência.
+     * Aqui a busca é pelo token desta requisição.
      */
-    private function session($user, string $message): array
+    private function acceptedOrganizationFor(User $user, string $token)
     {
-        $invitation = Invitation::query()->where('email', $user->email)->where('status', Invitation::ACCEPTED)->latest('id')->first();
+        return Invitation::query()
+            ->where('token_hash', hash('sha256', $token))
+            ->with('organization')
+            ->firstOrFail()
+            ->organization;
+    }
+
+    private function session(User $user, $organization): JsonResponse
+    {
         $token = $user->createToken('web');
-        $companyId = $invitation?->company_id;
-        $stationId = $invitation?->fuel_station_id;
+
         $token->accessToken->forceFill([
-            'company_id' => $stationId ? null : $companyId,
-            'fuel_station_id' => $stationId,
+            'organization_id' => $organization->getKey(),
         ])->save();
+
         $user->withAccessToken($token->accessToken);
 
-        return [
-            'message' => $message,
+        return response()->json([
+            'message' => 'Conta criada',
             'token' => $token->plainTextToken,
             'user' => UserResource::make($user),
-            'company' => $companyId ? CompanyResource::make(Company::query()->find($companyId)) : null,
-            'fuel_station' => $stationId ? FuelStationResource::make(FuelStation::query()->find($stationId)) : null,
-        ];
-    }
-
-    private function enterContext($user, string $plainToken): void
-    {
-        $invitation = Invitation::query()->where('token_hash', hash('sha256', $plainToken))->first();
-
-        if ($invitation) {
-            $this->enterFromInvitation($user, $invitation);
-        }
-    }
-
-    private function enterFromInvitation($user, Invitation $invitation): void
-    {
-        $access = $user->currentAccessToken();
-
-        if (! $access instanceof PersonalAccessToken) {
-            return;
-        }
-
-        $access->forceFill([
-            'company_id' => $invitation->fuel_station_id ? null : $invitation->company_id,
-            'fuel_station_id' => $invitation->fuel_station_id,
-        ])->save();
+            'organization' => OrganizationResource::make($organization),
+            'redirect_to' => $organization->type->homePath(),
+        ], 201);
     }
 }

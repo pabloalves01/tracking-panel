@@ -3,7 +3,7 @@
 namespace App\Models\Registry;
 
 use App\Enums\EntityRole;
-use App\Models\Company;
+use App\Models\Organization;
 use App\Models\Concerns\BelongsToCompany;
 use App\Models\Location\City;
 use App\Models\Location\State;
@@ -79,7 +79,7 @@ class Entity extends Model
 
     public function company()
     {
-        return $this->belongsTo(Company::class);
+        return $this->belongsTo(Organization::class, 'company_id');
     }
 
     public function city()

@@ -4,18 +4,11 @@ namespace App\Http\Requests\Auth;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class SelectFuelStationRequest extends FormRequest
+class SelectOrganizationRequest extends FormRequest
 {
     public function authorize(): bool
     {
         return true;
-    }
-
-    protected function prepareForValidation(): void
-    {
-        if (! is_string($this->input('uuid'))) {
-            $this->merge(['uuid' => '']);
-        }
     }
 
     public function rules(): array
@@ -28,8 +21,8 @@ class SelectFuelStationRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'uuid.required' => 'Selecione um posto',
-            'uuid.uuid' => 'O posto informado é inválido',
+            'uuid.required' => 'Escolha uma organização',
+            'uuid.uuid' => 'Organização inválida',
         ];
     }
 }

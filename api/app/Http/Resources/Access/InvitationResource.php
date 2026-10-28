@@ -5,22 +5,23 @@ namespace App\Http\Resources\Access;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
+/**
+ * @mixin \App\Models\Invitation
+ */
 class InvitationResource extends JsonResource
 {
-    /**
-     * @return array<string, mixed>
-     */
     public function toArray(Request $request): array
     {
         return [
             'uuid' => $this->uuid,
             'email' => $this->email,
-            'role' => $this->role,
             'status' => $this->status,
-            'expires_at' => $this->expires_at?->toIso8601String(),
-            'created_at' => $this->created_at?->toIso8601String(),
-            'account_exists' => $this->when($this->accountExists !== null, (bool) $this->accountExists),
+            'expires_at' => $this->expires_at,
+            'invited_by' => $this->whenLoaded('invitedBy', fn () => $this->invitedBy?->name),
+            'created_at' => $this->created_at,
+            // Só na resposta de criar ou reenviar: o link para copiar.
             'invite_url' => $this->when($this->plainToken !== null, fn () => $this->inviteUrl()),
+            'account_exists' => $this->when($this->accountExists !== null, fn () => $this->accountExists),
         ];
     }
 }

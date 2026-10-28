@@ -2,12 +2,6 @@
 
 namespace App\Providers;
 
-use App\Models\CompanyFuelStation;
-use App\Models\CompanyUser;
-use App\Models\FuelStationUser;
-use App\Policies\CompanyFuelStationPolicy;
-use App\Policies\MembershipPolicy;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use RuntimeException;
 use MatanYadaev\EloquentSpatial\EloquentSpatial;
@@ -35,8 +29,5 @@ class AppServiceProvider extends ServiceProvider
         // Set the default SRID to WGS84 (EPSG:4326)
         EloquentSpatial::setDefaultSrid(Srid::WGS84);
 
-        Gate::policy(CompanyFuelStation::class, CompanyFuelStationPolicy::class);
-        Gate::policy(CompanyUser::class, MembershipPolicy::class);
-        Gate::policy(FuelStationUser::class, MembershipPolicy::class);
     }
 }

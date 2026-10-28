@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('vehicles', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid')->unique();
-            $table->foreignId('company_id')->constrained('companies');
+            $table->foreignId('company_id')->constrained('organizations');
             // Proprietário e responsável são entidades com o papel
             // correspondente em `entity_roles`.
             $table->foreignId('vehicle_owner_id')->constrained('entities');

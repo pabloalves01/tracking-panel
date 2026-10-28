@@ -18,7 +18,7 @@ return new class extends Migration
         Schema::create('entities', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid')->unique();
-            $table->foreignId('company_id')->constrained('companies');
+            $table->foreignId('company_id')->constrained('organizations');
 
             $table->string('kind', 20); // individual | organization
             $table->string('document', 14); // somente dígitos: CPF (11) ou CNPJ (14)
@@ -27,8 +27,7 @@ return new class extends Migration
             // real que uma organização com conta e painel próprios — hoje o
             // posto, amanhã o fornecedor e a transportadora. Nula é o caso
             // comum: um registro que só esta empresa conhece.
-            // A FK é criada no PR 2, junto com a tabela `organizations`.
-            $table->unsignedBigInteger('organization_id')->nullable()->index();
+            $table->foreignId('organization_id')->nullable()->constrained('organizations');
             $table->string('name');
             $table->string('trade_name')->nullable();
 

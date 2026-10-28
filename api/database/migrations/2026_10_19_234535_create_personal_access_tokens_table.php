@@ -14,8 +14,9 @@ return new class extends Migration
         Schema::create('personal_access_tokens', function (Blueprint $table) {
             $table->id();
             $table->morphs('tokenable');
-            $table->foreignId('company_id')->nullable()->constrained('companies');
-            $table->foreignId('fuel_station_id')->nullable()->constrained('fuel_stations');
+            // A organização ativa da sessão. Eram duas colunas, `company_id`
+            // e `fuel_station_id`, uma ou outra preenchida; agora é uma.
+            $table->foreignId('organization_id')->nullable()->constrained('organizations');
             $table->text('name');
             $table->string('token', 64)->unique();
             $table->text('abilities')->nullable();

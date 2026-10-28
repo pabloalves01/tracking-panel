@@ -33,10 +33,8 @@ class Invitation extends Model
     public ?bool $accountExists = null;
 
     protected $fillable = [
-        'company_id',
-        'fuel_station_id',
+        'organization_id',
         'email',
-        'role',
         'status',
         'token_hash',
         'expires_at',
@@ -65,19 +63,24 @@ class Invitation extends Model
         return 'uuid';
     }
 
-    public function company(): BelongsTo
+    public function organization(): BelongsTo
     {
-        return $this->belongsTo(Company::class);
-    }
-
-    public function fuelStation(): BelongsTo
-    {
-        return $this->belongsTo(FuelStation::class);
+        return $this->belongsTo(Organization::class);
     }
 
     public function invitedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'invited_by');
+    }
+
+    public function isPending(): bool
+    {
+        return $this->status === self::PENDING;
+    }
+
+    public function hasExpired(): bool
+    {
+        return $this->expires_at !== null && $this->expires_at->isPast();
     }
 
     public function inviteUrl(?string $plainToken = null): ?string

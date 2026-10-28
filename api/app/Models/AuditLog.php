@@ -14,8 +14,7 @@ class AuditLog extends Model
         'action',
         'subject_type',
         'subject_id',
-        'company_id',
-        'fuel_station_id',
+        'organization_id',
         'metadata',
     ];
 

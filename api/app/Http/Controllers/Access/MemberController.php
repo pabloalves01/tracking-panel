@@ -3,87 +3,49 @@
 namespace App\Http\Controllers\Access;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Access\UpdateMemberRoleRequest;
 use App\Http\Resources\Access\MemberResource;
-use App\Models\CompanyUser;
-use App\Models\FuelStationUser;
 use App\Services\Access\MemberService;
-use App\Support\CurrentCompany;
-use App\Support\CurrentFuelStation;
-use App\Support\MembershipScope;
+use App\Support\CurrentOrganization;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
+/**
+ * Os membros da organização ativa.
+ *
+ * Um controller em vez de três — empresa, posto e sistema tinham cada um a
+ * sua cópia das mesmas rotas.
+ */
 class MemberController extends Controller
 {
-    public function __construct(private MemberService $members) {}
+    public function __construct(
+        private readonly MemberService $members,
+        private readonly CurrentOrganization $current,
+    ) {}
 
-    public function index()
+    public function index(): AnonymousResourceCollection
     {
-        $scope = $this->scope();
-        $this->authorize('viewAny', $scope->membershipClass === CompanyUser::class ? CompanyUser::class : FuelStationUser::class);
-
-        return MemberResource::collection($this->members->list($scope));
+        return MemberResource::collection($this->members->list($this->current->organization));
     }
 
-    public function update(UpdateMemberRoleRequest $request, string $uuid)
+    public function suspend(Request $request, string $uuid): JsonResponse
     {
-        $scope = $this->scope();
-        $this->authorize('manage', $scope->membershipClass === CompanyUser::class ? CompanyUser::class : FuelStationUser::class);
-        $this->members->updateRole($scope, $request->user(), $uuid, $request->validated('role'));
+        $this->members->suspend($this->current->organization, $request->user(), $uuid);
 
-        return response()->json([
-            'message' => 'Papel atualizado',
-        ]);
+        return response()->json(['message' => 'Acesso suspenso']);
     }
 
-    public function suspend(Request $request, string $uuid)
+    public function reactivate(string $uuid): JsonResponse
     {
-        return $this->destroy($request, $uuid);
+        $this->members->reactivate($this->current->organization, $uuid);
+
+        return response()->json(['message' => 'Acesso reativado']);
     }
 
-    public function reactivate(Request $request, string $uuid)
+    public function destroy(Request $request, string $uuid): JsonResponse
     {
-        $scope = $this->scope();
-        $this->authorize('manage', $scope->membershipClass === CompanyUser::class ? CompanyUser::class : FuelStationUser::class);
-        $this->members->reactivate($scope, $request->user(), $uuid);
+        $this->members->remove($this->current->organization, $request->user(), $uuid);
 
-        return response()->json([
-            'message' => 'Pessoa reativada',
-        ]);
-    }
-
-    public function remove(Request $request, string $uuid)
-    {
-        $scope = $this->scope();
-        $this->authorize('manage', $scope->membershipClass === CompanyUser::class ? CompanyUser::class : FuelStationUser::class);
-        $this->members->remove($scope, $request->user(), $uuid);
-
-        return response()->json([
-            'message' => 'Pessoa removida',
-        ]);
-    }
-
-    public function destroy(Request $request, string $uuid)
-    {
-        $scope = $this->scope();
-        $this->authorize('manage', $scope->membershipClass === CompanyUser::class ? CompanyUser::class : FuelStationUser::class);
-        $this->members->suspend($scope, $request->user(), $uuid);
-
-        return response()->json([
-            'message' => 'Pessoa suspensa',
-        ]);
-    }
-
-    private function scope(): MembershipScope
-    {
-        if (app()->bound(CurrentCompany::class)) {
-            $current = app(CurrentCompany::class);
-
-            return new MembershipScope(CompanyUser::class, 'company_id', $current->id, $current->role, $current->id, null);
-        }
-
-        $current = app(CurrentFuelStation::class);
-
-        return new MembershipScope(FuelStationUser::class, 'fuel_station_id', $current->id, $current->role, null, $current->id);
+        return response()->json(['message' => 'Membro removido da organização']);
     }
 }

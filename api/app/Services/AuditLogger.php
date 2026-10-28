@@ -14,16 +14,14 @@ class AuditLogger
         string $action,
         Model $subject,
         array $metadata = [],
-        ?int $companyId = null,
-        ?int $fuelStationId = null,
+        ?int $organizationId = null,
     ): void {
         AuditLog::query()->create([
             'user_id' => auth()->id(),
             'action' => $action,
             'subject_type' => $subject->getMorphClass(),
             'subject_id' => $subject->getKey(),
-            'company_id' => $companyId,
-            'fuel_station_id' => $fuelStationId,
+            'organization_id' => $organizationId,
             'metadata' => $metadata === [] ? null : $metadata,
         ]);
     }

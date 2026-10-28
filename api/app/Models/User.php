@@ -3,7 +3,6 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
-use App\Support\Membership;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -11,6 +10,7 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -53,20 +53,33 @@ class User extends Authenticatable
         ];
     }
 
-    public function companies(): BelongsToMany
+    public function memberships(): HasMany
     {
-        return $this->belongsToMany(Company::class, 'company_user')
-            ->withPivot(['role', 'status'])
-            ->wherePivot('status', Membership::ACTIVE)
-            ->wherePivotNull('deleted_at')
-            ->where('companies.status', 'active');
+        return $this->hasMany(Membership::class);
     }
 
-    public function fuelStations(): BelongsToMany
+    /**
+     * As organizações em que a conta pode entrar: vínculo ativo e
+     * organização ativa.
+     *
+     * Antes eram duas relações, `companies()` e `fuelStations()`, idênticas
+     * exceto pelo nome da tabela.
+     */
+    public function organizations(): BelongsToMany
     {
-        return $this->belongsToMany(FuelStation::class, 'fuel_station_user')
-            ->withPivot(['role', 'status'])
+        return $this->belongsToMany(Organization::class, 'memberships')
+            ->withPivot(['status'])
             ->wherePivot('status', Membership::ACTIVE)
-            ->where('fuel_stations.status', 'active');
+            ->wherePivotNull('deleted_at')
+            ->where('organizations.status', Organization::ACTIVE)
+            ->whereNull('organizations.deleted_at');
+    }
+
+    public function belongsToOrganization(int $organizationId): bool
+    {
+        return $this->memberships()
+            ->where('organization_id', $organizationId)
+            ->where('status', Membership::ACTIVE)
+            ->exists();
     }
 }

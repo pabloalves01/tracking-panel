@@ -5,106 +5,61 @@ namespace App\Http\Controllers\Access;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Access\StoreInvitationRequest;
 use App\Http\Resources\Access\InvitationResource;
-use App\Models\Company;
-use App\Models\CompanyUser;
-use App\Models\FuelStation;
-use App\Models\FuelStationUser;
-use App\Models\User;
 use App\Services\Access\InvitationService;
-use App\Support\CurrentCompany;
-use App\Support\CurrentFuelStation;
-use App\Support\Text;
+use App\Support\CurrentOrganization;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
+/**
+ * Os convites da organização ativa.
+ */
 class InvitationController extends Controller
 {
-    public function __construct(private InvitationService $invitations) {}
+    public function __construct(
+        private readonly InvitationService $invitations,
+        private readonly CurrentOrganization $current,
+    ) {}
 
-    public function index()
+    public function index(): AnonymousResourceCollection
     {
-        $this->authorize('viewAny', $this->membershipClass());
-
-        if (app()->bound(CurrentCompany::class)) {
-            $company = Company::query()->findOrFail(app(CurrentCompany::class)->id);
-
-            return InvitationResource::collection($this->invitations->listForCompany($company));
-        }
-
-        $station = FuelStation::query()->findOrFail(app(CurrentFuelStation::class)->id);
-
-        return InvitationResource::collection($this->invitations->listForStation($station));
+        return InvitationResource::collection(
+            $this->invitations->listFor($this->current->organization)
+        );
     }
 
-    public function lookup(Request $request)
+    public function store(StoreInvitationRequest $request): JsonResponse
     {
-        $this->authorize('manage', $this->membershipClass());
-        $email = Text::email($request->query('email'));
+        $invitation = $this->invitations->create(
+            $this->current->organization,
+            $request->validated('email'),
+            $request->user(),
+        );
 
         return response()->json([
-            'account_exists' => filter_var($email, FILTER_VALIDATE_EMAIL)
-                && User::query()->where('email', $email)->exists(),
+            'message' => 'Convite enviado para '.$invitation->email,
+            'data' => InvitationResource::make($invitation),
+        ], 201);
+    }
+
+    public function resend(string $uuid): JsonResponse
+    {
+        $invitation = $this->invitations->resend(
+            $this->invitations->findFor($this->current->organization, $uuid)
+        );
+
+        return response()->json([
+            'message' => 'Convite reenviado para '.$invitation->email,
+            'data' => InvitationResource::make($invitation),
         ]);
     }
 
-    public function store(StoreInvitationRequest $request)
+    public function destroy(string $uuid): JsonResponse
     {
-        $this->authorize('manage', $this->membershipClass());
+        $this->invitations->revoke(
+            $this->invitations->findFor($this->current->organization, $uuid)
+        );
 
-        if (app()->bound(CurrentCompany::class)) {
-            $company = Company::query()->findOrFail(app(CurrentCompany::class)->id);
-            $invitation = $this->invitations->createForCompany(
-                $company,
-                $request->validated('email'),
-                $request->validated('role'),
-                $request->user(),
-            );
-        } else {
-            $station = FuelStation::query()->findOrFail(app(CurrentFuelStation::class)->id);
-            $invitation = $this->invitations->createForStation(
-                $station,
-                $request->validated('email'),
-                $request->validated('role'),
-                $request->user(),
-            );
-        }
-
-        return (new InvitationResource($invitation))
-            ->response()
-            ->setStatusCode(201);
-    }
-
-    public function resend(string $uuid)
-    {
-        $this->authorize('manage', $this->membershipClass());
-
-        return new InvitationResource($this->invitations->resend($this->find($uuid), false));
-    }
-
-    public function destroy(string $uuid)
-    {
-        $this->authorize('manage', $this->membershipClass());
-        $this->invitations->revoke($this->find($uuid));
-
-        return response()->json([
-            'message' => 'Convite cancelado',
-        ]);
-    }
-
-    private function find(string $uuid)
-    {
-        if (app()->bound(CurrentCompany::class)) {
-            $company = Company::query()->findOrFail(app(CurrentCompany::class)->id);
-
-            return $this->invitations->findForCompany($company, $uuid);
-        }
-
-        $station = FuelStation::query()->findOrFail(app(CurrentFuelStation::class)->id);
-
-        return $this->invitations->findForStation($station, $uuid);
-    }
-
-    private function membershipClass(): string
-    {
-        return app()->bound(CurrentCompany::class) ? CompanyUser::class : FuelStationUser::class;
+        return response()->json(['message' => 'Convite cancelado']);
     }
 }
