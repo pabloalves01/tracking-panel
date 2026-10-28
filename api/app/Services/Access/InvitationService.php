@@ -342,15 +342,19 @@ class InvitationService
             return;
         }
 
-        $invitation->loadMissing(['company', 'fuelStation']);
+        $invitation->loadMissing(['company', 'fuelStation', 'invitedBy']);
         $organization = $invitation->company
             ? ($invitation->company->trade_name ?: $invitation->company->legal_name)
             : ($invitation->fuelStation?->trade_name ?: $invitation->fuelStation?->corporate_name);
 
         Mail::to($invitation->email)->queue(new InvitationMail(
-            (string) $organization,
-            $url,
-            $invitation->expires_at?->timezone(config('app.timezone'))->format('d/m/Y H:i') ?? '',
+            organization: (string) $organization,
+            url: $url,
+            expiresAt: $invitation->expires_at?->timezone(config('app.timezone'))->format('d/m/Y \à\s H:i') ?? '',
+            role: $invitation->role,
+            invitedBy: $invitation->invitedBy?->name,
+            accountExists: User::query()->where('email', $invitation->email)->exists(),
+            organizationKind: $invitation->company ? 'empresa' : 'posto',
         ));
     }
 
