@@ -9,6 +9,7 @@ import {
     DropdownMenuContent,
     DropdownMenuGroup,
     DropdownMenuItem,
+    DropdownMenuLabel,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Separator } from '@/components/ui/separator'
@@ -45,7 +46,7 @@ export function FuelStationHeader() {
                 <Separator orientation="vertical" className="data-vertical:h-4" />
             </div>
 
-            <div className="ml-auto flex items-center gap-3">
+            <div className="ml-auto flex min-w-0 items-center gap-2 sm:gap-3">
                 <OrganizationSwitcher />
                 <ThemeToggle />
                 <DropdownMenu>
@@ -53,12 +54,13 @@ export function FuelStationHeader() {
                         render={
                             <button
                                 type="button"
-                                className="flex items-center gap-2 rounded-lg px-1 py-1 transition-colors hover:bg-muted"
+                                aria-label={`Conta de ${user.name}`}
+                                className="flex shrink-0 items-center gap-2 rounded-lg px-1 py-1 transition-colors hover:bg-muted"
                             >
                                 <Avatar>
                                     <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
                                 </Avatar>
-                                <span className="grid text-left text-sm leading-tight">
+                                <span className="hidden text-left text-sm leading-tight md:grid">
                                     <span className="truncate font-medium">{user.name}</span>
                                     <span className="truncate text-xs text-muted-foreground">
                                         {user.email}
@@ -69,6 +71,13 @@ export function FuelStationHeader() {
                     />
                     <DropdownMenuContent align="end" className="w-56">
                         <DropdownMenuGroup>
+                            {/* No celular o nome e o e-mail saem do cabeçalho
+                                e aparecem aqui, para a pessoa saber em que
+                                conta está. */}
+                            <DropdownMenuLabel className="md:hidden">
+                                <span className="block truncate text-sm text-foreground">{user.name}</span>
+                                <span className="block truncate font-normal">{user.email}</span>
+                            </DropdownMenuLabel>
                             <DropdownMenuItem variant="destructive" onClick={handleLogout}>
                                 <LogOut />
                                 Sair

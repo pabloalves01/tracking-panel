@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Navigate, useLocation } from 'react-router'
 
 import { AppLayout } from '@/layouts/AppLayout'
@@ -27,14 +27,24 @@ const layouts = {
 export function RequireOrganization({ type }) {
     const location = useLocation()
     const [session, setSession] = useState(null)
-    const [state, setState] = useState('loading')
+    const [state, setState] = useState(() => (localStorage.getItem('token') ? 'loading' : 'unauthenticated'))
+
+    /**
+     * Relê a sessão sem sair da área.
+     *
+     * A troca entre organizações do mesmo tipo — empresa para empresa — não
+     * desmonta este componente, e sem isto o cabeçalho seguia mostrando a
+     * organização anterior até um F5.
+     */
+    const reload = useCallback(async () => {
+        const data = await me()
+        setSession(data)
+
+        return data
+    }, [])
 
     useEffect(() => {
-        if (!localStorage.getItem('token')) {
-            setState('unauthenticated')
-
-            return
-        }
+        if (!localStorage.getItem('token')) return undefined
 
         let active = true
 
@@ -91,9 +101,12 @@ export function RequireOrganization({ type }) {
 
     const Layout = layouts[type] ?? AppLayout
 
+    // A chave é a organização: trocar de organização remonta a área inteira,
+    // e toda tela busca seus dados de novo. Sem isso, uma listagem aberta
+    // continuaria mostrando os dados da empresa anterior.
     return (
-        <SessionContext.Provider value={session}>
-            <Layout />
+        <SessionContext.Provider value={{ ...session, reload }}>
+            <Layout key={session.current_organization?.uuid ?? 'sistema'} />
         </SessionContext.Provider>
     )
 }

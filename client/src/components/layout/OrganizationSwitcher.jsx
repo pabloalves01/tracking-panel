@@ -28,7 +28,7 @@ const typeIcon = {
  */
 export function OrganizationSwitcher() {
     const navigate = useNavigate()
-    const { current_organization: current, organizations = [], invitations = [] } = useSession()
+    const { current_organization: current, organizations = [], invitations = [], reload } = useSession()
     const [switching, setSwitching] = useState(false)
 
     if (!current) {
@@ -45,6 +45,14 @@ export function OrganizationSwitcher() {
 
         try {
             const response = await selectOrganization(uuid)
+
+            // Mesmo tipo, mesma área: nada desmonta sozinho, então a sessão
+            // é relida aqui. Tipo diferente cai na outra área, que lê a
+            // sessão ao montar.
+            if (response.data?.type === current.type) {
+                await reload()
+            }
+
             navigate(response.redirect_to)
         } catch (error) {
             notifyError(error)
@@ -60,11 +68,14 @@ export function OrganizationSwitcher() {
                 render={
                     <button
                         type="button"
-                        className="bg-background hover:bg-muted flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm transition-colors disabled:pointer-events-none disabled:opacity-50"
+                        className="bg-background hover:bg-muted flex min-w-0 items-center gap-2 rounded-lg border px-2 py-1.5 text-sm transition-colors disabled:pointer-events-none disabled:opacity-50 sm:px-3"
                     >
                         <Icon className="text-muted-foreground size-4 shrink-0" />
-                        <span className="font-medium">{current.display_name}</span>
-                        <span className="text-muted-foreground tabular-nums">
+                        {/* No celular o nome trunca e o CNPJ sai: o botão
+                            empurrava o cabeçalho para fora da tela. O CNPJ
+                            continua no menu, em cada organização. */}
+                        <span className="max-w-32 truncate font-medium sm:max-w-56">{current.display_name}</span>
+                        <span className="text-muted-foreground hidden tabular-nums md:inline">
                             {formatCpfCnpj(current.document)}
                         </span>
                         <CurrentDot />
@@ -72,7 +83,7 @@ export function OrganizationSwitcher() {
                     </button>
                 }
             />
-            <DropdownMenuContent align="end" className="w-72">
+            <DropdownMenuContent align="end" className="w-72 max-w-[calc(100vw-1.5rem)]">
                 {/* Todas, inclusive a atual: a lista é o mapa de onde a pessoa
                     pode estar, e a bolinha diz onde ela está. */}
                 {organizations.map((organization) => {
