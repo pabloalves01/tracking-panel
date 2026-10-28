@@ -7,12 +7,10 @@ use App\Http\Controllers\Auth\FuelStationSignupController;
 use App\Http\Controllers\Auth\InvitationAcceptController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\VerificationCodeController;
+use App\Http\Controllers\FuelStation\FuelStationCompanyController;
 use App\Http\Controllers\Location\LocationController;
-use App\Http\Controllers\Operations\ShipOperationPerimeterController;
 use App\Http\Controllers\Registry\EntityController;
 use App\Http\Controllers\Registry\FuelStationAgreementController;
-use App\Http\Controllers\Registry\VehicleController;
-use App\Http\Controllers\FuelStation\FuelStationCompanyController;
 use App\Http\Controllers\System\OrganizationController;
 use Illuminate\Support\Facades\Route;
 
@@ -104,9 +102,6 @@ Route::middleware(['auth:sanctum', 'organization'])->prefix('organization')->gro
 // =============================== EMPRESA ===============================
 
 Route::middleware(['auth:sanctum', 'organization:company'])->group(function () {
-    Route::get('/ship-operation-perimeters/{shipOperationId}', [ShipOperationPerimeterController::class, 'get']);
-    Route::post('/ship-operation-perimeters', [ShipOperationPerimeterController::class, 'create']);
-
     Route::prefix('registry')->group(function () {
         // O cadastro de entidades inteiro. O papel é um parâmetro de rota
         // resolvido no enum `EntityRole`: um papel novo não cria rota nova.
@@ -134,14 +129,6 @@ Route::middleware(['auth:sanctum', 'organization:company'])->group(function () {
                 ->middleware('throttle:10,1,fuel-station-request');
             Route::delete('/{uuid}', [FuelStationAgreementController::class, 'destroy']);
             Route::post('/{uuid}/disconnect', [FuelStationAgreementController::class, 'disconnect']);
-        });
-
-        Route::prefix('vehicles')->group(function () {
-            Route::get('/', [VehicleController::class, 'index']);
-            Route::post('/', [VehicleController::class, 'store']);
-            Route::get('/{uuid}', [VehicleController::class, 'show']);
-            Route::put('/{uuid}', [VehicleController::class, 'update']);
-            Route::delete('/{uuid}', [VehicleController::class, 'destroy']);
         });
     });
 });
