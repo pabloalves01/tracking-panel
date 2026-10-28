@@ -2,6 +2,7 @@
 
 namespace App\Services\Access;
 
+use App\Exceptions\NotFound;
 use App\Mail\InvitationMail;
 use App\Models\Invitation;
 use App\Models\Membership;
@@ -143,22 +144,35 @@ class InvitationService
     }
 
     /**
-     * Cria a conta e entra na organização, numa transação só.
+     * Cria a conta e entra na organização.
      *
-     * O código é consumido dentro da transação: se a criação falhar, ele não
-     * foi gasto. Antes o consumo ficava fora, e um erro no passo seguinte
-     * obrigava a pedir outro código.
+     * A conferência do código acontece antes da transação, porque o palpite
+     * errado precisa ficar contado mesmo quando o registro falha logo a
+     * seguir — dentro dela, o rollback desfazia a contagem. Marcar o código
+     * como gasto continua lá dentro: se a criação falhar, ele vale ainda.
+     *
+     * O convite é lido duas vezes de propósito: a primeira só para saber
+     * para qual e-mail o código foi emitido, e a segunda com `lockPending`,
+     * que é a que vale.
      */
     public function registerAndAccept(string $plainToken, string $name, string $password, mixed $code): User
     {
-        return DB::transaction(function () use ($plainToken, $name, $password, $code) {
+        $email = $this->findByToken($plainToken)->email;
+
+        if ($this->accountExists($email)) {
+            throw new DomainException('Este e-mail já tem conta. Entre para aceitar o convite');
+        }
+
+        $verified = $this->codes->verify($email, VerificationCode::INVITATION_REGISTER, $code);
+
+        return DB::transaction(function () use ($plainToken, $name, $password, $verified) {
             $invitation = $this->lockPending($plainToken);
 
             if ($this->accountExists($invitation->email)) {
                 throw new DomainException('Este e-mail já tem conta. Entre para aceitar o convite');
             }
 
-            $this->codes->consume($invitation->email, VerificationCode::INVITATION_REGISTER, $code);
+            $this->codes->markUsed($verified);
 
             $user = User::query()->create([
                 'name' => $name,
@@ -323,7 +337,7 @@ class InvitationService
             ->first();
 
         if ($invitation === null) {
-            throw new DomainException('Convite não encontrado ou já utilizado');
+            throw new NotFound('Convite não encontrado ou já utilizado');
         }
 
         return $invitation;
@@ -352,7 +366,7 @@ class InvitationService
             ->first();
 
         if ($invitation === null) {
-            throw new DomainException('Convite não encontrado');
+            throw new NotFound('Convite não encontrado');
         }
 
         $this->expireIfNeeded($invitation);

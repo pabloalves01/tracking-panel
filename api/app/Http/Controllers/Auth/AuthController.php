@@ -26,11 +26,15 @@ class AuthController extends Controller
 
     public function login(LoginRequest $request): JsonResponse
     {
-        if (! Auth::attempt($request->only('email', 'password'))) {
+        // `validate` confere a senha sem abrir sessão. `attempt` abriria, e
+        // numa API de token isso cria um segundo jeito de estar autenticado:
+        // o guard do Sanctum passa a resolver pelo cookie, `currentAccessToken`
+        // devolve um `TransientToken` e todo `forceFill` adiante quebra.
+        if (! Auth::validate($request->only('email', 'password'))) {
             abort(401, 'E-mail ou senha inválidos');
         }
 
-        $user = $request->user();
+        $user = Auth::getLastAttempted();
         $token = $user->createToken('web');
 
         $organizations = $user->organizations()->with(['city', 'state'])->get();

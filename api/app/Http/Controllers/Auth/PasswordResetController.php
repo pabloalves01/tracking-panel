@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Exceptions\RejectedInput;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\ForgotPasswordRequest;
 use App\Http\Requests\Auth\ResetPasswordRequest;
@@ -9,7 +10,6 @@ use App\Models\User;
 use App\Models\VerificationCode;
 use App\Services\Auth\VerificationCodeService;
 use App\Support\Text;
-use DomainException;
 use Illuminate\Support\Facades\DB;
 
 class PasswordResetController extends Controller
@@ -36,15 +36,18 @@ class PasswordResetController extends Controller
     {
         $email = Text::email($request->validated('email'));
 
-        // O código é consumido dentro da transação que troca a senha: se
-        // algo falhar depois, ele não foi gasto.
-        DB::transaction(function () use ($request, $email) {
-            $this->codes->consume($email, VerificationCode::PASSWORD_RESET, $request->validated('code'));
+        // A conferência vem antes da transação, para o palpite errado ficar
+        // contado mesmo que a troca falhe. O código só é marcado como gasto
+        // lá dentro: se o passo seguinte falhar, ele continua valendo.
+        $code = $this->codes->verify($email, VerificationCode::PASSWORD_RESET, $request->validated('code'));
+
+        DB::transaction(function () use ($request, $email, $code) {
+            $this->codes->markUsed($code);
 
             $user = User::query()->where('email', $email)->lockForUpdate()->first();
 
             if (! $user) {
-                throw new DomainException(VerificationCodeService::PUBLIC_REJECTION);
+                throw new RejectedInput(VerificationCodeService::PUBLIC_REJECTION);
             }
 
             $user->forceFill([

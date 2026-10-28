@@ -3,6 +3,7 @@
 namespace App\Services\Organization;
 
 use App\Enums\OrganizationType;
+use App\Exceptions\RejectedInput;
 use App\Models\Membership;
 use App\Models\Organization;
 use App\Models\User;
@@ -51,18 +52,25 @@ class FuelStationSignupService
      */
     public function store(array $data): array
     {
-        return DB::transaction(function () use ($data) {
-            $cnpj = $this->assertAvailable($data['cnpj']);
+        $cnpj = $this->assertAvailable($data['cnpj']);
 
-            // A consulta externa vem antes do consumo do código: se a
-            // BrasilAPI falhar, o código não foi gasto.
-            $payload = $this->brasilApi->cnpj($cnpj);
+        // O código é conferido antes da consulta externa: um palpite errado
+        // não custa uma ida à Receita, e uma indisponibilidade de lá não
+        // mascara o 422 com um 503. Conferir não gasta o código — quem gasta
+        // é `markUsed`, lá dentro da transação —, então a ordem é livre.
+        //
+        // Fora da transação, para o palpite errado ficar contado mesmo que o
+        // cadastro falhe adiante.
+        $code = $this->codes->verify(
+            Text::email($data['email']),
+            VerificationCode::STATION_SIGNUP,
+            $data['code'],
+        );
 
-            $this->codes->consume(
-                Text::email($data['email']),
-                VerificationCode::STATION_SIGNUP,
-                $data['code'],
-            );
+        $payload = $this->brasilApi->cnpj($cnpj);
+
+        return DB::transaction(function () use ($data, $cnpj, $payload, $code) {
+            $this->codes->markUsed($code);
 
             $user = User::query()->create([
                 'name' => $data['name'],
@@ -138,7 +146,7 @@ class FuelStationSignupService
         $digits = Text::digits($cnpj);
 
         if (mb_strlen($digits) !== 14) {
-            throw new DomainException('Informe um CNPJ válido');
+            throw new RejectedInput('Informe um CNPJ válido');
         }
 
         $taken = Organization::withTrashed()->where('document', $digits)->exists();

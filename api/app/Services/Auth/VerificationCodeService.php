@@ -2,13 +2,13 @@
 
 namespace App\Services\Auth;
 
+use App\Exceptions\RejectedInput;
 use App\Mail\StationSignupExistingAccountMail;
 use App\Mail\VerificationCodeMail;
 use App\Models\Invitation;
 use App\Models\User;
 use App\Models\VerificationCode;
 use App\Support\Text;
-use DomainException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 
@@ -91,46 +91,79 @@ class VerificationCodeService
     }
 
     /**
-     * Confere e gasta o código.
+     * Confere o código e devolve a linha, sem gastá-la.
      *
-     * Chame de dentro da transação que faz o trabalho: se o passo seguinte
-     * falhar, o código não foi gasto. Antes o consumo ficava fora, e um erro
-     * depois obrigava a pedir outro código.
+     * Roda na própria transação, curta, e **fora** da transação de quem
+     * chama. O palpite errado precisa ficar gravado mesmo quando a operação
+     * toda falha logo em seguida: o contador por código é a única defesa
+     * que sobrou depois que o orçamento por e-mail saiu (ele deixava um
+     * terceiro trancar a recuperação de senha da vítima). Contado dentro da
+     * transação de quem chama, o `throw` seguinte levava o incremento junto
+     * no rollback, e o limite de cinco tentativas não valia nada.
      */
-    public function consume(string $email, string $purpose, mixed $plain): void
+    public function verify(string $email, string $purpose, mixed $plain): VerificationCode
     {
         $email = Text::email($email);
         $digits = is_scalar($plain) ? (preg_replace('/\D/', '', (string) $plain) ?? '') : '';
 
         if ($digits === '') {
-            throw new DomainException('O código é obrigatório');
+            throw new RejectedInput('O código é obrigatório');
         }
 
-        $code = VerificationCode::query()
-            ->where('email', $email)
-            ->where('purpose', $purpose)
-            ->whereNotNull('code_hash')
-            ->latest('id')
-            ->lockForUpdate()
-            ->first();
+        $code = DB::transaction(function () use ($email, $purpose, $digits) {
+            $code = VerificationCode::query()
+                ->where('email', $email)
+                ->where('purpose', $purpose)
+                ->whereNotNull('code_hash')
+                ->latest('id')
+                ->lockForUpdate()
+                ->first();
 
-        if (! $this->isUsable($code)) {
-            throw new DomainException(self::PUBLIC_REJECTION);
-        }
-
-        if (! hash_equals($code->code_hash, hash('sha256', $digits))) {
-            $code->attempts++;
-
-            if ($code->attempts >= self::MAX_ATTEMPTS) {
-                $code->invalidated_at = now();
+            if (! $this->isUsable($code)) {
+                return null;
             }
 
-            $code->save();
+            if (! hash_equals($code->code_hash, hash('sha256', $digits))) {
+                $code->attempts++;
 
-            throw new DomainException(self::PUBLIC_REJECTION);
+                if ($code->attempts >= self::MAX_ATTEMPTS) {
+                    $code->invalidated_at = now();
+                }
+
+                $code->save();
+
+                return null;
+            }
+
+            return $code;
+        });
+
+        // Fora da transação: o incremento acima já está comitado quando a
+        // rejeição sobe.
+        if ($code === null) {
+            throw new RejectedInput(self::PUBLIC_REJECTION);
         }
 
+        return $code;
+    }
+
+    /**
+     * Marca o código como gasto.
+     *
+     * Chame de dentro da transação que faz o trabalho: se o passo seguinte
+     * falhar, o código não foi gasto e a pessoa não precisa pedir outro.
+     */
+    public function markUsed(VerificationCode $code): void
+    {
         $code->forceFill(['consumed_at' => now()])->save();
+    }
+
+    /**
+     * Confere e gasta de uma vez, para quem não tem transação própria.
+     */
+    public function consume(string $email, string $purpose, mixed $plain): void
+    {
+        $this->markUsed($this->verify($email, $purpose, $plain));
     }
 
     public function waitMessage(int $seconds): string

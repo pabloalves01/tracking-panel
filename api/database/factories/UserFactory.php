@@ -25,13 +25,22 @@ class UserFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => 'Administrador',
-            'email' => 'logiv@logiv.com.br',
+            'name' => $this->faker->name(),
+            'email' => $this->faker->unique()->safeEmail(),
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('mesquita2016'),
             'remember_token' => Str::random(10),
             'is_system_admin' => false,
         ];
+    }
+
+    /** O admin do sistema, que não pertence a nenhuma organização. */
+    public function systemAdmin(): static
+    {
+        return $this->state([
+            'name' => 'Administrador',
+            'is_system_admin' => true,
+        ]);
     }
 
     /**

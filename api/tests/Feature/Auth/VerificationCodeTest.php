@@ -130,8 +130,12 @@ class VerificationCodeTest extends TestCase
         );
     }
 
-    public function test_codigo_novo_nao_libera_mais_palpites(): void
+    public function test_codigo_novo_volta_a_valer_depois_de_palpites_errados(): void
     {
+        // O orçamento de palpites por e-mail saiu: ele travava a troca de
+        // senha por uma hora, e quem o gastava não precisava ser o dono da
+        // conta — bastava saber o e-mail. Quem limita agora é o contador por
+        // código, que morre com o código, mais o teto por IP.
         $this->freezeTime();
         Mail::fake();
         $email = 'limite.palpite@melo.test';
@@ -156,15 +160,13 @@ class VerificationCodeTest extends TestCase
             return strlen($mail->code) === 6;
         });
 
-        $this->postReset($email, (string) $code)
-            ->assertStatus(429)
-            ->assertJsonPath('message', 'Muitas tentativas. Tente novamente em 60 min.');
+        $this->postReset($email, (string) $code)->assertOk();
 
-        $issued = VerificationCode::query()->where('email', $email)->whereNotNull('code_hash')->latest('id')->first();
-        $this->assertNotNull($issued);
-        $this->assertNull($issued->consumed_at);
+        $this->assertNotNull(
+            VerificationCode::query()->where('email', $email)->latest('id')->value('consumed_at'),
+        );
         $this->assertTrue(Hash::check(
-            'senha-antiga',
+            'senha-nova-1',
             User::query()->where('email', $email)->value('password'),
         ));
     }
@@ -192,25 +194,25 @@ class VerificationCodeTest extends TestCase
         );
     }
 
-    public function test_decimo_primeiro_palpite_recebe_429_mesmo_com_o_codigo_certo(): void
+    public function test_cinco_erros_matam_o_codigo_e_o_certo_para_de_valer(): void
     {
+        // O contador vive no código, não no e-mail: gasto o orçamento, nem o
+        // código certo passa — mas pedir outro resolve, e é isso que separa
+        // esta defesa de uma negação de serviço contra o dono da conta.
         $this->freezeTime();
         $email = 'onze.palpite@melo.test';
         User::factory()->create(['email' => $email, 'password' => 'senha-antiga']);
         $this->plant($email, '123456', VerificationCode::PASSWORD_RESET);
 
-        for ($attempt = 0; $attempt < 10; $attempt++) {
+        for ($attempt = 0; $attempt < 5; $attempt++) {
             $this->postReset($email, '000000')->assertUnprocessable();
         }
 
-        $this->releasePasswordThrottle();
+        $this->postReset($email, '123456')
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Código inválido');
 
-        $blocked = $this->postReset($email, '123456');
-        $blocked->assertStatus(429)
-            ->assertHeader('Retry-After')
-            ->assertJsonPath('message', 'Muitas tentativas. Tente novamente em 60 min.');
-        $this->assertSame((int) $blocked->headers->get('Retry-After'), $blocked->json('retry_after'));
-
+        $this->assertNotNull(VerificationCode::query()->where('email', $email)->value('invalidated_at'));
         $this->assertNull(VerificationCode::query()->where('email', $email)->value('consumed_at'));
         $this->assertTrue(Hash::check('senha-antiga', User::query()->where('email', $email)->value('password')));
     }
@@ -254,8 +256,10 @@ class VerificationCodeTest extends TestCase
             ->assertJsonPath('message', 'Muitas tentativas. Tente novamente em 60 min.');
     }
 
-    public function test_429_e_igual_com_ou_sem_conta(): void
+    public function test_teto_por_ip_responde_429_igual_com_ou_sem_conta(): void
     {
+        // O teto por IP continua, e é o que segura a força bruta de quem
+        // varre códigos. A resposta não pode dizer se a conta existe.
         $this->freezeTime();
         User::factory()->create(['email' => 'teto.existe@melo.test', 'password' => 'senha1234']);
 
@@ -263,15 +267,13 @@ class VerificationCodeTest extends TestCase
             $this->postReset('teto.existe@melo.test', '000000')->assertUnprocessable();
         }
 
+        $known = $this->timedReset('teto.existe@melo.test', '123456');
         $this->releasePasswordThrottle();
 
         for ($attempt = 0; $attempt < 10; $attempt++) {
             $this->postReset('teto.nao@melo.test', '000000')->assertUnprocessable();
         }
 
-        $this->releasePasswordThrottle();
-
-        $known = $this->timedReset('teto.existe@melo.test', '123456');
         $unknown = $this->timedReset('teto.nao@melo.test', '123456');
 
         [$knownResponse, $knownMs] = $known;
@@ -279,10 +281,8 @@ class VerificationCodeTest extends TestCase
 
         $knownResponse->assertStatus(429);
         $unknownResponse->assertStatus(429);
-        $this->assertSame($knownResponse->status(), $unknownResponse->status());
         $this->assertSame($knownResponse->json(), $unknownResponse->json());
         $this->assertSame($knownResponse->headers->get('Retry-After'), $unknownResponse->headers->get('Retry-After'));
-        $this->assertSame('Muitas tentativas. Tente novamente em 60 min.', $knownResponse->json('message'));
         $this->assertLessThan(1000, abs($knownMs - $unknownMs));
     }
 
@@ -455,7 +455,10 @@ class VerificationCodeTest extends TestCase
         });
 
         $html = (new VerificationCodeMail($code, 10))->render();
-        $this->assertStringContainsString(implode(' ', str_split($code)), $html);
+        // O código vai inteiro no HTML: o espaçamento visual é do
+        // `letter-spacing`, e dígitos separados por espaço quebravam
+        // o copiar e colar.
+        $this->assertStringContainsString($code, $html);
         $this->assertStringContainsString('Se não foi você, ignore este e-mail.', $html);
 
         $this->postJson('/api/auth/station-signup', $this->signup($code))
