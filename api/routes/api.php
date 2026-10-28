@@ -86,6 +86,7 @@ Route::middleware(['auth:sanctum', 'ensure.company'])->group(function () {
         // O cadastro de entidades inteiro. O papel é um parâmetro de rota
         // resolvido no enum `EntityRole`: um papel novo não cria rota nova.
         Route::prefix('entities')->group(function () {
+            Route::get('/', [EntityController::class, 'all']);
             Route::get('by-document/{document}', [EntityController::class, 'byDocument']);
 
             Route::prefix('{role}')->group(function () {

@@ -1,16 +1,9 @@
-import EntityFormPage from '@/pages/registry/EntityFormPage'
 import EntityPage from '@/pages/registry/EntityPage'
 import FleetPage from '@/pages/registry/FleetPage'
 import RegistryPage from '@/pages/registry/RegistryPage'
 
-import carrierRoutes from './carrierRoutes'
-import customerRoutes from './customerRoutes'
-import driverRoutes from './driverRoutes'
-import employeeRoutes from './employeeRoutes'
+import entityRoutes from './entityRoutes'
 import fuelStationRoutes from './fuelStationRoutes'
-import supplierRoutes from './supplierRoutes'
-import vehicleOwnerRoutes from './vehicleOwnerRoutes'
-import vehicleResponsibleRoutes from './vehicleResponsibleRoutes'
 import vehicleRoutes from './vehicleRoutes'
 
 export default [
@@ -22,15 +15,10 @@ export default [
                 path: 'entidades',
                 children: [
                     { index: true, element: <EntityPage /> },
-                    { path: ':uuid/editar', element: <EntityFormPage /> },
-                    ...supplierRoutes,
-                    ...customerRoutes,
-                    ...employeeRoutes,
-                    ...carrierRoutes,
-                    ...driverRoutes,
-                    ...vehicleOwnerRoutes,
-                    ...vehicleResponsibleRoutes,
                     ...fuelStationRoutes,
+                    // Fica por último: ':role' casa com qualquer segmento,
+                    // então as rotas de nome fixo precisam vir antes.
+                    ...entityRoutes,
                 ],
             },
             {

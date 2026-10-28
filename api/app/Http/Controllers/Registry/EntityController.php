@@ -24,6 +24,20 @@ class EntityController extends Controller
 {
     public function __construct(private readonly EntityService $entities) {}
 
+    /**
+     * Todas as entidades, de qualquer papel.
+     */
+    public function all(Request $request): AnonymousResourceCollection
+    {
+        return EntityResource::collection(
+            $this->entities->listAll([
+                'search' => $request->query('search'),
+                'role' => $request->query('role'),
+                'per_page' => $request->query('per_page'),
+            ])
+        );
+    }
+
     public function index(Request $request, EntityRole $role): AnonymousResourceCollection
     {
         return EntityResource::collection(

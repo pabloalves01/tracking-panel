@@ -34,6 +34,28 @@ class EntityService
             ->withQueryString();
     }
 
+    /**
+     * Todas as entidades da empresa, de qualquer papel. É a tela onde se
+     * procura alguém sem saber em qual cadastro ele está.
+     *
+     * @param  array{search?: string|null, role?: string|null, per_page?: int|null}  $filters
+     */
+    public function listAll(array $filters = []): LengthAwarePaginator
+    {
+        $perPage = (int) ($filters['per_page'] ?? 25);
+        $perPage = max(1, min($perPage, 100));
+
+        $role = $filters['role'] ?? null;
+
+        return Entity::query()
+            ->when($role, fn ($query) => $query->withRole(EntityRole::from($role)))
+            ->search($filters['search'] ?? null)
+            ->with(['roles', 'driverDetails'])
+            ->orderBy('name')
+            ->paginate($perPage)
+            ->withQueryString();
+    }
+
     public function get(string $uuid): Entity
     {
         return Entity::query()
