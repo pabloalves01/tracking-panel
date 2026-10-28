@@ -61,6 +61,16 @@ class Organization extends Model
 
     // ================================ RELATIONS ================================
 
+    public function city()
+    {
+        return $this->belongsTo(City::class);
+    }
+
+    public function state()
+    {
+        return $this->belongsTo(State::class);
+    }
+
     public function memberships()
     {
         return $this->hasMany(Membership::class);

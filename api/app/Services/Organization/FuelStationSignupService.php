@@ -31,13 +31,16 @@ class FuelStationSignupService
     /**
      * Consulta o CNPJ para preencher o formulário.
      *
+     * Devolve já normalizado: a tela não precisa conhecer os nomes de campo
+     * da BrasilAPI, e o vocabulário é o mesmo de `organizations`.
+     *
      * @return array<string, mixed>
      */
     public function lookup(string $cnpj): array
     {
         $digits = $this->assertAvailable($cnpj);
 
-        return $this->brasilApi->cnpj($digits);
+        return $this->normalize($digits, $this->brasilApi->cnpj($digits));
     }
 
     /**
@@ -148,33 +151,51 @@ class FuelStationSignupService
     }
 
     /**
-     * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $payload  resposta crua da BrasilAPI
      */
     private function createStation(string $cnpj, array $payload): Organization
     {
+        $data = $this->normalize($cnpj, $payload);
+
         return Organization::query()->create([
             'type' => OrganizationType::FuelStation,
-            'document' => $cnpj,
-            'legal_name' => $payload['razao_social'] ?? $payload['legal_name'] ?? 'Posto '.$cnpj,
-            'trade_name' => $payload['nome_fantasia'] ?? $payload['trade_name'] ?? null,
+            'document' => $data['document'],
+            'legal_name' => $data['legal_name'],
+            'trade_name' => $data['trade_name'],
             'status' => Organization::ACTIVE,
             'receita_checked_at' => now(),
-            ...$this->address($payload),
+            'postal_code' => $data['postal_code'],
+            'street' => $data['street'],
+            'street_number' => $data['street_number'],
+            'complement' => $data['complement'],
+            'neighborhood' => $data['neighborhood'],
         ]);
     }
 
     /**
+     * Traduz a resposta da BrasilAPI para o vocabulário de `organizations`.
+     *
+     * Só este método conhece os nomes de campo de lá: a tela e o resto do
+     * sistema falam `legal_name`, `postal_code` e companhia.
+     *
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
      */
-    private function address(array $payload): array
+    private function normalize(string $cnpj, array $payload): array
     {
+        $blank = fn (mixed $value) => filled($value) ? trim((string) $value) : null;
+
         return [
+            'document' => $cnpj,
+            'legal_name' => $blank($payload['razao_social'] ?? null) ?? 'Posto '.$cnpj,
+            'trade_name' => $blank($payload['nome_fantasia'] ?? null),
             'postal_code' => Text::digits($payload['cep'] ?? '') ?: null,
-            'street' => $payload['logradouro'] ?? null,
-            'street_number' => $payload['numero'] ?? null,
-            'complement' => $payload['complemento'] ?? null,
-            'neighborhood' => $payload['bairro'] ?? null,
+            'street' => $blank($payload['logradouro'] ?? null),
+            'street_number' => $blank($payload['numero'] ?? null),
+            'complement' => $blank($payload['complemento'] ?? null),
+            'neighborhood' => $blank($payload['bairro'] ?? null),
+            'city' => $blank($payload['municipio'] ?? null),
+            'state' => $blank($payload['uf'] ?? null),
         ];
     }
 }

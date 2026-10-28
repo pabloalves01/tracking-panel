@@ -1,7 +1,10 @@
 import { api } from '../api'
 
+/** Consulta o CNPJ. Vem normalizado no vocabulário de organizations. */
 export function lookupStationCnpj(cnpj) {
-    return api.get(`/auth/station-signup/cnpj/${cnpj}`).then((response) => response.data)
+    return api
+        .get(`/auth/station-signup/cnpj/${cnpj}`)
+        .then((response) => response.data.data)
 }
 
 export function storeStationSignup(payload) {

@@ -59,8 +59,15 @@ export default function InvitationPage() {
         }
     }, [token])
 
-    function goAfterAccept(organizationType) {
-        window.location.assign(organizationType === 'fuel_station' ? '/posto' : '/app')
+    /**
+     * A API devolve `redirect_to` com o caminho da organização que acabou de
+     * ser vinculada — não é preciso adivinhar pelo tipo.
+     */
+    function goAfterAccept(response) {
+        window.location.assign(
+            response?.redirect_to
+                ?? (invite?.organization_type === 'fuel_station' ? '/posto' : '/app')
+        )
     }
 
     async function sendCode() {
@@ -148,7 +155,7 @@ export default function InvitationPage() {
                 code,
             })
             notifySuccess(response)
-            goAfterAccept(invite?.organization?.type)
+            goAfterAccept(response)
         } catch (requestError) {
             setError(verificationError(requestError, 'Não foi possível confirmar o código.'))
             setLoading(false)
@@ -161,7 +168,7 @@ export default function InvitationPage() {
         try {
             const response = await acceptInvitation(token)
             notifySuccess(response)
-            goAfterAccept(invite?.organization?.type)
+            goAfterAccept(response)
         } catch (requestError) {
             notifyError(requestError)
             setLoading(false)
