@@ -1,47 +1,51 @@
 import { useEffect, useState } from "react"
 import { Link, useSearchParams } from "react-router"
 
+import { AccountGate } from "@/components/auth/AccountGate"
 import { InputCpfCnpj } from "@/components/common/inputs/InputCpfCnpj"
-import { InputPassword } from "@/components/common/inputs/InputPassword"
 import { LoadingWrapper } from "@/components/common/LoadingWrapper"
 import { ThemeToggle } from "@/components/layout/ThemeToggle"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
-import { Input } from "@/components/ui/input"
-import { CodeStep } from "@/components/auth/CodeStep"
-import { me } from "@/lib/auth/auth"
-import { lookupFuelStationCnpj, storeFuelStationForUser, storeFuelStationSignup } from "@/lib/auth/fuelStationSignup"
-import { sendVerificationCode, verificationError } from "@/lib/auth/verification"
+import { formatCpfCnpj } from "@/helpers/formatters"
+import { logout, me } from "@/lib/auth/auth"
+import { lookupFuelStationCnpj, storeFuelStationForUser } from "@/lib/auth/fuelStationSignup"
 import { notifyError, notifySuccess } from "@/lib/notify"
 
 function onlyDigits(value) {
   return String(value ?? "").replace(/\D/g, "").slice(0, 14)
 }
 
+/**
+ * Cadastrar um posto.
+ *
+ *   CNPJ → logado?  sim → confirmar na conta atual
+ *                   não → quem é você (AccountGate) → criar
+ *
+ * O posto só nasce para uma conta já autenticada. Antes esta tela pedia
+ * nome, e-mail e senha juntos, antes de o sistema saber se a pessoa já tinha
+ * conta — e quem administrava uma empresa digitava uma senha nova para nada,
+ * e depois esperava um código que não vinha.
+ */
 export default function RegisterFuelStationPage() {
   const [params] = useSearchParams()
-  const [step, setStep] = useState(1)
-  const [loading, setLoading] = useState(false)
-  const [loggedIn, setLoggedIn] = useState(false)
+  const [step, setStep] = useState("cnpj")
+  const [loading, setLoading] = useState(() => Boolean(localStorage.getItem("token")))
+  const [user, setUser] = useState(null)
   const [cnpj, setCnpj] = useState(() => onlyDigits(params.get("cnpj")))
   const [fuelStation, setFuelStation] = useState(null)
-  const [email, setEmail] = useState("")
-  const [name, setName] = useState("")
-  const [password, setPassword] = useState("")
-  const [passwordConfirmation, setPasswordConfirmation] = useState("")
-  const [retryAfter, setRetryAfter] = useState(60)
-  const [codeError, setCodeError] = useState("")
 
   const cnpjReady = fuelStation?.document === cnpj
+  const backHere = `/auth/register/posto?cnpj=${cnpj}`
 
   useEffect(() => {
-    if (!localStorage.getItem("token")) return
+    if (!localStorage.getItem("token")) return undefined
 
     let active = true
-    setLoading(true)
     me()
-      .then(() => {
-        if (active) setLoggedIn(true)
+      .then((session) => {
+        if (active) setUser(session.user)
       })
       .catch(() => {
         localStorage.removeItem("token")
@@ -59,7 +63,7 @@ export default function RegisterFuelStationPage() {
     event.preventDefault()
 
     if (cnpjReady) {
-      setStep(2)
+      setStep(user ? "confirm" : "account")
       return
     }
 
@@ -75,79 +79,42 @@ export default function RegisterFuelStationPage() {
     }
   }
 
-  async function sendCode() {
-    const response = await sendVerificationCode({
-      email,
-      purpose: "fuel_station_signup",
-    })
-    const seconds = Number(response.retry_after) || 60
-    setRetryAfter(seconds)
-
-    return response
-  }
-
-  async function finishSignup(code) {
-    const result = await storeFuelStationSignup({
-      cnpj: fuelStation.document,
-      name,
-      email,
-      password,
-      password_confirmation: passwordConfirmation,
-      code,
-    })
-    notifySuccess(result)
-    window.location.assign("/posto")
-  }
-
-  async function handleAccountSubmit(event) {
-    event.preventDefault()
+  /**
+   * Daqui em diante a pessoa já está logada. Se o posto falhar — o CNPJ foi
+   * cadastrado por outro enquanto isso, a Receita caiu —, a tela fica na
+   * confirmação, e tentar de novo não pede identidade outra vez.
+   */
+  async function createFuelStation() {
     setLoading(true)
-    setCodeError("")
 
     try {
-      if (loggedIn) {
-        const result = await storeFuelStationForUser(fuelStation.document)
-        notifySuccess(result)
-        window.location.assign("/posto")
-        return
-      }
-
-      if (password.length < 8) {
-        setCodeError("A senha deve ter no mínimo 8 caracteres")
-        return
-      }
-
-      if (password !== passwordConfirmation) {
-        setCodeError("A confirmação da senha não confere")
-        return
-      }
-
-      const response = await sendCode()
-
-      if (response.sent === false) {
-        setCodeError(response.message || "Aguarde para reenviar o código.")
-        return
-      }
-
-      setStep(3)
+      const result = await storeFuelStationForUser(fuelStation.document)
+      notifySuccess(result)
+      window.location.assign(result.redirect_to ?? "/posto")
     } catch (error) {
       notifyError(error)
-    } finally {
+      setStep("confirm")
       setLoading(false)
     }
   }
 
-  async function handleCode(code) {
+  async function handleAuthenticated(session) {
+    setUser(session.user)
+    await createFuelStation()
+  }
+
+  async function switchAccount() {
     setLoading(true)
-    setCodeError("")
 
     try {
-      await finishSignup(code)
-    } catch (error) {
-      setCodeError(verificationError(error, "Não foi possível confirmar o código."))
-    } finally {
-      setLoading(false)
+      await logout()
+    } catch {
+      localStorage.removeItem("token")
     }
+
+    setUser(null)
+    setStep("account")
+    setLoading(false)
   }
 
   return (
@@ -163,13 +130,13 @@ export default function RegisterFuelStationPage() {
           </div>
           <div className="flex flex-1 items-center justify-center">
             <div className="w-full max-w-md">
-              {step === 1 ? (
+              {step === "cnpj" ? (
                 <form className="flex flex-col gap-6" onSubmit={handleCnpjSubmit}>
                   <FieldGroup>
                     <div className="flex flex-col items-center gap-1 text-center">
                       <h1 className="text-2xl font-bold">Cadastrar posto</h1>
                       <p className="text-sm text-balance text-muted-foreground">
-                        Informe o CNPJ. Os dados da Receita Federal aparecem travados.
+                        Informe o CNPJ. Os dados vêm da Receita Federal.
                       </p>
                     </div>
                     <Field>
@@ -185,144 +152,58 @@ export default function RegisterFuelStationPage() {
                         autoFocus
                       />
                     </Field>
-                    {cnpjReady ? (
-                      <div className="space-y-1 text-sm text-muted-foreground">
-                        <p className="font-medium text-foreground">{fuelStation.legal_name}</p>
-                        {fuelStation.trade_name ? <p>{fuelStation.trade_name}</p> : null}
-                        <p>
-                          {[fuelStation.street, fuelStation.street_number, fuelStation.complement, fuelStation.neighborhood, fuelStation.postal_code]
-                            .filter(Boolean)
-                            .join(", ")}
-                        </p>
-                        <p>{[fuelStation.city, fuelStation.state].filter(Boolean).join("/")}</p>
-                      </div>
-                    ) : null}
-                    <Field>
-                      <Button type="submit" disabled={loading || cnpj.length !== 14}>
-                        {cnpjReady ? "Continuar" : "Consultar CNPJ"}
-                      </Button>
-                    </Field>
+                    {cnpjReady ? <FuelStationSummary fuelStation={fuelStation} /> : null}
+                    <Button type="submit" disabled={loading || cnpj.length !== 14}>
+                      {cnpjReady ? "Continuar" : "Consultar CNPJ"}
+                    </Button>
                     <p className="text-center text-sm text-muted-foreground">
-                      <Link to="/auth/login" className="underline underline-offset-4 hover:text-foreground">
-                        Voltar para o login
+                      <Link
+                        to={user ? "/auth/organizacoes" : "/auth/login"}
+                        className="underline underline-offset-4 hover:text-foreground"
+                      >
+                        {user ? "Voltar para as organizações" : "Voltar para o login"}
                       </Link>
                     </p>
                   </FieldGroup>
                 </form>
               ) : null}
 
-              {step === 3 ? (
+              {step === "account" ? (
                 <div className="flex flex-col gap-6">
-                  <div className="flex flex-col items-center gap-1 text-center">
-                    <h1 className="text-2xl font-bold">Confirme o e-mail</h1>
-                    <p className="text-sm text-balance text-muted-foreground">
-                      O posto só é criado depois que o código for confirmado.
-                    </p>
-                  </div>
-                  <CodeStep
-                      email={email}
-                      retryAfter={retryAfter}
-                      submitting={loading}
-                      error={codeError}
-                      onSubmit={handleCode}
-                      onResend={async () => {
-                        setCodeError("")
-                        try {
-                          const response = await sendCode()
-
-                          if (response.sent === false) {
-                            setCodeError(response.message || "Aguarde para reenviar o código.")
-                          }
-
-                          return Number(response.retry_after) || 0
-                        } catch (error) {
-                          setCodeError(verificationError(error, "Não foi possível reenviar o código."))
-                          return 0
-                        }
-                      }}
-                      onChangeEmail={() => {
-                        setStep(2)
-                        setCodeError("")
-                      }}
-                    />
+                  <FuelStationSummary fuelStation={fuelStation} compact />
+                  <AccountGate
+                    title="Quem vai administrar o posto?"
+                    forgotBack={backHere}
+                    onAuthenticated={handleAuthenticated}
+                  />
+                  <Button type="button" variant="ghost" onClick={() => setStep("cnpj")}>
+                    Voltar
+                  </Button>
                 </div>
               ) : null}
 
-              {step === 2 ? (
-                <form className="flex flex-col gap-6" onSubmit={handleAccountSubmit}>
-                  <FieldGroup>
-                    <div className="flex flex-col items-center gap-1 text-center">
-                      <h1 className="text-2xl font-bold">
-                        {loggedIn ? "Vincular posto à sua conta" : "Acesso do responsável"}
-                      </h1>
-                      <p className="text-sm text-balance text-muted-foreground">
-                        {loggedIn
-                          ? "O posto entra nesta conta. Você será o proprietário."
-                          : "Quem cadastra o posto vira o proprietário."}
-                      </p>
-                    </div>
-                    {loggedIn ? null : (
-                      <>
-                        <Field>
-                          <FieldLabel htmlFor="fuel-station-name">Nome</FieldLabel>
-                          <Input
-                            id="fuel-station-name"
-                            value={name}
-                            autoComplete="name"
-                            required
-                            onChange={(event) => setName(event.target.value)}
-                          />
-                        </Field>
-                        <Field>
-                          <FieldLabel htmlFor="fuel-station-email">E-mail</FieldLabel>
-                          <Input
-                            id="fuel-station-email"
-                            type="email"
-                            placeholder="responsavel@posto.com.br"
-                            value={email}
-                            autoComplete="email"
-                            required
-                            onChange={(event) => setEmail(event.target.value)}
-                          />
-                        </Field>
-                        <Field>
-                          <FieldLabel htmlFor="fuel-station-password">Senha</FieldLabel>
-                          <InputPassword
-                            id="fuel-station-password"
-                            value={password}
-                            autoComplete="new-password"
-                            onChange={setPassword}
-                            placeholder="Mínimo de 8 caracteres"
-                          />
-                        </Field>
-                        <Field>
-                          <FieldLabel htmlFor="fuel-station-password-confirmation">Confirmação da senha</FieldLabel>
-                          <InputPassword
-                            id="fuel-station-password-confirmation"
-                            value={passwordConfirmation}
-                            autoComplete="new-password"
-                            onChange={setPasswordConfirmation}
-                            placeholder="Repita a senha"
-                          />
-                        </Field>
-                      </>
-                    )}
-                    {codeError ? <p className="text-sm text-destructive" role="alert">{codeError}</p> : null}
-                    <Field>
-                      <Button type="submit" disabled={loading}>
-                        {loggedIn ? "Cadastrar posto" : "Continuar"}
-                      </Button>
-                    </Field>
-                    <Button type="button" variant="outline" onClick={() => setStep(1)}>
-                      Voltar
-                    </Button>
-                    <p className="text-center text-sm text-muted-foreground">
-                      <Link to="/auth/login" className="underline underline-offset-4 hover:text-foreground">
-                        Voltar para o login
-                      </Link>
+              {step === "confirm" ? (
+                <div className="flex flex-col gap-6">
+                  <div className="flex flex-col items-center gap-1 text-center">
+                    <h1 className="text-2xl font-bold">Cadastrar na sua conta</h1>
+                    <p className="text-sm text-balance text-muted-foreground">
+                      O posto entra na conta de <span className="text-foreground">{user?.name}</span> ({user?.email}).
+                      Você será o primeiro membro.
                     </p>
-                  </FieldGroup>
-                </form>
+                  </div>
+                  <FuelStationSummary fuelStation={fuelStation} />
+                  <Button type="button" onClick={createFuelStation} disabled={loading}>
+                    Cadastrar posto
+                  </Button>
+                  <div className="flex flex-col items-center gap-2 text-sm text-muted-foreground">
+                    <button type="button" className="underline-offset-4 hover:underline" onClick={() => setStep("cnpj")}>
+                      Trocar o CNPJ
+                    </button>
+                    <button type="button" className="underline-offset-4 hover:underline" onClick={switchAccount}>
+                      Não é você? Usar outra conta
+                    </button>
+                  </div>
+                </div>
               ) : null}
             </div>
           </div>
@@ -336,5 +217,36 @@ export default function RegisterFuelStationPage() {
         </div>
       </div>
     </LoadingWrapper>
+  )
+}
+
+function FuelStationSummary({ fuelStation, compact = false }) {
+  if (!fuelStation) return null
+
+  const address = [
+    fuelStation.street,
+    fuelStation.street_number,
+    fuelStation.complement,
+    fuelStation.neighborhood,
+    fuelStation.postal_code,
+  ]
+    .filter(Boolean)
+    .join(", ")
+  const place = [fuelStation.city, fuelStation.state].filter(Boolean).join("/")
+
+  return (
+    <Card size="sm">
+      <CardContent className="flex flex-col gap-0.5 text-sm">
+        <p className="font-medium">{fuelStation.trade_name || fuelStation.legal_name}</p>
+        <p className="text-muted-foreground tabular-nums">{formatCpfCnpj(fuelStation.document)}</p>
+        {compact ? null : (
+          <>
+            {fuelStation.trade_name ? <p className="text-muted-foreground">{fuelStation.legal_name}</p> : null}
+            {address ? <p className="text-muted-foreground">{address}</p> : null}
+            {place ? <p className="text-muted-foreground">{place}</p> : null}
+          </>
+        )}
+      </CardContent>
+    </Card>
   )
 }

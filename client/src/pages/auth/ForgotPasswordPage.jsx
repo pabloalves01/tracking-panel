@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router'
+import { Link, useNavigate, useSearchParams } from 'react-router'
 
 import { CodeStep } from '@/components/auth/CodeStep'
 import { InputPassword } from '@/components/common/inputs/InputPassword'
@@ -8,12 +8,17 @@ import { ThemeToggle } from '@/components/layout/ThemeToggle'
 import { Button } from '@/components/ui/button'
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { safeInternalPath } from '@/lib/auth/redirect'
 import { forgotPassword, resetPassword, verificationError } from '@/lib/auth/verification'
 
 export default function ForgotPasswordPage() {
     const navigate = useNavigate()
+    const [params] = useSearchParams()
+    // Quem chega de um cadastro de posto ou de um convite volta para lá
+    // depois de trocar a senha, em vez de perder o caminho no login.
+    const back = safeInternalPath(params.get('back'))
     const [step, setStep] = useState('email')
-    const [email, setEmail] = useState(() => localStorage.getItem('logiv.email') || '')
+    const [email, setEmail] = useState(() => params.get('email') || localStorage.getItem('logiv.email') || '')
     const [password, setPassword] = useState('')
     const [passwordConfirmation, setPasswordConfirmation] = useState('')
     const [retryAfter, setRetryAfter] = useState(60)
@@ -70,7 +75,7 @@ export default function ForgotPasswordPage() {
                 password,
                 password_confirmation: passwordConfirmation,
             })
-            navigate('/auth/login', { replace: true })
+            navigate(back ?? '/auth/login', { replace: true })
         } catch (requestError) {
             setError(verificationError(requestError, 'Não foi possível atualizar a senha.'))
         } finally {

@@ -8,21 +8,20 @@ use App\Models\Location\State;
 use App\Models\Membership;
 use App\Models\Organization;
 use App\Models\User;
-use App\Models\VerificationCode;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Tests\Support\ActsAsMember;
 use Tests\TestCase;
 
 /**
- * O cadastro público de um posto.
+ * O cadastro de um posto.
  *
- * O posto nasce como `Organization` do tipo `fuel_station` e quem cadastrou
- * vira o primeiro membro — não há mais `FuelStation`, `FuelStationUser` nem
- * papel `owner`.
+ * A consulta do CNPJ é pública; criar o posto exige estar logado. O posto
+ * nasce como `Organization` do tipo `fuel_station` e quem cadastrou vira o
+ * primeiro membro. A conta, quando não existe, nasce antes — ver
+ * `AccountRegistrationTest`.
  */
 class FuelStationSignupTest extends TestCase
 {
@@ -109,14 +108,15 @@ class FuelStationSignupTest extends TestCase
 
     // ================================ CADASTRO ================================
 
-    public function test_cadastro_cria_posto_usuario_e_vinculo(): void
+    public function test_cadastro_cria_o_posto_e_o_vinculo_para_quem_esta_logado(): void
     {
         [$state, $city] = $this->seedSaoPaulo();
+        $this->actingAsMemberOf();
+        $users = User::query()->count();
 
-        $this->registerFuelStation();
+        $this->postJson('/api/auth/fuel-stations', ['cnpj' => self::CNPJ])->assertCreated();
 
-        $fuelStation = Organization::query()->sole();
-        $user = User::query()->sole();
+        $fuelStation = Organization::query()->fuelStations()->sole();
 
         $this->assertSame(OrganizationType::FuelStation, $fuelStation->type);
         $this->assertSame(self::CNPJ, $fuelStation->document);
@@ -125,79 +125,86 @@ class FuelStationSignupTest extends TestCase
         $this->assertSame($state->id, $fuelStation->state_id);
         $this->assertNotNull($fuelStation->receita_checked_at);
 
-        $this->assertSame('Dona do Posto', $user->name);
-        $this->assertTrue(Hash::check('senha1234', $user->password));
-        $this->assertNotNull($user->email_verified_at);
-
+        // Nenhuma conta nova: o posto entrou na conta de quem estava logado.
+        $this->assertSame($users, User::query()->count());
         $this->assertDatabaseHas('memberships', [
             'organization_id' => $fuelStation->getKey(),
-            'user_id' => $user->getKey(),
+            'user_id' => $this->member->getKey(),
             'status' => Membership::ACTIVE,
         ]);
     }
 
-    public function test_o_codigo_errado_nao_cadastra_nada(): void
+    public function test_sem_login_nao_cria_posto(): void
     {
-        $this->plantCode('nova@posto.com');
+        $this->postJson('/api/auth/fuel-stations', ['cnpj' => self::CNPJ])->assertUnauthorized();
 
+        $this->assertSame(0, Organization::query()->count());
+    }
+
+    /**
+     * O endpoint que criava conta e posto juntos — e por isso pedia senha
+     * antes de saber se a pessoa já tinha conta — não existe mais.
+     */
+    public function test_cadastro_publico_de_conta_e_posto_juntos_saiu(): void
+    {
         $this->postJson('/api/auth/fuel-station-signup', [
             'cnpj' => self::CNPJ,
             'name' => 'Dona do Posto',
             'email' => 'nova@posto.com',
             'password' => 'senha1234',
             'password_confirmation' => 'senha1234',
-            'code' => '999999',
-        ])->assertUnprocessable();
+            'code' => '123456',
+        ])->assertNotFound();
 
-        $this->assertSame(0, Organization::query()->count());
         $this->assertSame(0, User::query()->count());
+        $this->assertSame(0, Organization::query()->count());
     }
 
     public function test_segundo_cadastro_do_mesmo_cnpj_e_recusado(): void
     {
-        $this->registerFuelStation();
+        $this->actingAsMemberOf();
+        $this->postJson('/api/auth/fuel-stations', ['cnpj' => self::CNPJ])->assertCreated();
 
-        $this->plantCode('outra@posto.com');
-
-        $this->postJson('/api/auth/fuel-station-signup', [
-            'cnpj' => self::CNPJ,
-            'name' => 'Outra Dona',
-            'email' => 'outra@posto.com',
-            'password' => 'senha1234',
-            'password_confirmation' => 'senha1234',
-            'code' => '123456',
-        ])
+        $this->actingAsMemberOf($this->otherCompany());
+        $this->postJson('/api/auth/fuel-stations', ['cnpj' => self::CNPJ])
             ->assertStatus(409)
             ->assertJsonPath('message', 'Já existe um cadastro com este CNPJ');
 
-        $this->assertSame(1, Organization::query()->count());
+        $this->assertSame(1, Organization::query()->fuelStations()->count());
     }
 
     /**
-     * A consulta externa acontece antes de o código ser gasto: se a Receita
-     * falhar, a pessoa não precisa pedir um código novo.
+     * Dois cliques passam juntos pela conferência do CNPJ; o índice único
+     * barra o segundo, e a resposta é a mesma da conferência — não um 500.
      */
-    public function test_receita_fora_do_ar_nao_gasta_o_codigo(): void
+    public function test_cnpj_gravado_por_outro_no_meio_vira_409_e_nao_500(): void
     {
-        $this->plantCode('nova@posto.com');
+        $this->actingAsMemberOf();
+
+        Organization::creating(function (Organization $organization) {
+            if ($organization->document === self::CNPJ && ! Organization::withTrashed()->where('document', self::CNPJ)->exists()) {
+                Organization::withoutEvents(fn () => Organization::factory()->fuelStation()->create(['document' => self::CNPJ]));
+            }
+        });
+
+        $response = $this->postJson('/api/auth/fuel-stations', ['cnpj' => self::CNPJ]);
+
+        $response->assertStatus(409)->assertJsonPath('message', 'Já existe um cadastro com este CNPJ');
+        $this->assertStringNotContainsString('SQLSTATE', $response->getContent());
+    }
+
+    public function test_receita_fora_do_ar_nao_cria_nada(): void
+    {
+        $this->actingAsMemberOf();
+        $memberships = Membership::query()->count();
 
         $this->resetHttp();
         Http::fake(fn () => throw new ConnectionException('timeout'));
 
-        $this->postJson('/api/auth/fuel-station-signup', [
-            'cnpj' => self::CNPJ,
-            'name' => 'Dona do Posto',
-            'email' => 'nova@posto.com',
-            'password' => 'senha1234',
-            'password_confirmation' => 'senha1234',
-            'code' => '123456',
-        ])->assertStatus(503);
+        $this->postJson('/api/auth/fuel-stations', ['cnpj' => self::CNPJ])->assertStatus(503);
 
-        $this->assertDatabaseHas('verification_codes', [
-            'email' => 'nova@posto.com',
-            'consumed_at' => null,
-        ]);
-        $this->assertSame(0, Organization::query()->count());
+        $this->assertSame(0, Organization::query()->fuelStations()->count());
+        $this->assertSame($memberships, Membership::query()->count());
     }
 
     // ============================ QUEM JÁ TEM CONTA ============================
@@ -227,33 +234,30 @@ class FuelStationSignupTest extends TestCase
         $this->getJson('/api/registry/entities')->assertForbidden();
     }
 
+    /**
+     * O caso que motivou a mudança: quem administra uma empresa cadastra o
+     * posto na mesma conta, com a mesma senha, e passa a ver as duas.
+     */
+    public function test_quem_administra_empresa_cadastra_o_posto_na_mesma_conta(): void
+    {
+        $user = User::factory()->create(['email' => 'pablo@melo.test', 'password' => 'senha-de-sempre']);
+        $hash = $user->password;
+        $this->actingAsMemberOf(user: $user);
+
+        $this->postJson('/api/auth/fuel-stations', ['cnpj' => self::CNPJ])->assertCreated();
+
+        $this->assertSame($hash, $user->fresh()->password);
+        $this->assertSame(1, User::query()->where('email', 'pablo@melo.test')->count());
+
+        $this->app['auth']->forgetGuards();
+        $this->withHeaders(['Authorization' => ''])->postJson('/api/auth/login', [
+            'email' => 'pablo@melo.test',
+            'password' => 'senha-de-sempre',
+        ])->assertOk()
+            ->assertJsonCount(2, 'organizations');
+    }
+
     // ================================ HELPERS ================================
-
-    private function registerFuelStation(string $email = 'nova@posto.com', string $name = 'Dona do Posto'): void
-    {
-        $this->plantCode($email);
-
-        $this->postJson('/api/auth/fuel-station-signup', [
-            'cnpj' => self::CNPJ,
-            'name' => $name,
-            'email' => $email,
-            'password' => 'senha1234',
-            'password_confirmation' => 'senha1234',
-            'code' => '123456',
-        ])
-            ->assertCreated()
-            ->assertJsonPath('message', 'Posto cadastrado');
-    }
-
-    private function plantCode(string $email): void
-    {
-        VerificationCode::query()->create([
-            'email' => $email,
-            'purpose' => VerificationCode::FUEL_STATION_SIGNUP,
-            'code_hash' => hash('sha256', '123456'),
-            'expires_at' => now()->addMinutes(10),
-        ]);
-    }
 
     /** @param array<string, mixed> $overrides */
     private function fakeReceita(array $overrides = [], int $status = 200): void

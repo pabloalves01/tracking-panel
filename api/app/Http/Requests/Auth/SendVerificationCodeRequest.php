@@ -19,7 +19,6 @@ class SendVerificationCodeRequest extends FormRequest
         $this->merge([
             'email' => Text::email($this->input('email')),
             'purpose' => is_string($this->input('purpose')) ? $this->input('purpose') : '',
-            'token' => is_string($this->input('token')) ? $this->input('token') : null,
         ]);
     }
 
@@ -28,11 +27,9 @@ class SendVerificationCodeRequest extends FormRequest
         return [
             'email' => ['required', 'email', 'max:255'],
             'purpose' => ['required', Rule::in([
-                VerificationCode::FUEL_STATION_SIGNUP,
-                VerificationCode::INVITATION_REGISTER,
+                VerificationCode::ACCOUNT_REGISTER,
                 VerificationCode::PASSWORD_RESET,
             ])],
-            'token' => ['nullable', 'string', 'max:200'],
         ];
     }
 

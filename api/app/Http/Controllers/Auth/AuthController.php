@@ -30,11 +30,18 @@ class AuthController extends Controller
         // numa API de token isso cria um segundo jeito de estar autenticado:
         // o guard do Sanctum passa a resolver pelo cookie, `currentAccessToken`
         // devolve um `TransientToken` e todo `forceFill` adiante quebra.
-        if (! Auth::validate($request->only('email', 'password'))) {
+        //
+        // O guard é nomeado: o middleware do Sanctum troca o guard padrão
+        // para o dele, e num processo que atende várias requisições — Octane,
+        // ou os testes — o `validate` seguinte cairia no guard de token, que
+        // não sabe conferir senha.
+        $guard = Auth::guard('web');
+
+        if (! $guard->validate($request->only('email', 'password'))) {
             abort(401, 'E-mail ou senha inválidos');
         }
 
-        $user = Auth::getLastAttempted();
+        $user = $guard->getLastAttempted();
         $token = $user->createToken('web');
 
         $organizations = $user->organizations()->with(['city', 'state'])->get();

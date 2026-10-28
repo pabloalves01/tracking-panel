@@ -8,9 +8,7 @@ use App\Models\Invitation;
 use App\Models\Membership;
 use App\Models\Organization;
 use App\Models\User;
-use App\Models\VerificationCode;
 use App\Services\AuditLogger;
-use App\Services\Auth\VerificationCodeService;
 use DomainException;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
@@ -30,7 +28,6 @@ class InvitationService
 {
     public function __construct(
         private readonly AuditLogger $audit,
-        private readonly VerificationCodeService $codes,
     ) {}
 
     /** @return Collection<int, Invitation> */
@@ -125,6 +122,12 @@ class InvitationService
     /**
      * O que a tela pública do convite mostra antes de qualquer ação.
      *
+     * `account_exists` é a única resposta pública que diz se uma conta
+     * existe, e é de propósito: quem tem o link já sabe que aquele e-mail foi
+     * convidado, e a tela precisa disso para pedir a senha atual em vez de um
+     * cadastro. Sem o token — 64 caracteres aleatórios — não há o que
+     * perguntar.
+     *
      * @return array<string, mixed>
      */
     public function preview(string $plainToken): array
@@ -141,51 +144,6 @@ class InvitationService
             'expires_at' => $invitation->expires_at,
             'account_exists' => $this->accountExists($invitation->email),
         ];
-    }
-
-    /**
-     * Cria a conta e entra na organização.
-     *
-     * A conferência do código acontece antes da transação, porque o palpite
-     * errado precisa ficar contado mesmo quando o registro falha logo a
-     * seguir — dentro dela, o rollback desfazia a contagem. Marcar o código
-     * como gasto continua lá dentro: se a criação falhar, ele vale ainda.
-     *
-     * O convite é lido duas vezes de propósito: a primeira só para saber
-     * para qual e-mail o código foi emitido, e a segunda com `lockPending`,
-     * que é a que vale.
-     */
-    public function registerAndAccept(string $plainToken, string $name, string $password, mixed $code): User
-    {
-        $email = $this->findByToken($plainToken)->email;
-
-        if ($this->accountExists($email)) {
-            throw new DomainException('Este e-mail já tem conta. Entre para aceitar o convite');
-        }
-
-        $verified = $this->codes->verify($email, VerificationCode::INVITATION_REGISTER, $code);
-
-        return DB::transaction(function () use ($plainToken, $name, $password, $verified) {
-            $invitation = $this->lockPending($plainToken);
-
-            if ($this->accountExists($invitation->email)) {
-                throw new DomainException('Este e-mail já tem conta. Entre para aceitar o convite');
-            }
-
-            $this->codes->markUsed($verified);
-
-            $user = User::query()->create([
-                'name' => $name,
-                'email' => $invitation->email,
-                'password' => $password,
-            ]);
-
-            $user->forceFill(['email_verified_at' => now()])->save();
-
-            $this->acceptLocked($invitation, $user);
-
-            return $user;
-        });
     }
 
     public function accept(string $plainToken, User $user): Invitation
@@ -297,6 +255,10 @@ class InvitationService
         } elseif ($membership->trashed()) {
             $membership->restore();
             $membership->update(['status' => Membership::ACTIVE]);
+        } elseif (! $membership->isActive()) {
+            // Sem isto o convite seria marcado como aceito e a pessoa cairia
+            // num 403 na tela seguinte.
+            throw new DomainException('Seu acesso a esta organização está suspenso. Peça a quem administra para reativar.');
         }
 
         $invitation->update([

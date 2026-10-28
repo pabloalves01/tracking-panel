@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
+import { Link, useParams } from 'react-router'
 
-import { CodeStep } from '@/components/auth/CodeStep'
-import { InputPassword } from '@/components/common/inputs/InputPassword'
+import { AccountGate } from '@/components/auth/AccountGate'
 import { LoadingWrapper } from '@/components/common/LoadingWrapper'
 import { ThemeToggle } from '@/components/layout/ThemeToggle'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -18,37 +17,31 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
-import { Input } from '@/components/ui/input'
 import { invitationStatusLabel } from '@/helpers/labels/linkStatusLabel'
 import { logout, me } from '@/lib/auth/auth'
-import { acceptInvitation, declineInvitation, previewInvitation, registerInvitation } from '@/lib/auth/invitations'
-import { sendVerificationCode, verificationError } from '@/lib/auth/verification'
+import { acceptInvitation, declineInvitation, previewInvitation } from '@/lib/auth/invitations'
 import { notifyError, notifySuccess } from '@/lib/notify'
 
 /**
  * A tela que o convidado abre pelo link do e-mail.
  *
- * Ela atende quatro situações diferentes com uma ação principal cada, e é
- * aí que estava o problema: o botão dizia "entrar" mesmo quando o e-mail do
- * convite ainda não tinha conta, e levava a um cadastro. O rótulo agora sai
- * de `account_exists`, que a API já devolve no preview.
+ *   logado na conta convidada → aceitar
+ *   logado em outra conta     → sair e seguir como o e-mail convidado
+ *   deslogado                 → AccountGate com o e-mail travado → aceitar
  *
- * Recusar é definitivo — o token morre junto — então sai do meio das ações
- * e pede confirmação.
+ * No último caso o preview já diz se o e-mail tem conta, então quem tem vai
+ * direto para a senha atual — sem código e sem formulário de cadastro. Antes
+ * a tela mostrava nome e senha para todo mundo, e só depois de preenchido
+ * mandava quem já tinha conta para o login.
+ *
+ * O convite não cria conta: quem não tem passa pelo cadastro de conta do
+ * AccountGate e aceita em seguida, já logado.
  */
 export default function InvitationPage() {
     const { token } = useParams()
-    const navigate = useNavigate()
     const [loading, setLoading] = useState(true)
     const [invite, setInvite] = useState(null)
     const [user, setUser] = useState(null)
-    const [step, setStep] = useState('account')
-    const [name, setName] = useState('')
-    const [password, setPassword] = useState('')
-    const [passwordConfirmation, setPasswordConfirmation] = useState('')
-    const [retryAfter, setRetryAfter] = useState(60)
-    const [error, setError] = useState('')
     const [confirmingDecline, setConfirmingDecline] = useState(false)
 
     useEffect(() => {
@@ -62,8 +55,8 @@ export default function InvitationPage() {
 
                 if (localStorage.getItem('token')) {
                     try {
-                        const current = await me()
-                        if (active) setUser(current.user ?? current)
+                        const session = await me()
+                        if (active) setUser(session.user)
                     } catch {
                         localStorage.removeItem('token')
                     }
@@ -83,35 +76,32 @@ export default function InvitationPage() {
     }, [token])
 
     const pending = invite?.status === 'pending'
-    const accountExists = Boolean(invite?.account_exists)
-    const sameEmail = user?.email && invite?.email && user.email.toLowerCase() === invite.email.toLowerCase()
-    const loginRedirect = `/auth/login?redirect=${encodeURIComponent(`/auth/convite/${token}`)}&email=${encodeURIComponent(invite?.email ?? '')}&email_locked=1`
+    const sameEmail = Boolean(
+        user?.email && invite?.email && user.email.toLowerCase() === invite.email.toLowerCase()
+    )
 
-    /**
-     * A API devolve `redirect_to` com o caminho da organização que acabou de
-     * ser vinculada — não é preciso adivinhar pelo tipo.
-     */
-    function goAfterAccept(response) {
-        window.location.assign(
-            response?.redirect_to
-                ?? (invite?.organization_type === 'fuel_station' ? '/posto' : '/app')
-        )
+    async function accept() {
+        setLoading(true)
+
+        try {
+            const response = await acceptInvitation(token)
+            notifySuccess(response)
+            window.location.assign(
+                response.redirect_to ?? (invite.organization_type === 'fuel_station' ? '/posto' : '/app')
+            )
+        } catch (requestError) {
+            notifyError(requestError)
+            setLoading(false)
+        }
     }
 
-    async function sendCode() {
-        const response = await sendVerificationCode({
-            email: invite.email,
-            purpose: 'invitation_register',
-            token,
-        })
-        const seconds = Number(response.retry_after) || 0
-        setRetryAfter(seconds > 0 ? seconds : 60)
-
-        return response
+    /** Recém-logado pelo AccountGate: aceita na sequência. */
+    async function handleAuthenticated(session) {
+        setUser(session.user)
+        await accept()
     }
 
-    /** Sai da conta atual e segue para onde o e-mail do convite de fato leva. */
-    async function switchToInviteEmail() {
+    async function switchAccount() {
         setLoading(true)
 
         try {
@@ -121,83 +111,7 @@ export default function InvitationPage() {
         }
 
         setUser(null)
-        setStep('account')
-
-        if (accountExists) {
-            navigate(loginRedirect)
-            return
-        }
-
         setLoading(false)
-    }
-
-    async function handleRegisterDetails(event) {
-        event.preventDefault()
-        setError('')
-
-        if (password.length < 8) {
-            setError('A senha deve ter no mínimo 8 caracteres')
-            return
-        }
-
-        if (password !== passwordConfirmation) {
-            setError('A confirmação da senha não confere')
-            return
-        }
-
-        setLoading(true)
-
-        try {
-            const response = await sendCode()
-
-            if (response.account_exists) {
-                navigate(loginRedirect)
-                return
-            }
-
-            if (response.sent === false) {
-                setError(response.message || 'Aguarde para reenviar o código.')
-                return
-            }
-
-            setStep('code')
-        } catch (requestError) {
-            setError(verificationError(requestError, 'Não foi possível enviar o código.'))
-        } finally {
-            setLoading(false)
-        }
-    }
-
-    async function handleCode(code) {
-        setLoading(true)
-        setError('')
-
-        try {
-            const response = await registerInvitation(token, {
-                name,
-                password,
-                password_confirmation: passwordConfirmation,
-                code,
-            })
-            notifySuccess(response)
-            goAfterAccept(response)
-        } catch (requestError) {
-            setError(verificationError(requestError, 'Não foi possível confirmar o código.'))
-            setLoading(false)
-        }
-    }
-
-    async function handleAccept() {
-        setLoading(true)
-
-        try {
-            const response = await acceptInvitation(token)
-            notifySuccess(response)
-            goAfterAccept(response)
-        } catch (requestError) {
-            notifyError(requestError)
-            setLoading(false)
-        }
     }
 
     async function handleDecline() {
@@ -205,8 +119,7 @@ export default function InvitationPage() {
         setLoading(true)
 
         try {
-            const response = await declineInvitation(token)
-            notifySuccess(response)
+            notifySuccess(await declineInvitation(token))
             setInvite((current) => ({ ...current, status: 'declined' }))
         } catch (requestError) {
             notifyError(requestError)
@@ -216,7 +129,7 @@ export default function InvitationPage() {
     }
 
     return (
-        <LoadingWrapper loading={loading && step !== 'code'}>
+        <LoadingWrapper loading={loading}>
             <div className="flex min-h-svh flex-col gap-4 p-6 md:p-10">
                 <div className="flex items-center justify-between">
                     <Link to="/auth/login" className="flex items-center gap-2 font-medium">
@@ -229,13 +142,15 @@ export default function InvitationPage() {
                 <div className="flex flex-1 items-center justify-center">
                     <div className="w-full max-w-md">
                         {!invite ? (
-                            <Alert>
-                                <AlertTitle>Convite não encontrado</AlertTitle>
-                                <AlertDescription>
-                                    O link pode ter expirado ou já ter sido usado. Peça um convite novo a
-                                    quem administra a organização.
-                                </AlertDescription>
-                            </Alert>
+                            loading ? null : (
+                                <Alert>
+                                    <AlertTitle>Convite não encontrado</AlertTitle>
+                                    <AlertDescription>
+                                        O link pode ter expirado ou já ter sido usado. Peça um convite novo a
+                                        quem administra a organização.
+                                    </AlertDescription>
+                                </Alert>
+                            )
                         ) : (
                             <div className="flex flex-col gap-6">
                                 {/* Quem convidou, para onde e para qual e-mail: é o que
@@ -273,10 +188,13 @@ export default function InvitationPage() {
                                 ) : null}
 
                                 {pending && user && sameEmail ? (
-                                    <div className="flex flex-col gap-3">
-                                        <Button type="button" onClick={handleAccept} disabled={loading}>
+                                    <div className="flex flex-col gap-2">
+                                        <Button type="button" onClick={accept} disabled={loading}>
                                             Aceitar convite
                                         </Button>
+                                        <p className="text-center text-sm text-muted-foreground">
+                                            Você entra em {invite.organization} com a conta que já usa.
+                                        </p>
                                     </div>
                                 ) : null}
 
@@ -288,116 +206,27 @@ export default function InvitationPage() {
                                                 Entrou como {user.email}, e este convite é para {invite.email}.
                                             </AlertDescription>
                                         </Alert>
-                                        {/* O rótulo segue o que de fato acontece: sem conta
-                                            para o e-mail do convite, o próximo passo é criá-la. */}
-                                        <Button type="button" onClick={switchToInviteEmail}>
-                                            {accountExists
-                                                ? `Sair e entrar como ${invite.email}`
-                                                : `Sair e criar a conta de ${invite.email}`}
+                                        <Button type="button" onClick={switchAccount}>
+                                            Sair e continuar como {invite.email}
                                         </Button>
                                     </div>
                                 ) : null}
 
-                                {pending && !user && step === 'account' ? (
-                                    <form className="flex flex-col gap-6" onSubmit={handleRegisterDetails}>
-                                        <FieldGroup>
-                                            <Field>
-                                                <FieldLabel htmlFor="invite-email">E-mail</FieldLabel>
-                                                <Input
-                                                    id="invite-email"
-                                                    type="email"
-                                                    value={invite.email}
-                                                    readOnly
-                                                    disabled
-                                                    autoComplete="email"
-                                                />
-                                            </Field>
-                                            <Field>
-                                                <FieldLabel htmlFor="invite-name">Nome</FieldLabel>
-                                                <Input
-                                                    id="invite-name"
-                                                    value={name}
-                                                    autoComplete="name"
-                                                    required
-                                                    autoFocus
-                                                    onChange={(event) => setName(event.target.value)}
-                                                />
-                                            </Field>
-                                            <Field>
-                                                <FieldLabel htmlFor="invite-password">Senha</FieldLabel>
-                                                <InputPassword
-                                                    id="invite-password"
-                                                    value={password}
-                                                    autoComplete="new-password"
-                                                    onChange={setPassword}
-                                                    placeholder="Mínimo de 8 caracteres"
-                                                />
-                                            </Field>
-                                            <Field>
-                                                <FieldLabel htmlFor="invite-password-confirmation">
-                                                    Confirmação da senha
-                                                </FieldLabel>
-                                                <InputPassword
-                                                    id="invite-password-confirmation"
-                                                    value={passwordConfirmation}
-                                                    autoComplete="new-password"
-                                                    onChange={setPasswordConfirmation}
-                                                    placeholder="Repita a senha"
-                                                />
-                                            </Field>
-                                            {error ? (
-                                                <p className="text-sm text-destructive" role="alert">{error}</p>
-                                            ) : null}
-                                            <Button type="submit" disabled={loading}>
-                                                Criar conta e continuar
-                                            </Button>
-                                        </FieldGroup>
-                                    </form>
-                                ) : null}
-
-                                {pending && !user && step === 'code' ? (
-                                    <CodeStep
+                                {pending && !user ? (
+                                    <AccountGate
                                         email={invite.email}
-                                        retryAfter={retryAfter}
-                                        submitting={loading}
-                                        error={error}
-                                        onSubmit={handleCode}
-                                        onResend={async () => {
-                                            setError('')
-                                            try {
-                                                const response = await sendCode()
-
-                                                if (response.account_exists) {
-                                                    navigate(loginRedirect)
-                                                    return 0
-                                                }
-
-                                                if (response.sent === false) {
-                                                    setError(response.message || 'Aguarde para reenviar o código.')
-                                                }
-
-                                                return Number(response.retry_after) || 0
-                                            } catch (requestError) {
-                                                setError(verificationError(requestError, 'Não foi possível reenviar o código.'))
-                                                return 0
-                                            }
-                                        }}
-                                        onChangeEmail={() => {
-                                            setStep('account')
-                                            setError('')
-                                        }}
+                                        accountExists={invite.account_exists}
+                                        title="Confirme seu e-mail"
+                                        description="Enviaremos um código para criar o seu acesso."
+                                        forgotBack={`/auth/convite/${token}`}
+                                        onAuthenticated={handleAuthenticated}
                                     />
                                 ) : null}
 
-                                {/* Ações secundárias, longe do botão principal. Recusar é
-                                    definitivo: o token morre junto e não há como desfazer. */}
+                                {/* Recusar é definitivo — o token morre junto —, então fica
+                                    longe da ação principal e pede confirmação. */}
                                 {pending ? (
-                                    <div className="flex flex-col items-center gap-2 border-t pt-4 text-sm">
-                                        {!user && step === 'account' ? (
-                                            <Link to={loginRedirect} className="text-muted-foreground underline-offset-4 hover:underline">
-                                                Já tenho conta com este e-mail
-                                            </Link>
-                                        ) : null}
+                                    <div className="flex justify-center border-t pt-4 text-sm">
                                         <button
                                             type="button"
                                             className="text-muted-foreground underline-offset-4 hover:underline"

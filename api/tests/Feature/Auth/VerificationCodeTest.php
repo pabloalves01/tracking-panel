@@ -2,18 +2,12 @@
 
 namespace Tests\Feature\Auth;
 
-use App\Mail\FuelStationSignupExistingAccountMail;
 use App\Mail\VerificationCodeMail;
-use App\Models\Membership;
-use App\Models\Organization;
-use App\Models\Invitation;
 use App\Models\User;
 use App\Models\VerificationCode;
 use App\Services\Auth\VerificationCodeService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Testing\TestResponse;
@@ -23,33 +17,41 @@ class VerificationCodeTest extends TestCase
 {
     use RefreshDatabase;
 
-    private const CNPJ = '19131243000197';
 
+    /**
+     * O código de cadastro chega sempre, exista a conta ou não — quem decide
+     * entre entrar e criar é a conferência, depois. A recuperação de senha só
+     * entrega para conta existente. Nas duas, a resposta é a mesma para os
+     * dois casos.
+     */
     public function test_envio_publico_nao_revela_se_o_email_existe(): void
     {
         Mail::fake();
         User::factory()->create(['email' => 'ja@posto.test', 'password' => 'senha1234']);
 
-        $known = $this->postJson('/api/auth/verification-codes', [
-            'email' => ' JA@posto.test ',
-            'purpose' => 'fuel_station_signup',
-        ])->assertOk();
+        foreach ([VerificationCode::ACCOUNT_REGISTER, VerificationCode::PASSWORD_RESET] as $purpose) {
+            $this->travel(61)->seconds();
 
-        $unknown = $this->postJson('/api/auth/verification-codes', [
-            'email' => 'nova@posto.test',
-            'purpose' => 'fuel_station_signup',
-        ])->assertOk();
+            $known = $this->postJson('/api/auth/verification-codes', [
+                'email' => ' JA@posto.test ',
+                'purpose' => $purpose,
+            ])->assertOk();
 
-        $this->assertSame($known->json('message'), $unknown->json('message'));
-        $this->assertSame(
-            'Enviamos um código para este e-mail.',
-            $known->json('message'),
-        );
-        Mail::assertQueued(VerificationCodeMail::class, 1);
-        Mail::assertQueued(VerificationCodeMail::class, fn (VerificationCodeMail $mail) => $mail->hasTo('nova@posto.test'));
-        Mail::assertQueued(FuelStationSignupExistingAccountMail::class, fn (FuelStationSignupExistingAccountMail $mail) => $mail->hasTo('ja@posto.test'));
-        $this->assertNull(VerificationCode::query()->where('email', 'ja@posto.test')->value('code_hash'));
-        $this->assertNotNull(VerificationCode::query()->where('email', 'nova@posto.test')->value('code_hash'));
+            $unknown = $this->postJson('/api/auth/verification-codes', [
+                'email' => 'nova@posto.test',
+                'purpose' => $purpose,
+            ])->assertOk();
+
+            $this->assertSame($known->json(), $unknown->json());
+            $this->assertSame('Enviamos um código para este e-mail.', $known->json('message'));
+        }
+
+        // Cadastro: os dois. Recuperação: só quem tem conta.
+        Mail::assertQueued(VerificationCodeMail::class, 3);
+        $this->assertNotNull($this->codeHash('ja@posto.test', VerificationCode::ACCOUNT_REGISTER));
+        $this->assertNotNull($this->codeHash('nova@posto.test', VerificationCode::ACCOUNT_REGISTER));
+        $this->assertNotNull($this->codeHash('ja@posto.test', VerificationCode::PASSWORD_RESET));
+        $this->assertNull($this->codeHash('nova@posto.test', VerificationCode::PASSWORD_RESET));
     }
 
     public function test_cinco_codigos_errados_invalidam_o_codigo_certo(): void
@@ -216,37 +218,25 @@ class VerificationCodeTest extends TestCase
         $this->assertTrue(Hash::check('senha-antiga', User::query()->where('email', $email)->value('password')));
     }
 
-    public function test_trava_do_reset_nao_trava_o_convite(): void
+    public function test_trava_do_reset_nao_trava_o_cadastro(): void
     {
         $this->freezeTime();
-        $email = 'reset.convite@melo.test';
-        $plain = 'token-reset-convite';
+        $email = 'reset.cadastro@melo.test';
 
         for ($attempt = 0; $attempt < 10; $attempt++) {
             $this->postReset($email, '000000')->assertUnprocessable();
         }
 
-        Invitation::query()->create([
-            'organization_id' => Organization::factory()->company()->create()->getKey(),
-            'email' => $email,
-            'status' => Invitation::PENDING,
-            'token_hash' => hash('sha256', $plain),
-            'expires_at' => now()->addDays(7),
-        ]);
-        $this->plant($email, '654321', VerificationCode::INVITATION_REGISTER);
+        $this->plant($email, '654321');
         $this->releasePasswordThrottle();
 
-        $this->postJson('/api/auth/invitations/'.$plain.'/register', [
-            'name' => 'Convidada',
-            'password' => 'senha1234',
-            'password_confirmation' => 'senha1234',
-            'code' => '654321',
-        ])->assertCreated()
+        $this->register($email, '654321')
+            ->assertCreated()
             ->assertJsonPath('user.email', $email);
 
         // O antigo orçamento por e-mail travava a recuperação de senha da
         // vítima por uma hora e saiu no ADR-004. O que importa aqui é que
-        // os palpites no reset não contaminaram o caminho do convite.
+        // os palpites no reset não contaminaram o cadastro.
         $this->postReset($email, '123456')->assertUnprocessable();
     }
 
@@ -291,42 +281,32 @@ class VerificationCodeTest extends TestCase
      */
     public function test_palpites_gastam_o_codigo_e_nao_o_endereco(): void
     {
-        Mail::fake();
-        Http::fake(['brasilapi.com.br/api/cnpj/v1/*' => Http::response([
-            'cnpj' => self::CNPJ,
-            'razao_social' => 'POSTO EXEMPLO LTDA',
-            'descricao_situacao_cadastral' => 'ATIVA',
-            'situacao_cadastral' => 2,
-            'uf' => 'SP',
-            'municipio' => 'SAO PAULO',
-        ])]);
-
         $email = 'alvo@posto.test';
-        $this->plant($email, '123456', VerificationCode::FUEL_STATION_SIGNUP);
+        $this->plant($email, '123456');
 
         for ($erro = 0; $erro < VerificationCodeService::MAX_ATTEMPTS; $erro++) {
-            $this->signupWithCode($email, '000000')->assertUnprocessable();
+            $this->register($email, '000000')->assertUnprocessable();
         }
 
         // O código certo já não vale: aquele código morreu.
-        $this->signupWithCode($email, '123456')->assertUnprocessable();
+        $this->register($email, '123456')->assertUnprocessable();
 
         // Mas um código novo para o mesmo e-mail volta a funcionar.
-        $this->plant($email, '654321', VerificationCode::FUEL_STATION_SIGNUP);
-        $this->signupWithCode($email, '654321')->assertCreated();
+        $this->plant($email, '654321');
+        $this->register($email, '654321')->assertCreated();
     }
 
     public function test_codigo_errado_expirado_esgotado_e_reutilizado(): void
     {
         $this->plant('nova@posto.test', '123456');
 
-        $this->postJson('/api/auth/fuel-station-signup', $this->signup('000000'))
+        $this->register('nova@posto.test', '000000')
             ->assertUnprocessable()
             ->assertJsonPath('message', 'Código inválido');
 
         VerificationCode::query()->update(['expires_at' => now()->subMinute(), 'attempts' => 0]);
 
-        $this->postJson('/api/auth/fuel-station-signup', $this->signup('123456'))
+        $this->register('nova@posto.test', '123456')
             ->assertUnprocessable()
             ->assertJsonPath('message', 'Código inválido');
 
@@ -336,7 +316,7 @@ class VerificationCodeTest extends TestCase
             'invalidated_at' => null,
         ]);
 
-        $this->postJson('/api/auth/fuel-station-signup', $this->signup('000000'))
+        $this->register('nova@posto.test', '000000')
             ->assertUnprocessable()
             ->assertJsonPath('message', 'Código inválido');
 
@@ -346,9 +326,11 @@ class VerificationCodeTest extends TestCase
             'consumed_at' => now(),
         ]);
 
-        $this->postJson('/api/auth/fuel-station-signup', $this->signup('123456'))
+        $this->register('nova@posto.test', '123456')
             ->assertUnprocessable()
             ->assertJsonPath('message', 'Código inválido');
+
+        $this->assertDatabaseMissing('users', ['email' => 'nova@posto.test']);
     }
 
     public function test_reenvio_espera_um_minuto_e_o_sexto_pedido_da_hora_para(): void
@@ -357,14 +339,14 @@ class VerificationCodeTest extends TestCase
 
         $this->postJson('/api/auth/verification-codes', [
             'email' => 'nova@posto.test',
-            'purpose' => 'fuel_station_signup',
+            'purpose' => VerificationCode::ACCOUNT_REGISTER,
         ])->assertOk()->assertJsonPath('retry_after', 60);
 
         $this->travel(10)->seconds();
 
         $again = $this->postJson('/api/auth/verification-codes', [
             'email' => 'nova@posto.test',
-            'purpose' => 'fuel_station_signup',
+            'purpose' => VerificationCode::ACCOUNT_REGISTER,
         ])->assertOk();
 
         $this->assertSame(50, $again->json('retry_after'));
@@ -374,7 +356,7 @@ class VerificationCodeTest extends TestCase
             $this->travel(61)->seconds();
             $this->postJson('/api/auth/verification-codes', [
                 'email' => 'nova@posto.test',
-                'purpose' => 'fuel_station_signup',
+                'purpose' => VerificationCode::ACCOUNT_REGISTER,
             ])->assertOk();
         }
 
@@ -383,7 +365,7 @@ class VerificationCodeTest extends TestCase
 
         $blocked = $this->postJson('/api/auth/verification-codes', [
             'email' => 'nova@posto.test',
-            'purpose' => 'fuel_station_signup',
+            'purpose' => VerificationCode::ACCOUNT_REGISTER,
         ])->assertOk();
 
         $this->assertGreaterThan(60, $blocked->json('retry_after'));
@@ -391,14 +373,13 @@ class VerificationCodeTest extends TestCase
         $this->assertSame(5, VerificationCode::query()->count());
     }
 
-    public function test_cadastro_de_posto_so_conclui_com_o_codigo_do_email(): void
+    public function test_cadastro_de_conta_so_conclui_com_o_codigo_do_email(): void
     {
         Mail::fake();
-        $this->fakeReceita();
 
         $this->postJson('/api/auth/verification-codes', [
             'email' => 'nova@posto.test',
-            'purpose' => 'fuel_station_signup',
+            'purpose' => VerificationCode::ACCOUNT_REGISTER,
         ])->assertOk();
 
         $code = null;
@@ -415,7 +396,7 @@ class VerificationCodeTest extends TestCase
         $this->assertStringContainsString($code, $html);
         $this->assertStringContainsString('Se não foi você, ignore este e-mail.', $html);
 
-        $this->postJson('/api/auth/fuel-station-signup', $this->signup($code))
+        $this->register('nova@posto.test', $code)
             ->assertCreated()
             ->assertJsonPath('user.email', 'nova@posto.test');
 
@@ -423,160 +404,44 @@ class VerificationCodeTest extends TestCase
         $this->assertNotNull(VerificationCode::query()->first()->consumed_at);
     }
 
-    public function test_convite_novo_exige_codigo_e_o_envio_sem_token_nao_entrega(): void
+    /**
+     * As finalidades que criavam conta junto com posto ou convite saíram:
+     * conta se cria por um caminho só.
+     */
+    public function test_finalidades_antigas_sao_recusadas(): void
     {
         Mail::fake();
-        $plain = 'token-convite-teste';
-        Invitation::query()->create([
-            'organization_id' => Organization::factory()->company()->create()->getKey(),
-            'email' => 'dona@melo.test',
-            'status' => Invitation::PENDING,
-            'token_hash' => hash('sha256', $plain),
-            'expires_at' => now()->addDays(7),
-        ]);
 
-        $this->postJson('/api/auth/verification-codes', [
-            'email' => 'dona@melo.test',
-            'purpose' => 'invitation_register',
-        ])->assertOk();
+        foreach (['fuel_station_signup', 'invitation_register', 'qualquer'] as $purpose) {
+            $this->postJson('/api/auth/verification-codes', [
+                'email' => 'nova@posto.test',
+                'purpose' => $purpose,
+            ])->assertUnprocessable()->assertJsonValidationErrors('purpose');
+        }
 
         Mail::assertNothingQueued();
-        $this->travel(61)->seconds();
+    }
 
-        $this->postJson('/api/auth/verification-codes', [
-            'email' => 'dona@melo.test',
-            'purpose' => 'invitation_register',
-            'token' => $plain,
-        ])->assertOk();
+    public function test_codigo_de_outra_finalidade_nao_serve_para_o_cadastro(): void
+    {
+        $this->plant('nova@posto.test', '111111', VerificationCode::PASSWORD_RESET);
 
-        $code = null;
-        Mail::assertQueued(VerificationCodeMail::class, function (VerificationCodeMail $mail) use (&$code) {
-            $code = $mail->code;
+        $this->register('nova@posto.test', '111111')
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Código inválido');
 
-            return true;
-        });
+        $this->assertDatabaseMissing('users', ['email' => 'nova@posto.test']);
+    }
 
-        $this->postJson('/api/auth/invitations/'.$plain.'/register', [
-            'name' => 'Dona',
-            'password' => 'senha1234',
-            'password_confirmation' => 'senha1234',
-            'code' => $code,
+    public function test_cadastro_nao_vira_admin_do_sistema_pelo_payload(): void
+    {
+        $this->plant('nova@posto.test', '123456');
+
+        $this->postJson('/api/auth/register', [
+            ...$this->registerPayload('nova@posto.test', '123456'),
             'is_system_admin' => true,
         ])->assertCreated()
             ->assertJsonPath('user.is_system_admin', false);
-
-        $this->assertNotNull(User::query()->where('email', 'dona@melo.test')->first()->email_verified_at);
-    }
-
-    public function test_cadastro_por_convite_envia_codigo_mesmo_com_codigo_de_outra_finalidade(): void
-    {
-        Mail::fake();
-        $fuelStationToken = $this->inviteLink('posto.novo@logiv.test', fuelStation: true);
-        $companyToken = $this->inviteLink('empresa.nova@melo.test', fuelStation: false);
-
-        foreach ([
-            ['posto.novo@logiv.test', $fuelStationToken, 'fuel_station'],
-            ['empresa.nova@melo.test', $companyToken, 'company'],
-        ] as [$email, $plain, $kind]) {
-            VerificationCode::query()->create([
-                'email' => $email,
-                'purpose' => VerificationCode::FUEL_STATION_SIGNUP,
-                'code_hash' => hash('sha256', '111111'),
-                'expires_at' => now()->addMinutes(10),
-            ]);
-            $sent = $this->postJson('/api/auth/verification-codes', [
-                'email' => $email,
-                'purpose' => 'invitation_register',
-                'token' => $plain,
-            ])->assertOk()
-                ->assertJsonPath('sent', true)
-                ->assertJsonPath('account_exists', false)
-                ->assertJsonPath('message', 'Enviamos um código para este e-mail.');
-
-            $this->assertSame(60, $sent->json('retry_after'));
-
-            $again = $this->postJson('/api/auth/verification-codes', [
-                'email' => $email,
-                'purpose' => 'invitation_register',
-                'token' => $plain,
-            ])->assertOk()
-                ->assertJsonPath('sent', false)
-                ->assertJsonPath('account_exists', false);
-
-            $this->assertStringContainsString('Aguarde', (string) $again->json('message'));
-            $this->assertGreaterThan(0, $again->json('retry_after'));
-            $this->assertLessThanOrEqual(60, $again->json('retry_after'));
-
-            $code = null;
-            Mail::assertQueued(VerificationCodeMail::class, function (VerificationCodeMail $mail) use (&$code, $email) {
-                if (! $mail->hasTo($email)) {
-                    return false;
-                }
-
-                $code = $mail->code;
-
-                return true;
-            });
-
-            $this->postJson('/api/auth/invitations/'.$plain.'/register', [
-                'name' => 'Marcos',
-                'password' => 'senha1234',
-                'password_confirmation' => 'senha1234',
-                'code' => $code,
-            ])->assertCreated()
-                ->assertJsonPath('user.email', $email);
-
-            $user = User::query()->where('email', $email)->first();
-            $this->assertNotNull($user->email_verified_at);
-
-            // Empresa e posto chegam pela mesma tabela: o vínculo é um só.
-            $this->assertTrue(
-                Membership::query()
-                    ->where('user_id', $user->getKey())
-                    ->where('status', Membership::ACTIVE)
-                    ->exists(),
-                "vínculo ausente para {$kind}",
-            );
-        }
-
-        Mail::assertQueued(VerificationCodeMail::class, 2);
-    }
-
-    public function test_convite_de_conta_existente_nao_finge_o_envio(): void
-    {
-        Mail::fake();
-        User::factory()->create(['email' => 'dona@melo.test', 'password' => 'senha1234']);
-        $plain = $this->inviteLink('dona@melo.test', fuelStation: false);
-
-        $this->postJson('/api/auth/verification-codes', [
-            'email' => 'dona@melo.test',
-            'purpose' => 'invitation_register',
-        ])->assertOk()
-            ->assertJsonPath('sent', true)
-            ->assertJsonPath('account_exists', false)
-            ->assertJsonPath('message', 'Enviamos um código para este e-mail.');
-
-        Mail::assertNotQueued(VerificationCodeMail::class);
-
-        $this->travel(61)->seconds();
-
-        $this->postJson('/api/auth/verification-codes', [
-            'email' => 'dona@melo.test',
-            'purpose' => 'invitation_register',
-            'token' => $plain,
-        ])->assertOk()
-            ->assertJsonPath('sent', false)
-            ->assertJsonPath('account_exists', true)
-            ->assertJsonPath('message', 'Este e-mail já tem conta. Entre para aceitar o convite.');
-
-        Mail::assertNotQueued(VerificationCodeMail::class);
-        $this->assertNull(
-            VerificationCode::query()
-                ->where('email', 'dona@melo.test')
-                ->where('purpose', VerificationCode::INVITATION_REGISTER)
-                ->whereNotNull('code_hash')
-                ->value('code_hash'),
-        );
     }
 
     public function test_envio_publico_respeita_o_limite(): void
@@ -584,42 +449,15 @@ class VerificationCodeTest extends TestCase
         for ($attempt = 0; $attempt < 10; $attempt++) {
             $this->postJson('/api/auth/verification-codes', [
                 'email' => 'alguem'.$attempt.'@posto.test',
-                'purpose' => 'fuel_station_signup',
+                'purpose' => VerificationCode::ACCOUNT_REGISTER,
             ])->assertOk();
         }
 
         $this->postJson('/api/auth/verification-codes', [
             'email' => 'mais-um@posto.test',
-            'purpose' => 'fuel_station_signup',
+            'purpose' => VerificationCode::ACCOUNT_REGISTER,
         ])->assertStatus(429)
             ->assertJsonStructure(['retry_after']);
-    }
-
-    /**
-     * @return array{0: TestResponse, 1: float}
-     */
-    /**
-     * Um convite pendente, com o token em claro devolvido.
-     *
-     * Empresa e posto são a mesma tabela agora: muda só o tipo.
-     */
-    private function inviteLink(string $email, bool $fuelStation): string
-    {
-        $plain = $fuelStation ? 'token-posto-novo' : 'token-empresa-nova';
-
-        $organization = Organization::factory()
-            ->{$fuelStation ? 'fuelStation' : 'company'}()
-            ->create();
-
-        Invitation::query()->create([
-            'organization_id' => $organization->getKey(),
-            'email' => $email,
-            'status' => Invitation::PENDING,
-            'token_hash' => hash('sha256', $plain),
-            'expires_at' => now()->addDays(7),
-        ]);
-
-        return $plain;
     }
 
     /**
@@ -665,30 +503,35 @@ class VerificationCodeTest extends TestCase
         $this->assertLessThan(1000, abs($knownMs - $unknownMs));
     }
 
+    private function register(string $email, string $code): TestResponse
+    {
+        return $this->postJson('/api/auth/register', $this->registerPayload($email, $code));
+    }
+
     /**
      * @return array<string, string>
      */
-    private function signup(string $code): array
+    private function registerPayload(string $email, string $code): array
     {
         return [
-            'cnpj' => self::CNPJ,
-            'name' => 'Dona do Posto',
-            'email' => 'nova@posto.test',
+            'email' => $email,
+            'code' => $code,
+            'name' => 'Pessoa de Teste',
             'password' => 'senha1234',
             'password_confirmation' => 'senha1234',
-            'code' => $code,
         ];
     }
 
-    private function signupWithCode(string $email, string $code): TestResponse
+    private function codeHash(string $email, string $purpose): ?string
     {
-        return $this->postJson('/api/auth/fuel-station-signup', [
-            ...$this->signup($code),
-            'email' => $email,
-        ]);
+        return VerificationCode::query()
+            ->where('email', $email)
+            ->where('purpose', $purpose)
+            ->latest('id')
+            ->value('code_hash');
     }
 
-    private function plant(string $email, string $code, string $purpose = VerificationCode::FUEL_STATION_SIGNUP): void
+    private function plant(string $email, string $code, string $purpose = VerificationCode::ACCOUNT_REGISTER): void
     {
         VerificationCode::query()->create([
             'email' => $email,
@@ -698,19 +541,4 @@ class VerificationCodeTest extends TestCase
         ]);
     }
 
-    private function fakeReceita(): void
-    {
-        Http::preventStrayRequests();
-        Http::fake([
-            'brasilapi.com.br/api/cnpj/v1/*' => Http::response([
-                'cnpj' => self::CNPJ,
-                'razao_social' => 'POSTO EXEMPLO LTDA',
-                'nome_fantasia' => 'POSTO EXEMPLO',
-                'descricao_situacao_cadastral' => 'ATIVA',
-                'cep' => '01310930',
-                'uf' => 'SP',
-                'municipio' => 'SAO PAULO',
-            ], 200),
-        ]);
-    }
 }

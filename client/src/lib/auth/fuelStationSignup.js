@@ -7,15 +7,7 @@ export function lookupFuelStationCnpj(cnpj) {
         .then((response) => response.data.data)
 }
 
-export function storeFuelStationSignup(payload) {
-    return api.post('/auth/fuel-station-signup', payload).then((response) => {
-        if (response.data.token) {
-            localStorage.setItem('token', response.data.token)
-        }
-        return response.data
-    })
-}
-
+/** Cria o posto na conta logada. Quem não tem conta passa pelo AccountGate antes. */
 export function storeFuelStationForUser(cnpj) {
     return api.post('/auth/fuel-stations', { cnpj }).then((response) => response.data)
 }

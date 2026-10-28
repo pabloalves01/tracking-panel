@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Access\InvitationController;
 use App\Http\Controllers\Access\MemberController;
+use App\Http\Controllers\Auth\AccountRegistrationController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\FuelStationSignupController;
 use App\Http\Controllers\Auth\InvitationAcceptController;
@@ -37,20 +38,23 @@ Route::prefix('auth')->group(function () {
     Route::post('password/reset', [PasswordResetController::class, 'reset'])
         ->middleware('throttle:10,1,password-reset');
 
-    // Cadastro público de posto.
-    Route::prefix('fuel-station-signup')->group(function () {
-        Route::get('cnpj/{cnpj}', [FuelStationSignupController::class, 'cnpj'])
-            ->middleware('throttle:20,1,fuel-station-signup-cnpj');
-        Route::post('/', [FuelStationSignupController::class, 'store'])
-            ->middleware('throttle:20,1,fuel-station-signup');
-    });
+    // Cadastro de conta, e só de conta. O código chega por
+    // `verification-codes` com a finalidade `account_register`, sempre
+    // entregue; `register/check` confere e só então diz se a conta existe.
+    // Posto e convite vêm depois, já com a sessão.
+    Route::post('register/check', [AccountRegistrationController::class, 'check'])
+        ->middleware('throttle:20,1,register-check');
+    Route::post('register', [AccountRegistrationController::class, 'store'])
+        ->middleware('throttle:10,1,register');
+
+    // Os dados da Receita aparecem antes de a pessoa dizer quem é.
+    Route::get('fuel-station-signup/cnpj/{cnpj}', [FuelStationSignupController::class, 'cnpj'])
+        ->middleware('throttle:20,1,fuel-station-signup-cnpj');
 
     // Convite, pelo link. Quem tem o link pode ver e recusar sem entrar.
     Route::prefix('invitations/{token}')->group(function () {
         Route::get('/', [InvitationAcceptController::class, 'show'])
             ->middleware('throttle:20,1,invitation-show');
-        Route::post('register', [InvitationAcceptController::class, 'register'])
-            ->middleware('throttle:20,1,invitation-register');
         Route::post('decline', [InvitationAcceptController::class, 'decline'])
             ->middleware('throttle:20,1,invitation-decline');
     });

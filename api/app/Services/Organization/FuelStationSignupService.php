@@ -9,25 +9,28 @@ use App\Models\Location\State;
 use App\Models\Membership;
 use App\Models\Organization;
 use App\Models\User;
-use App\Models\VerificationCode;
 use App\Services\AuditLogger;
-use App\Services\Auth\VerificationCodeService;
 use App\Services\External\BrasilApiService;
 use App\Support\Text;
 use DomainException;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
 /**
- * O cadastro público de um posto.
+ * O cadastro de um posto.
  *
  * O posto nasce como organização do tipo `fuel_station` e quem cadastrou
- * vira o primeiro membro.
+ * vira o primeiro membro. Só quem está logado cadastra: a conta é criada
+ * antes, em `AccountRegistrationService`. Era aqui que conta e posto nasciam
+ * juntos, e por isso a tela pedia senha antes de saber se a pessoa já tinha
+ * conta.
  */
 class FuelStationSignupService
 {
+    private const TAKEN = 'Já existe um cadastro com este CNPJ';
+
     public function __construct(
         private readonly BrasilApiService $brasilApi,
-        private readonly VerificationCodeService $codes,
         private readonly AuditLogger $audit,
     ) {}
 
@@ -47,101 +50,57 @@ class FuelStationSignupService
     }
 
     /**
-     * Cadastro público: cria a conta e o posto juntos.
+     * Cria o posto e põe quem está logado como primeiro membro.
      *
-     * @param  array<string, mixed>  $data
-     * @return array<string, mixed>
-     */
-    public function store(array $data): array
-    {
-        $cnpj = $this->assertAvailable($data['cnpj']);
-
-        // O código é conferido antes da consulta externa: um palpite errado
-        // não custa uma ida à Receita, e uma indisponibilidade de lá não
-        // mascara o 422 com um 503. Conferir não gasta o código — quem gasta
-        // é `markUsed`, lá dentro da transação —, então a ordem é livre.
-        //
-        // Fora da transação, para o palpite errado ficar contado mesmo que o
-        // cadastro falhe adiante.
-        $code = $this->codes->verify(
-            Text::email($data['email']),
-            VerificationCode::FUEL_STATION_SIGNUP,
-            $data['code'],
-        );
-
-        $payload = $this->brasilApi->cnpj($cnpj);
-
-        return DB::transaction(function () use ($data, $cnpj, $payload, $code) {
-            $this->codes->markUsed($code);
-
-            $user = User::query()->create([
-                'name' => $data['name'],
-                'email' => Text::email($data['email']),
-                'password' => $data['password'],
-            ]);
-
-            $user->forceFill(['email_verified_at' => now()])->save();
-
-            $fuelStation = $this->createFuelStation($cnpj, $payload);
-
-            Membership::query()->create([
-                'organization_id' => $fuelStation->getKey(),
-                'user_id' => $user->getKey(),
-                'status' => Membership::ACTIVE,
-            ]);
-
-            $this->audit->log('organization.created', $fuelStation, [
-                'type' => OrganizationType::FuelStation->value,
-            ], $fuelStation->getKey());
-
-            $token = $user->createToken('web');
-            $token->accessToken->forceFill(['organization_id' => $fuelStation->getKey()])->save();
-            $user->withAccessToken($token->accessToken);
-
-            return [
-                'message' => 'Posto cadastrado',
-                'token' => $token->plainTextToken,
-                'user' => $user,
-                'organization' => $fuelStation->load(['city', 'state']),
-            ];
-        });
-    }
-
-    /**
-     * Cadastro de posto por quem já está logado.
+     * A consulta à Receita fica fora da transação: segurar uma transação
+     * aberta esperando um serviço externo prende conexão à toa. Dois cliques
+     * simultâneos podem passar juntos pela conferência do CNPJ; o índice único
+     * de `organizations.document` barra o segundo, e a violação vira a mesma
+     * mensagem da conferência em vez de um 500.
      *
      * @return array<string, mixed>
      */
     public function storeForUser(User $user, string $cnpj): array
     {
-        return DB::transaction(function () use ($user, $cnpj) {
-            $digits = $this->assertAvailable($cnpj);
-            $payload = $this->brasilApi->cnpj($digits);
+        $digits = $this->assertAvailable($cnpj);
+        $payload = $this->brasilApi->cnpj($digits);
 
-            $fuelStation = $this->createFuelStation($digits, $payload);
-
-            Membership::query()->create([
-                'organization_id' => $fuelStation->getKey(),
-                'user_id' => $user->getKey(),
-                'status' => Membership::ACTIVE,
-            ]);
-
-            $this->audit->log('organization.created', $fuelStation, [
-                'type' => OrganizationType::FuelStation->value,
-            ], $fuelStation->getKey());
-
-            $user->currentAccessToken()->forceFill([
-                'organization_id' => $fuelStation->getKey(),
-            ])->save();
-
-            return [
-                'message' => 'Posto cadastrado',
-                'organization' => $fuelStation->load(['city', 'state']),
-            ];
-        });
+        try {
+            return DB::transaction(fn () => $this->createForUser($user, $digits, $payload));
+        } catch (UniqueConstraintViolationException) {
+            throw new DomainException(self::TAKEN);
+        }
     }
 
     // ================================ INTERNALS ================================
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function createForUser(User $user, string $digits, array $payload): array
+    {
+        $fuelStation = $this->createFuelStation($digits, $payload);
+
+        Membership::query()->create([
+            'organization_id' => $fuelStation->getKey(),
+            'user_id' => $user->getKey(),
+            'status' => Membership::ACTIVE,
+        ]);
+
+        $this->audit->log('organization.created', $fuelStation, [
+            'type' => OrganizationType::FuelStation->value,
+        ], $fuelStation->getKey());
+
+        $user->currentAccessToken()->forceFill([
+            'organization_id' => $fuelStation->getKey(),
+        ])->save();
+
+        return [
+            'message' => 'Posto cadastrado',
+            'organization' => $fuelStation->load(['city', 'state']),
+        ];
+    }
 
     private function assertAvailable(string $cnpj): string
     {
@@ -154,7 +113,7 @@ class FuelStationSignupService
         $taken = Organization::withTrashed()->where('document', $digits)->exists();
 
         if ($taken) {
-            throw new DomainException('Já existe um cadastro com este CNPJ');
+            throw new DomainException(self::TAKEN);
         }
 
         return $digits;

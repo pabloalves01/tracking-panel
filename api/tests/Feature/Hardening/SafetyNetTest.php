@@ -43,18 +43,22 @@ class SafetyNetTest extends TestCase
             'password' => $gigante,
         ])->assertUnprocessable();
 
-        $this->postJson('/api/auth/fuel-station-signup', [
-            'cnpj' => ['19131243000197'],
-            'name' => $gigante,
+        $this->postJson('/api/auth/register', [
+            'name' => [$gigante],
             'email' => ['nao@posto.test'],
-            'password' => $gigante,
-            'password_confirmation' => $gigante,
+            'password' => $gigante.$gigante,
+            'password_confirmation' => [$gigante],
+            'code' => ['123456'],
+        ])->assertUnprocessable();
+
+        $this->postJson('/api/auth/register/check', [
+            'email' => ['nao@posto.test'],
             'code' => ['123456'],
         ])->assertUnprocessable();
 
         $this->postJson('/api/auth/verification-codes', [
             'email' => ['nao@posto.test'],
-            'purpose' => ['fuel_station_signup'],
+            'purpose' => ['account_register'],
         ])->assertUnprocessable();
 
         $this->postJson('/api/auth/password/forgot', ['email' => ['x@y.test']])
@@ -125,7 +129,8 @@ class SafetyNetTest extends TestCase
             'api/organization/invitations/{uuid}/resend',
             'api/auth/verification-codes',
             'api/auth/password/forgot',
-            'api/auth/fuel-station-signup',
+            'api/auth/register',
+            'api/auth/register/check',
             'api/registry/fuel-stations',
         ];
 

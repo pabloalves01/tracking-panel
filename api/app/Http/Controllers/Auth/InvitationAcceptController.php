@@ -3,17 +3,18 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Auth\RegisterInvitationRequest;
-use App\Http\Resources\Auth\UserResource;
 use App\Http\Resources\OrganizationResource;
-use App\Models\Invitation;
-use App\Models\User;
 use App\Services\Access\InvitationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * O lado de quem recebeu o convite: ver, aceitar, recusar e criar conta.
+ * O lado de quem recebeu o convite: ver, aceitar e recusar.
+ *
+ * Aceitar exige estar logado na conta do e-mail convidado. Quem não tem conta
+ * cria antes, pelo cadastro de conta, e aceita em seguida — o convite não
+ * cria credencial. Era isso que fazia a tela pedir nome e senha a quem já
+ * tinha conta.
  */
 class InvitationAcceptController extends Controller
 {
@@ -25,34 +26,12 @@ class InvitationAcceptController extends Controller
         return response()->json(['data' => $this->invitations->preview($token)]);
     }
 
-    /** Sem conta: cria a conta, entra na organização e já devolve a sessão. */
-    public function register(RegisterInvitationRequest $request, string $token): JsonResponse
-    {
-        $user = $this->invitations->registerAndAccept(
-            $token,
-            $request->validated('name'),
-            $request->validated('password'),
-            $request->validated('code'),
-        );
-
-        return $this->session($user, $this->acceptedOrganizationFor($user, $token));
-    }
-
-    /** Com conta: aceita e já troca a sessão para a organização nova. */
+    /** Aceita e já troca a sessão para a organização nova. */
     public function accept(Request $request, string $token): JsonResponse
     {
         $invitation = $this->invitations->accept($token, $request->user());
-        $organization = $invitation->organization;
 
-        $request->user()->currentAccessToken()->forceFill([
-            'organization_id' => $organization->getKey(),
-        ])->save();
-
-        return response()->json([
-            'message' => 'Convite aceito',
-            'organization' => OrganizationResource::make($organization),
-            'redirect_to' => $organization->type->homePath(),
-        ]);
+        return $this->entered($request, $invitation->organization);
     }
 
     /** Quem tem o link pode recusar sem entrar. */
@@ -71,17 +50,8 @@ class InvitationAcceptController extends Controller
     public function acceptMine(Request $request, string $uuid): JsonResponse
     {
         $invitation = $this->invitations->acceptForUser($request->user(), $uuid);
-        $organization = $invitation->organization;
 
-        $request->user()->currentAccessToken()->forceFill([
-            'organization_id' => $organization->getKey(),
-        ])->save();
-
-        return response()->json([
-            'message' => 'Convite aceito',
-            'organization' => OrganizationResource::make($organization),
-            'redirect_to' => $organization->type->homePath(),
-        ]);
+        return $this->entered($request, $invitation->organization);
     }
 
     public function declineMine(Request $request, string $uuid): JsonResponse
@@ -93,38 +63,16 @@ class InvitationAcceptController extends Controller
 
     // ================================ INTERNALS ================================
 
-    /**
-     * A organização do convite que acabou de ser aceito.
-     *
-     * A versão anterior escolhia pelo último convite aceito daquele e-mail,
-     * o que punha na organização errada quem aceitava dois em sequência.
-     * Aqui a busca é pelo token desta requisição.
-     */
-    private function acceptedOrganizationFor(User $user, string $token)
+    private function entered(Request $request, $organization): JsonResponse
     {
-        return Invitation::query()
-            ->where('token_hash', hash('sha256', $token))
-            ->with('organization')
-            ->firstOrFail()
-            ->organization;
-    }
-
-    private function session(User $user, $organization): JsonResponse
-    {
-        $token = $user->createToken('web');
-
-        $token->accessToken->forceFill([
+        $request->user()->currentAccessToken()->forceFill([
             'organization_id' => $organization->getKey(),
         ])->save();
 
-        $user->withAccessToken($token->accessToken);
-
         return response()->json([
-            'message' => 'Conta criada',
-            'token' => $token->plainTextToken,
-            'user' => UserResource::make($user),
+            'message' => 'Convite aceito',
             'organization' => OrganizationResource::make($organization),
             'redirect_to' => $organization->type->homePath(),
-        ], 201);
+        ]);
     }
 }

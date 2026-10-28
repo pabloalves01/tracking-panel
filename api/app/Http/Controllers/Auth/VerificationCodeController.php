@@ -10,35 +10,20 @@ class VerificationCodeController extends Controller
 {
     public function __construct(private VerificationCodeService $codes) {}
 
+    /** A resposta não diz se a conta existe: isso só depois do código. */
     public function store(SendVerificationCodeRequest $request)
     {
         $result = $this->codes->issue(
             $request->validated('email'),
             $request->validated('purpose'),
-            $request->input('token'),
         );
 
         return response()->json([
-            'message' => $this->message($result),
+            'message' => $result['sent']
+                ? 'Enviamos um código para este e-mail.'
+                : $this->codes->waitMessage($result['retry_after']),
             'sent' => $result['sent'],
-            'account_exists' => $result['account_exists'],
             'retry_after' => $result['retry_after'],
         ]);
-    }
-
-    /**
-     * @param  array{sent: bool, retry_after: int, account_exists: bool}  $result
-     */
-    private function message(array $result): string
-    {
-        if ($result['account_exists']) {
-            return 'Este e-mail já tem conta. Entre para aceitar o convite.';
-        }
-
-        if (! $result['sent']) {
-            return $this->codes->waitMessage($result['retry_after']);
-        }
-
-        return 'Enviamos um código para este e-mail.';
     }
 }

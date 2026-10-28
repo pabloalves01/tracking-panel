@@ -6,6 +6,7 @@ use App\Models\Membership;
 use App\Models\Organization;
 use App\Models\Registry\Entity;
 use App\Models\User;
+use App\Models\VerificationCode;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\Support\ActsAsMember;
@@ -130,5 +131,55 @@ class ResponseShapeTest extends TestCase
         $this->postJson('/api/auth/organization', ['uuid' => $organization->uuid])
             ->assertOk()
             ->assertJsonStructure(['data', 'redirect_to']);
+    }
+
+    /**
+     * O AccountGate lê `account_exists` da conferência, e trata a resposta do
+     * cadastro como a do login (`token`, `user`). O 409 da corrida precisa
+     * do `code`, que é o que a tela usa para trocar o formulário de cadastro
+     * pela entrada com senha.
+     */
+    public function test_cadastro_de_conta_devolve_o_que_o_account_gate_le(): void
+    {
+        foreach (['nova@posto.test' => '111111', 'outra@posto.test' => '222222'] as $email => $code) {
+            VerificationCode::query()->create([
+                'email' => $email,
+                'purpose' => VerificationCode::ACCOUNT_REGISTER,
+                'code_hash' => hash('sha256', $code),
+                'expires_at' => now()->addMinutes(10),
+            ]);
+        }
+
+        $check = $this->postJson('/api/auth/register/check', ['email' => 'nova@posto.test', 'code' => '111111'])
+            ->assertOk()
+            ->json();
+        $this->assertArrayNotHasKey('data', $check);
+        $this->assertIsBool($check['account_exists']);
+
+        $register = $this->postJson('/api/auth/register', [
+            'email' => 'nova@posto.test',
+            'code' => '111111',
+            'name' => 'Nova',
+            'password' => 'senha-nova-123',
+            'password_confirmation' => 'senha-nova-123',
+        ])->assertCreated()->json();
+        $login = $this->postJson('/api/auth/login', [
+            'email' => 'nova@posto.test',
+            'password' => 'senha-nova-123',
+        ])->assertOk()->json();
+
+        foreach (['token', 'user', 'organizations', 'invitations'] as $key) {
+            $this->assertArrayHasKey($key, $register, "cadastro sem {$key}");
+            $this->assertArrayHasKey($key, $login, "login sem {$key}");
+        }
+
+        User::factory()->create(['email' => 'outra@posto.test']);
+        $this->postJson('/api/auth/register', [
+            'email' => 'outra@posto.test',
+            'code' => '222222',
+            'name' => 'Outra',
+            'password' => 'senha-nova-123',
+            'password_confirmation' => 'senha-nova-123',
+        ])->assertStatus(409)->assertJsonPath('code', 'account_exists');
     }
 }

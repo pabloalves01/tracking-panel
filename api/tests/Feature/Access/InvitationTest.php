@@ -202,25 +202,74 @@ class InvitationTest extends TestCase
         );
     }
 
-    public function test_sem_conta_o_registro_pelo_convite_cria_e_entra(): void
+    /**
+     * Um convite pendente para quem está suspenso não se cria pelo fluxo
+     * normal, mas o serviço não pode depender disso: aceitar estando suspenso
+     * é recusado, em vez de marcar o convite como aceito e deixar a pessoa
+     * num 403 na tela seguinte.
+     */
+    public function test_aceitar_estando_suspenso_e_recusado_com_mensagem(): void
     {
-        $token = $this->inviteAndToken('novo@exemplo.com.br');
-
-        VerificationCode::query()->create([
-            'email' => 'novo@exemplo.com.br',
-            'purpose' => VerificationCode::INVITATION_REGISTER,
-            'code_hash' => hash('sha256', '123456'),
-            'expires_at' => now()->addMinutes(10),
+        $suspenso = User::factory()->create(['email' => 'suspenso@exemplo.com.br']);
+        Membership::query()->create([
+            'organization_id' => $this->organization->getKey(),
+            'user_id' => $suspenso->getKey(),
+            'status' => Membership::SUSPENDED,
+        ]);
+        $invitation = Invitation::query()->create([
+            'organization_id' => $this->organization->getKey(),
+            'email' => 'suspenso@exemplo.com.br',
+            'token_hash' => hash('sha256', 'token-do-suspenso'),
+            'status' => Invitation::PENDING,
+            'expires_at' => now()->addDays(7),
         ]);
 
+        $this->enter($suspenso, null)
+            ->postJson('/api/auth/invitations/token-do-suspenso/accept')
+            ->assertStatus(409)
+            ->assertJsonPath('message', 'Seu acesso a esta organização está suspenso. Peça a quem administra para reativar.');
+
+        $this->assertSame(Invitation::PENDING, $invitation->fresh()->status);
+        $this->assertSame(
+            Membership::SUSPENDED,
+            Membership::query()->where('user_id', $suspenso->getKey())->value('status'),
+        );
+    }
+
+    // ======================== QUEM AINDA NÃO TEM CONTA ========================
+
+    /**
+     * Sem conta: cria a conta pelo cadastro de conta e aceita já logado. O
+     * convite não cria credencial.
+     */
+    public function test_sem_conta_cria_a_conta_e_aceita_ja_logado(): void
+    {
+        $token = $this->inviteAndToken('novo@exemplo.com.br');
+        $this->app['auth']->forgetGuards();
+
         $this->withToken('')
-            ->postJson("/api/auth/invitations/{$token}/register", [
-                'name' => 'Pessoa Nova',
-                'password' => 'senha-bem-grande',
-                'password_confirmation' => 'senha-bem-grande',
-                'code' => '123456',
-            ])
-            ->assertCreated()
+            ->getJson("/api/auth/invitations/{$token}")
+            ->assertOk()
+            ->assertJsonPath('data.account_exists', false);
+
+        $this->plantAccountCode('novo@exemplo.com.br');
+
+        $this->postJson('/api/auth/register/check', ['email' => 'novo@exemplo.com.br', 'code' => '123456'])
+            ->assertJsonPath('account_exists', false);
+
+        $session = $this->postJson('/api/auth/register', [
+            'email' => 'novo@exemplo.com.br',
+            'code' => '123456',
+            'name' => 'Pessoa Nova',
+            'password' => 'senha-bem-grande',
+            'password_confirmation' => 'senha-bem-grande',
+        ])->assertCreated()
+            ->assertJsonCount(1, 'invitations');
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($session->json('token'))
+            ->postJson("/api/auth/invitations/{$token}/accept")
+            ->assertOk()
             ->assertJsonPath('redirect_to', '/app');
 
         $novo = User::query()->where('email', 'novo@exemplo.com.br')->sole();
@@ -232,25 +281,51 @@ class InvitationTest extends TestCase
         ]);
     }
 
-    public function test_registro_com_codigo_errado_nao_cria_conta(): void
+    /**
+     * Com conta: o preview diz que a conta existe, a tela pede a senha atual,
+     * e aceitar não toca nela.
+     */
+    public function test_com_conta_entra_com_a_senha_atual_e_aceita(): void
+    {
+        $existente = User::factory()->create(['email' => 'ja@exemplo.com.br', 'password' => 'senha-de-sempre']);
+        $hash = $existente->password;
+        $token = $this->inviteAndToken('ja@exemplo.com.br');
+        $this->app['auth']->forgetGuards();
+
+        $this->withToken('')
+            ->getJson("/api/auth/invitations/{$token}")
+            ->assertJsonPath('data.account_exists', true);
+
+        $session = $this->postJson('/api/auth/login', [
+            'email' => 'ja@exemplo.com.br',
+            'password' => 'senha-de-sempre',
+        ])->assertOk();
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($session->json('token'))
+            ->postJson("/api/auth/invitations/{$token}/accept")
+            ->assertOk();
+
+        $this->assertSame($hash, $existente->fresh()->password);
+        $this->assertDatabaseHas('memberships', [
+            'organization_id' => $this->organization->getKey(),
+            'user_id' => $existente->getKey(),
+            'status' => Membership::ACTIVE,
+        ]);
+    }
+
+    public function test_o_convite_nao_cria_conta_sozinho(): void
     {
         $token = $this->inviteAndToken('novo@exemplo.com.br');
-
-        VerificationCode::query()->create([
-            'email' => 'novo@exemplo.com.br',
-            'purpose' => VerificationCode::INVITATION_REGISTER,
-            'code_hash' => hash('sha256', '123456'),
-            'expires_at' => now()->addMinutes(10),
-        ]);
 
         $this->withToken('')
             ->postJson("/api/auth/invitations/{$token}/register", [
                 'name' => 'Pessoa Nova',
                 'password' => 'senha-bem-grande',
                 'password_confirmation' => 'senha-bem-grande',
-                'code' => '999999',
+                'code' => '123456',
             ])
-            ->assertUnprocessable();
+            ->assertNotFound();
 
         $this->assertDatabaseMissing('users', ['email' => 'novo@exemplo.com.br']);
     }
@@ -272,6 +347,16 @@ class InvitationTest extends TestCase
     }
 
     // ================================ HELPERS ================================
+
+    private function plantAccountCode(string $email): void
+    {
+        VerificationCode::query()->create([
+            'email' => $email,
+            'purpose' => VerificationCode::ACCOUNT_REGISTER,
+            'code_hash' => hash('sha256', '123456'),
+            'expires_at' => now()->addMinutes(10),
+        ]);
+    }
 
     private function invite(string $email)
     {

@@ -1,5 +1,6 @@
 <?php
 
+use App\Exceptions\AccountAlreadyExists;
 use App\Exceptions\NotFound;
 use App\Exceptions\RejectedInput;
 use App\Http\Middleware\EnsureOrganization;
@@ -30,6 +31,12 @@ return Application::configure(basePath: dirname(__DIR__))
             'organization' => EnsureOrganization::class,
             'system' => EnsureSystemAdmin::class,
         ]);
+
+        // A API não tem página de login para onde redirecionar. Sem isto, um
+        // pedido sem `Accept: application/json` a uma rota protegida tentava
+        // montar a URL da rota `login`, que não existe, e respondia 500 em
+        // vez de 401.
+        $middleware->redirectGuestsTo(fn () => null);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
@@ -64,6 +71,16 @@ return Application::configure(basePath: dirname(__DIR__))
             return response()->json(['message' => $exception->getMessage()], $status);
         };
 
+        $exceptions->render(function (AccountAlreadyExists $exception, Request $request) {
+            if (! ($request->is('api/*') || $request->expectsJson())) {
+                return null;
+            }
+
+            return response()->json([
+                'message' => $exception->getMessage(),
+                'code' => 'account_exists',
+            ], 409);
+        });
         $exceptions->render(fn (NotFound $e, Request $r) => $domain($e, $r, 404));
         $exceptions->render(fn (RejectedInput $e, Request $r) => $domain($e, $r, 422));
         $exceptions->render(fn (DomainException $e, Request $r) => $domain($e, $r, 409));

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
-import { Building2, Fuel, MailOpen } from 'lucide-react'
+import { Building2, Fuel, MailOpen, Plus } from 'lucide-react'
 
 import { LoadingWrapper } from '@/components/common/LoadingWrapper'
 import {
@@ -228,7 +228,15 @@ export default function SelectOrganizationPage() {
                 ) : null}
             </LoadingWrapper>
 
-            <footer className="flex justify-center">
+            <footer className="flex flex-col items-center gap-2">
+                {/* Sempre à mão, não só no estado vazio: quem administra uma
+                    empresa e vai cadastrar o posto faz isso nesta conta. */}
+                {isEmpty ? null : (
+                    <Button variant="outline" size="sm" onClick={() => navigate('/auth/register/posto')}>
+                        <Plus />
+                        Cadastrar um posto
+                    </Button>
+                )}
                 <Button variant="ghost" size="sm" onClick={handleLogout}>
                     Sair desta conta
                 </Button>

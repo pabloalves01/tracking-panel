@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Building2, ChevronsUpDown, Fuel } from 'lucide-react'
+import { Building2, ChevronsUpDown, Fuel, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router'
 
 import {
@@ -99,6 +99,13 @@ export function OrganizationSwitcher() {
                 <DropdownMenuItem onClick={() => navigate('/auth/organizacoes')}>
                     Ver organizações
                     {invitations.length > 0 ? ` e ${invitations.length} convite${invitations.length > 1 ? 's' : ''}` : ''}
+                </DropdownMenuItem>
+                {/* Quem já está logado cadastra um posto na mesma conta, sem
+                    sair. Sem esta porta, a única entrada era o login, e a
+                    pessoa deslogava para chegar lá. */}
+                <DropdownMenuItem onClick={() => navigate('/auth/register/posto')}>
+                    <Plus className="text-muted-foreground size-4" />
+                    Cadastrar um posto
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>

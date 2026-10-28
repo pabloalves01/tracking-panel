@@ -3,15 +3,17 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Auth\StoreFuelStationSignupRequest;
 use App\Http\Requests\Auth\StoreFuelStationRequest;
-use App\Http\Resources\Auth\UserResource;
 use App\Http\Resources\OrganizationResource;
 use App\Services\Organization\FuelStationSignupService;
 use Illuminate\Http\JsonResponse;
 
 /**
- * O cadastro de um posto: público, ou por quem já está logado.
+ * O cadastro de um posto.
+ *
+ * A consulta do CNPJ é pública — a tela mostra os dados da Receita antes de
+ * pedir quem é a pessoa. Criar o posto exige estar logado: quem não tem conta
+ * cria a conta antes, no mesmo fluxo de tela.
  */
 class FuelStationSignupController extends Controller
 {
@@ -21,19 +23,6 @@ class FuelStationSignupController extends Controller
     public function cnpj(string $cnpj): JsonResponse
     {
         return response()->json(['data' => $this->signup->lookup($cnpj)]);
-    }
-
-    public function store(StoreFuelStationSignupRequest $request): JsonResponse
-    {
-        $result = $this->signup->store($request->validated());
-
-        return response()->json([
-            'message' => $result['message'],
-            'token' => $result['token'],
-            'user' => UserResource::make($result['user']),
-            'organization' => OrganizationResource::make($result['organization']),
-            'redirect_to' => $result['organization']->type->homePath(),
-        ], 201);
     }
 
     public function storeForUser(StoreFuelStationRequest $request): JsonResponse

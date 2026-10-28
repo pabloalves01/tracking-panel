@@ -144,7 +144,7 @@ export default function LoginPage() {
                   <h1 className="text-2xl font-bold">Entrar na sua conta</h1>
                   <p className="text-sm text-balance text-muted-foreground">
                     {emailLocked
-                      ? "Entre com este e-mail para aceitar o convite."
+                      ? "Entre com este e-mail para continuar."
                       : "Informe seu e-mail para acessar o sistema"}
                   </p>
                 </div>
