@@ -3,10 +3,10 @@
 namespace App\Models\Registry;
 
 use App\Enums\EntityRole;
-use App\Models\Organization;
 use App\Models\Concerns\BelongsToCompany;
 use App\Models\Location\City;
 use App\Models\Location\State;
+use App\Models\Organization;
 use App\Support\Text;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;

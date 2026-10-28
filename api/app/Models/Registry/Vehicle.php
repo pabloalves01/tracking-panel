@@ -2,8 +2,8 @@
 
 namespace App\Models\Registry;
 
-use App\Models\Organization;
 use App\Models\Concerns\BelongsToCompany;
+use App\Models\Organization;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -11,8 +11,8 @@ use Override;
 
 class Vehicle extends Model
 {
-    use HasUuids;
     use BelongsToCompany;
+    use HasUuids;
     use SoftDeletes;
 
     protected $table = 'vehicles';

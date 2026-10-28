@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests\Registry;
 
-use App\Rules\Cnpj;
 use App\Support\Text;
 use Illuminate\Foundation\Http\FormRequest;
 

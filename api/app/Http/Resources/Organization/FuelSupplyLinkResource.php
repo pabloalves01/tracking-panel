@@ -3,11 +3,12 @@
 namespace App\Http\Resources\Organization;
 
 use App\Http\Resources\OrganizationResource;
+use App\Models\FuelSupplyLink;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * @mixin \App\Models\FuelSupplyLink
+ * @mixin FuelSupplyLink
  */
 class FuelSupplyLinkResource extends JsonResource
 {

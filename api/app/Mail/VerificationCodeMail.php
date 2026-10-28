@@ -13,7 +13,7 @@ use Illuminate\Queue\SerializesModels;
 /**
  * O payload carrega o código de seis dígitos, então vai cifrado no storage da fila.
  */
-class VerificationCodeMail extends Mailable implements ShouldQueue, ShouldBeEncrypted
+class VerificationCodeMail extends Mailable implements ShouldBeEncrypted, ShouldQueue
 {
     use Queueable, SerializesModels;
 

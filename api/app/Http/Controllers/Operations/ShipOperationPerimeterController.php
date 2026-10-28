@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Operations;
 use App\Http\Controllers\Controller;
 use App\Models\Operation\ShipOperationPerimeter;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use MatanYadaev\EloquentSpatial\Objects\Polygon;
 
 class ShipOperationPerimeterController extends Controller
@@ -25,6 +24,7 @@ class ShipOperationPerimeterController extends Controller
     public function get(Request $request, $shipOperationId)
     {
         $shipOperationPerimeters = ShipOperationPerimeter::where('ship_operation_id', $shipOperationId)->get();
+
         return response()->json($shipOperationPerimeters);
     }
 }

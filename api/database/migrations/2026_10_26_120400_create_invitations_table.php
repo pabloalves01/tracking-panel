@@ -29,6 +29,11 @@ return new class extends Migration
             $table->string('status', 20)->default('pending');
 
             $table->timestamp('expires_at');
+
+            // Quando saiu do `pending`. Separado de `updated_at`, que também
+            // se mexe num reenvio, e é o que data a aceitação no histórico.
+            $table->timestamp('responded_at')->nullable();
+
             $table->foreignId('invited_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
 

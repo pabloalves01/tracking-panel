@@ -116,5 +116,4 @@ class EntityController extends Controller
             'message' => sprintf('%s %s do cadastro', $role->label(), $role->isFeminine() ? 'removida' : 'removido'),
         ]);
     }
-
 }

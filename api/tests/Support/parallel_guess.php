@@ -1,11 +1,12 @@
 <?php
 
+use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Http\Request;
 
 require __DIR__.'/../../vendor/autoload.php';
 
 $app = require __DIR__.'/../../bootstrap/app.php';
-$kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
+$kernel = $app->make(Kernel::class);
 $content = getenv('GUESS_PAYLOAD') ?: '{}';
 $ip = getenv('GUESS_IP') ?: '127.0.0.1';
 

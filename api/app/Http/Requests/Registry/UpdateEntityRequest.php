@@ -2,6 +2,4 @@
 
 namespace App\Http\Requests\Registry;
 
-class UpdateEntityRequest extends EntityRequest
-{
-}
+class UpdateEntityRequest extends EntityRequest {}

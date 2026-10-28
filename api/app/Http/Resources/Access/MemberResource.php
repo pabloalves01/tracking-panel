@@ -2,11 +2,12 @@
 
 namespace App\Http\Resources\Access;
 
+use App\Models\Membership;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * @mixin \App\Models\Membership
+ * @mixin Membership
  */
 class MemberResource extends JsonResource
 {

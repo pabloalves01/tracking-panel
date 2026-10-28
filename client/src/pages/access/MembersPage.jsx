@@ -11,6 +11,7 @@ import {
     XIcon,
 } from 'lucide-react'
 
+import { InviteLinkDialog } from '@/components/access/InviteLinkDialog'
 import { ActionButton } from '@/components/common/button/ActionButton'
 import { LayoutToolbar } from '@/components/common/LayoutToolbar'
 import {
@@ -80,6 +81,7 @@ export default function MembersPage() {
     const [invitations, setInvitations] = useState([])
     const [loading, setLoading] = useState(true)
     const [confirm, setConfirm] = useState(null)
+    const [created, setCreated] = useState(null)
 
     const load = useCallback(() => {
         setLoading(true)
@@ -103,6 +105,22 @@ export default function MembersPage() {
         else params.delete('aba')
 
         setSearchParams(params)
+    }
+
+    /**
+     * O reenvio rotaciona o token, então o link antigo morre na hora. O
+     * diálogo mostra o novo — é a única vez que ele aparece em claro.
+     */
+    async function resend(invitation) {
+        try {
+            const response = await resendInvitation(invitation.uuid)
+            notifySuccess(response)
+            load()
+
+            if (response.data?.invite_url) setCreated(response.data)
+        } catch (error) {
+            notifyError(error)
+        }
     }
 
     async function run(action) {
@@ -157,9 +175,7 @@ export default function MembersPage() {
                 <InvitationsTable
                     invitations={invitations}
                     onConfirm={setConfirm}
-                    onResend={(invitation) =>
-                        run(() => resendInvitation(invitation.uuid))
-                    }
+                    onResend={resend}
                 />
             )}
 
@@ -180,6 +196,8 @@ export default function MembersPage() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            <InviteLinkDialog invite={created} onClose={() => setCreated(null)} />
         </>
     )
 }

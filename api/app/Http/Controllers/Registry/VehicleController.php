@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Registry;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 
 class VehicleController extends Controller
 {

@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Enums\OrganizationType;
 use App\Models\Organization;
 
 /**
@@ -22,6 +23,6 @@ class CurrentOrganization
 
     public function isCompany(): bool
     {
-        return $this->organization->type === \App\Enums\OrganizationType::Company;
+        return $this->organization->type === OrganizationType::Company;
     }
 }

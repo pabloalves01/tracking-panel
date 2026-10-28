@@ -6,7 +6,6 @@ use App\Models\Company;
 use App\Models\CompanyFuelStation;
 use App\Models\CompanyUser;
 use App\Models\FuelStation;
-use App\Models\FuelStationUser;
 use App\Models\Invitation;
 use App\Models\User;
 use App\Providers\AppServiceProvider;

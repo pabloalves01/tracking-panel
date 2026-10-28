@@ -13,7 +13,7 @@ use Illuminate\Queue\SerializesModels;
 /**
  * O payload carrega o token do convite na url, então vai cifrado no storage da fila.
  */
-class InvitationMail extends Mailable implements ShouldQueue, ShouldBeEncrypted
+class InvitationMail extends Mailable implements ShouldBeEncrypted, ShouldQueue
 {
     use Queueable, SerializesModels;
 
@@ -42,5 +42,4 @@ class InvitationMail extends Mailable implements ShouldQueue, ShouldBeEncrypted
             text: 'mail.invitation-text',
         );
     }
-
 }

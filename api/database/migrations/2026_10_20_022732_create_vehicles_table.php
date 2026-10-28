@@ -21,7 +21,7 @@ return new class extends Migration
             $table->foreignId('vehicle_responsible_id')->constrained('entities');
             $table->string('plate');
             $table->string('status', 50)->default('active');
-            // todo:: chassi, renavam, validade crlv, 
+            // todo:: chassi, renavam, validade crlv,
             // chave pix do veiculo, is_frota, tracker_id (criar tabela vehicle_trackers ou trackers)
             $table->timestamps();
             $table->softDeletes();

@@ -22,7 +22,8 @@ import {
     getOrganization,
     updateOrganization,
 } from '@/lib/system/organizations'
-import { copyText, notifyError, notifySuccess } from '@/lib/notify'
+import { InviteLinkDialog } from '@/components/access/InviteLinkDialog'
+import { notifyError, notifySuccess } from '@/lib/notify'
 
 const listPath = '/app/sistema/organizacoes'
 
@@ -54,6 +55,7 @@ export default function OrganizationFormPage() {
     const [form, setForm] = useState(emptyForm)
     const [loading, setLoading] = useState(isEditing)
     const [saving, setSaving] = useState(false)
+    const [created, setCreated] = useState(null)
 
     useEffect(() => {
         if (!isEditing) return
@@ -89,8 +91,12 @@ export default function OrganizationFormPage() {
                 const response = await createOrganization(form)
                 notifySuccess(response)
 
-                const url = response.invitation?.invite_url
-                if (url) copyText(url, 'Link do convite copiado')
+                // O convite do dono só mostra o token agora: o diálogo segura
+                // a navegação até a pessoa ter copiado o link.
+                if (response.invitation?.invite_url) {
+                    setCreated(response.invitation)
+                    return
+                }
             }
 
             navigate(listPath)
@@ -263,6 +269,8 @@ export default function OrganizationFormPage() {
                     </FieldSet>
                 </form>
             </LoadingWrapper>
+
+            <InviteLinkDialog invite={created} onClose={() => navigate(listPath)} />
         </>
     )
 }

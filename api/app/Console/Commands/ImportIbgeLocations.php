@@ -58,7 +58,7 @@ class ImportIbgeLocations extends Command
 
         State::upsert($rows, ['ibge_code'], ['name', 'uf', 'region', 'updated_at']);
 
-        $this->info(count($rows) . ' estados importados.');
+        $this->info(count($rows).' estados importados.');
 
         return true;
     }
@@ -106,7 +106,7 @@ class ImportIbgeLocations extends Command
             City::upsert($chunk, ['ibge_code'], ['state_id', 'name', 'updated_at']);
         }
 
-        $this->info(count($rows) . ' municípios importados.');
+        $this->info(count($rows).' municípios importados.');
 
         return true;
     }

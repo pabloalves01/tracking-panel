@@ -11,9 +11,10 @@ import {
     FieldSet,
 } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { InviteLinkDialog } from '@/components/access/InviteLinkDialog'
 import { createInvitation } from '@/lib/access/members'
 import { useSession } from '@/lib/auth/session'
-import { copyText, notifyError, notifySuccess } from '@/lib/notify'
+import { notifyError, notifySuccess } from '@/lib/notify'
 
 /**
  * Convidar uma pessoa para a organização ativa.
@@ -28,6 +29,7 @@ export default function InviteFormPage() {
     const { current_organization: organization } = useSession()
     const [email, setEmail] = useState('')
     const [saving, setSaving] = useState(false)
+    const [created, setCreated] = useState(null)
 
     const basePath = organization?.home_path ?? '/app'
     const listPath = `${basePath}/usuarios`
@@ -38,14 +40,15 @@ export default function InviteFormPage() {
 
         try {
             const response = await createInvitation(email.trim())
-            const url = response.data?.invite_url
-
             notifySuccess(response)
 
-            // O link fica à mão para quem quiser mandar por outro canal —
-            // o e-mail às vezes demora ou cai no spam.
-            if (url) {
-                copyText(url, 'Link do convite copiado')
+            // O link fica à mão para quem quiser mandar por outro canal — o
+            // e-mail às vezes demora ou cai no spam. É mostrado num diálogo
+            // em vez de copiado na hora: o token só existe em claro agora, e
+            // copiar fora do gesto do usuário o navegador recusa.
+            if (response.data?.invite_url) {
+                setCreated(response.data)
+                return
             }
 
             navigate(`${listPath}?aba=convites`)
@@ -98,6 +101,11 @@ export default function InviteFormPage() {
                     </FieldGroup>
                 </FieldSet>
             </form>
+
+            <InviteLinkDialog
+                invite={created}
+                onClose={() => navigate(`${listPath}?aba=convites`)}
+            />
         </>
     )
 }

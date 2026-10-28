@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Registry;
 
+use App\Models\Registry\Entity;
 use App\Models\Registry\EntityRoleAssignment;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -10,7 +11,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
  * A entidade como sai da API. O `id` interno não é exposto; o client
  * identifica pelo `uuid`.
  *
- * @mixin \App\Models\Registry\Entity
+ * @mixin Entity
  */
 class EntityResource extends JsonResource
 {

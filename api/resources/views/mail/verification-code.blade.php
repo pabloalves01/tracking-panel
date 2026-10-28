@@ -17,7 +17,7 @@
                     <tr>
                         <td style="padding:32px;">
                             <p style="margin:0 0 12px;font-family:Arial, Helvetica, sans-serif;font-size:16px;line-height:1.5;">Use este código para continuar:</p>
-                            <p style="margin:0 0 16px;font-family:Arial, Helvetica, sans-serif;font-size:36px;letter-spacing:0.35em;font-weight:700;color:#0f2744;">{{ implode(' ', str_split($code)) }}</p>
+                            <p style="margin:0 0 16px;font-family:Arial, Helvetica, sans-serif;font-size:36px;letter-spacing:0.35em;font-weight:700;color:#0f2744;">{{ $code }}</p>
                             <p style="margin:0 0 8px;font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1.5;color:#3d4a5c;">Ele vale por {{ $minutes }} minutos e só pode ser usado uma vez.</p>
                             <p style="margin:0;font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1.5;color:#3d4a5c;">Se não foi você, ignore este e-mail.</p>
                         </td>

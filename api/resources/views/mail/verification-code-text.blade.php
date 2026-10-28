@@ -2,7 +2,7 @@ LOGIV
 
 Use este código para continuar:
 
-{{ implode(' ', str_split($code)) }}
+{{ $code }}
 
 Ele vale por {{ $minutes }} minutos e só pode ser usado uma vez.
 Se não foi você, ignore este e-mail.
