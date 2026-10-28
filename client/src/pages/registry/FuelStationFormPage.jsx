@@ -1,14 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useRef, useState } from 'react'
+import { Copy } from 'lucide-react'
 import { useNavigate } from 'react-router'
 
 import { InputCpfCnpj } from '@/components/common/inputs/InputCpfCnpj'
 import { LayoutToolbar } from '@/components/common/LayoutToolbar'
 import { LoadingWrapper } from '@/components/common/LoadingWrapper'
+import { Alert, AlertAction, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import { lookupFuelStation, requestFuelStationAgreement } from '@/lib/registry/fuelStations'
-import { notifyError, notifySuccess } from '@/lib/notify'
+import { copyText, notifyError, notifySuccess } from '@/lib/notify'
 
 const listPath = '/app/cadastros/entidades/postos'
 
@@ -42,58 +45,62 @@ function formatZipCode(value) {
     return `${digits.slice(0, 5)}-${digits.slice(5)}`
 }
 
+/** O cadastro de posto aceita o CNPJ na URL e já abre preenchido. */
+function signupLink(cnpj) {
+    return `${window.location.origin}/auth/register/posto?cnpj=${cnpj}`
+}
+
 export default function FuelStationFormPage() {
     const navigate = useNavigate()
     const [loading, setLoading] = useState(false)
     const [cnpj, setCnpj] = useState('')
     const [cnpjError, setCnpjError] = useState('')
     const [fuelStation, setFuelStation] = useState(null)
+    // A busca responde 200 com `data: null` quando o CNPJ não tem posto. Sem
+    // este estado a tela não distinguia "ainda não buscou" de "buscou e não
+    // achou", e ficava parada sem dizer nada.
+    const [notFound, setNotFound] = useState(false)
 
-    useEffect(() => {
-        if (cnpj.length !== 14) {
-            setFuelStation(null)
-            setCnpjError('')
+    // A busca sai da digitação, não de um efeito sobre o CNPJ: assim a tela
+    // não renderiza em cascata, e o contador descarta a resposta de uma
+    // busca que já foi superada por outra.
+    const lookupRun = useRef(0)
+
+    async function handleCnpjChange(value) {
+        setCnpj(value)
+        setFuelStation(null)
+        setNotFound(false)
+        setCnpjError('')
+
+        const run = ++lookupRun.current
+
+        if (value.length !== 14) {
+            setLoading(false)
             return
         }
 
-        let cancelled = false
-        setFuelStation(null)
-        setCnpjError('')
         setLoading(true)
 
-        lookupFuelStation(cnpj)
-            .then((data) => {
-                if (cancelled) {
-                    return
-                }
+        try {
+            const data = await lookupFuelStation(value)
+            if (run !== lookupRun.current) return
 
-                setFuelStation(data)
-                setCnpjError('')
-            })
-            .catch((error) => {
-                if (cancelled) {
-                    return
-                }
+            setFuelStation(data)
+            setNotFound(data === null)
+        } catch (error) {
+            if (run !== lookupRun.current) return
 
-                setFuelStation(null)
-                const message = fieldError(error, 'document')
+            const message = fieldError(error, 'document')
 
-                if (message) {
-                    setCnpjError(message)
-                } else {
-                    notifyError(error)
-                }
-            })
-            .finally(() => {
-                if (!cancelled) {
-                    setLoading(false)
-                }
-            })
-
-        return () => {
-            cancelled = true
+            if (message) {
+                setCnpjError(message)
+            } else {
+                notifyError(error)
+            }
+        } finally {
+            if (run === lookupRun.current) setLoading(false)
         }
-    }, [cnpj])
+    }
 
     async function handleSubmit(event) {
         event.preventDefault()
@@ -157,13 +164,34 @@ export default function FuelStationFormPage() {
                                     id="posto-cnpj"
                                     type="cnpj"
                                     value={cnpj}
-                                    onChange={setCnpj}
+                                    onChange={handleCnpjChange}
                                     aria-invalid={cnpjError ? true : undefined}
                                     aria-describedby={cnpjError ? 'posto-cnpj-error' : undefined}
                                     required
                                 />
                                 <FieldError id="posto-cnpj-error">{cnpjError}</FieldError>
                             </Field>
+                            {notFound ? (
+                                <Alert className="col-span-12">
+                                    <AlertTitle>Este posto ainda não está no LogIV</AlertTitle>
+                                    <AlertDescription>
+                                        O vínculo só pode ser pedido a um posto cadastrado. Envie o link de cadastro ao
+                                        posto — o CNPJ já vai preenchido. Depois que ele se cadastrar, volte aqui e peça
+                                        o vínculo.
+                                    </AlertDescription>
+                                    <AlertAction>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => copyText(signupLink(cnpj), 'Link de cadastro copiado')}
+                                        >
+                                            <Copy />
+                                            Copiar link
+                                        </Button>
+                                    </AlertAction>
+                                </Alert>
+                            ) : null}
                             {fuelStation ? (
                                 <>
                                     <Field className="col-span-12 md:col-span-4">
@@ -196,7 +224,7 @@ export default function FuelStationFormPage() {
                                 <FieldGroup className="md:grid grid-cols-1 md:grid-cols-12">
                                     <Field className="col-span-12 md:col-span-3">
                                         <FieldLabel htmlFor="posto-zip">CEP</FieldLabel>
-                                        <Input id="posto-zip" value={formatZipCode(fuelStation.zip_code)} disabled />
+                                        <Input id="posto-zip" value={formatZipCode(fuelStation.postal_code)} disabled />
                                     </Field>
                                     <Field className="col-span-12 md:col-span-6">
                                         <FieldLabel htmlFor="posto-street">Rua</FieldLabel>
@@ -204,7 +232,7 @@ export default function FuelStationFormPage() {
                                     </Field>
                                     <Field className="col-span-12 md:col-span-3">
                                         <FieldLabel htmlFor="posto-number">Número</FieldLabel>
-                                        <Input id="posto-number" value={fuelStation.number ?? ''} disabled />
+                                        <Input id="posto-number" value={fuelStation.street_number ?? ''} disabled />
                                     </Field>
                                     <Field className="col-span-12 md:col-span-6">
                                         <FieldLabel htmlFor="posto-complement">Complemento</FieldLabel>
@@ -212,15 +240,15 @@ export default function FuelStationFormPage() {
                                     </Field>
                                     <Field className="col-span-12 md:col-span-6">
                                         <FieldLabel htmlFor="posto-district">Bairro</FieldLabel>
-                                        <Input id="posto-district" value={fuelStation.district ?? ''} disabled />
+                                        <Input id="posto-district" value={fuelStation.neighborhood ?? ''} disabled />
                                     </Field>
                                     <Field className="col-span-12 md:col-span-6">
                                         <FieldLabel htmlFor="posto-uf">Estado</FieldLabel>
-                                        <Input id="posto-uf" value={fuelStation.uf ?? ''} disabled />
+                                        <Input id="posto-uf" value={fuelStation.state ?? ''} disabled />
                                     </Field>
                                     <Field className="col-span-12 md:col-span-6">
                                         <FieldLabel htmlFor="posto-city">Cidade</FieldLabel>
-                                        <Input id="posto-city" value={fuelStation.city_name ?? ''} disabled />
+                                        <Input id="posto-city" value={fuelStation.city ?? ''} disabled />
                                     </Field>
                                 </FieldGroup>
                             </FieldSet>

@@ -47,10 +47,10 @@ function Item({ label, value, className }) {
 }
 
 function addressOf(fuelStation) {
-    const street = [fuelStation.street, fuelStation.number].filter(Boolean).join(", ")
-    const place = [fuelStation.district, fuelStation.city_name, fuelStation.uf].filter(Boolean).join(" · ")
+    const street = [fuelStation.street, fuelStation.street_number].filter(Boolean).join(", ")
+    const place = [fuelStation.neighborhood, fuelStation.city, fuelStation.state].filter(Boolean).join(" · ")
 
-    return [street, fuelStation.complement, place, formatZip(fuelStation.zip_code)].filter(Boolean).join(" · ")
+    return [street, fuelStation.complement, place, formatZip(fuelStation.postal_code)].filter(Boolean).join(" · ")
 }
 
 function formatZip(zip) {
