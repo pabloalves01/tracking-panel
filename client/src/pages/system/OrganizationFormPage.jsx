@@ -129,6 +129,7 @@ export default function OrganizationFormPage() {
                 <form onSubmit={handleSubmit}>
                     <FieldSet>
                         <FieldLegend variant="label">Empresa</FieldLegend>
+                    <FieldDescription>Os dados da empresa, como estão na Receita.</FieldDescription>
                         <FieldGroup className="md:grid md:grid-cols-12 md:gap-4">
                             <Field className="col-span-12 md:col-span-4 xl:col-span-3">
                                 <FieldLabel htmlFor="document">CNPJ</FieldLabel>
@@ -139,17 +140,13 @@ export default function OrganizationFormPage() {
                                     onChange={(digits) => set('document', digits)}
                                     disabled={isEditing}
                                 />
-                                {isEditing ? (
-                                    <FieldDescription>
-                                        O CNPJ não muda depois do cadastro.
-                                    </FieldDescription>
-                                ) : null}
                             </Field>
 
                             <Field className="col-span-12 md:col-span-8 xl:col-span-5">
                                 <FieldLabel htmlFor="legal-name">Razão social</FieldLabel>
                                 <Input
                                     id="legal-name"
+                                    placeholder="Razão social, como no CNPJ"
                                     value={form.legal_name}
                                     onChange={(event) => set('legal_name', event.target.value)}
                                     required
@@ -160,6 +157,7 @@ export default function OrganizationFormPage() {
                                 <FieldLabel htmlFor="trade-name">Nome fantasia</FieldLabel>
                                 <Input
                                     id="trade-name"
+                                    placeholder="Como a empresa é conhecida"
                                     value={form.trade_name}
                                     onChange={(event) => set('trade_name', event.target.value)}
                                 />
@@ -172,6 +170,7 @@ export default function OrganizationFormPage() {
                             <Separator className="my-6" />
                             <FieldSet>
                                 <FieldLegend variant="label">Primeiro acesso</FieldLegend>
+                                <FieldDescription>Quem vai administrar recebe um convite por e-mail e cria a própria conta. Você não entra na empresa nem define a senha dela.</FieldDescription>
                                 <FieldGroup className="md:grid md:grid-cols-12 md:gap-4">
                                     <Field className="col-span-12 md:col-span-6 xl:col-span-4">
                                         <FieldLabel htmlFor="owner-email">
@@ -179,15 +178,12 @@ export default function OrganizationFormPage() {
                                         </FieldLabel>
                                         <Input
                                             id="owner-email"
+                                            placeholder="nome@empresa.com.br"
                                             type="email"
                                             value={form.owner_email}
                                             onChange={(event) => set('owner_email', event.target.value)}
                                             required
                                         />
-                                        <FieldDescription>
-                                            Essa pessoa recebe um convite por e-mail e cria a própria
-                                            conta. Você não entra na empresa nem define a senha dela.
-                                        </FieldDescription>
                                     </Field>
                                 </FieldGroup>
                             </FieldSet>
@@ -198,6 +194,7 @@ export default function OrganizationFormPage() {
 
                     <FieldSet>
                         <FieldLegend variant="label">Endereço</FieldLegend>
+                    <FieldDescription>O endereço da sede.</FieldDescription>
                         <FieldGroup className="md:grid md:grid-cols-12 md:gap-4">
                             <Field className="col-span-12 md:col-span-3 xl:col-span-2">
                                 <FieldLabel htmlFor="postal-code">CEP</FieldLabel>
@@ -212,6 +209,7 @@ export default function OrganizationFormPage() {
                                 <FieldLabel htmlFor="street">Rua</FieldLabel>
                                 <Input
                                     id="street"
+                                    placeholder="Rua, avenida, rodovia…"
                                     value={form.street}
                                     onChange={(event) => set('street', event.target.value)}
                                 />
@@ -221,6 +219,7 @@ export default function OrganizationFormPage() {
                                 <FieldLabel htmlFor="street-number">Número</FieldLabel>
                                 <Input
                                     id="street-number"
+                                    placeholder="Nº"
                                     value={form.street_number}
                                     onChange={(event) => set('street_number', event.target.value)}
                                 />
@@ -230,6 +229,7 @@ export default function OrganizationFormPage() {
                                 <FieldLabel htmlFor="neighborhood">Bairro</FieldLabel>
                                 <Input
                                     id="neighborhood"
+                                    placeholder="Bairro"
                                     value={form.neighborhood}
                                     onChange={(event) => set('neighborhood', event.target.value)}
                                 />
@@ -239,6 +239,7 @@ export default function OrganizationFormPage() {
                                 <FieldLabel htmlFor="complement">Complemento</FieldLabel>
                                 <Input
                                     id="complement"
+                                    placeholder="Sala, bloco, km…"
                                     value={form.complement}
                                     onChange={(event) => set('complement', event.target.value)}
                                 />

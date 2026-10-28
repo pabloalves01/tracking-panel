@@ -4,7 +4,7 @@ import { Link } from 'react-router'
 import { CodeStep } from '@/components/auth/CodeStep'
 import { InputPassword } from '@/components/common/inputs/InputPassword'
 import { Button } from '@/components/ui/button'
-import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field'
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { checkAccountCode, isAccountExistsConflict, registerAccount, sendAccountCode } from '@/lib/auth/account'
 import { login } from '@/lib/auth/auth'
@@ -38,7 +38,7 @@ export function AccountGate({
     email: lockedEmail,
     accountExists,
     title = 'Quem vai administrar?',
-    description = 'Informe seu e-mail. Enviaremos um código para confirmar.',
+    description = 'Enviaremos um código para confirmar. Se você já usa o LogIV, use o mesmo e-mail: fica tudo na mesma conta.',
     forgotBack,
     onAuthenticated,
 }) {
@@ -332,11 +332,6 @@ export function AccountGate({
                         autoFocus={!locked}
                         onChange={(event) => setEmail(event.target.value)}
                     />
-                    {locked ? null : (
-                        <FieldDescription>
-                            Se você já usa o LogIV, use o mesmo e-mail: o acesso fica na mesma conta.
-                        </FieldDescription>
-                    )}
                 </Field>
                 {errorLine}
                 <Button type="submit" disabled={busy}>

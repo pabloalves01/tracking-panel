@@ -33,6 +33,7 @@ import {
     SelectValue,
 } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
+import { Spinner } from '@/components/ui/spinner'
 import {
     createEntity,
     getEntity,
@@ -54,6 +55,15 @@ const pixKeyTypes = [
     { value: 'phone', label: 'Telefone' },
     { value: 'random', label: 'Chave aleatória' },
 ]
+
+/** O exemplo do campo da chave muda com o tipo escolhido. */
+const pixPlaceholder = {
+    cpf: '000.000.000-00',
+    cnpj: '00.000.000/0000-00',
+    email: 'nome@empresa.com.br',
+    phone: '(00) 00000-0000',
+    random: 'Cole a chave aleatória',
+}
 
 const licenseCategories = ['A', 'B', 'C', 'D', 'E', 'AB', 'AC', 'AD', 'AE', 'ACC']
 
@@ -370,6 +380,7 @@ export default function EntityFormPage() {
                         <>
                             <FieldSet>
                                 <FieldLegend variant="label">Identificação</FieldLegend>
+                            <FieldDescription>Quem é a pessoa ou a empresa. Comece pelo documento: se ela já estiver no cadastro, os dados aparecem para conferir.</FieldDescription>
                                 <FieldGroup className="md:grid md:grid-cols-12 md:gap-4">
                                     <Field className="col-span-12 md:col-span-4 xl:col-span-2">
                                         <FieldLabel htmlFor="kind">Tipo de pessoa</FieldLabel>
@@ -401,6 +412,7 @@ export default function EntityFormPage() {
                                     <Field className="col-span-12 md:col-span-4 xl:col-span-3">
                                         <FieldLabel htmlFor="document">
                                             {isCompany ? 'CNPJ' : 'CPF'}
+                                            {lookingUp ? <Spinner className="size-3" aria-label="Procurando cadastro" /> : null}
                                         </FieldLabel>
                                         <InputCpfCnpj
                                             id="document"
@@ -412,13 +424,6 @@ export default function EntityFormPage() {
                                             }}
                                             disabled={isEditing}
                                         />
-                                        <FieldDescription>
-                                            {lookingUp
-                                                ? 'Procurando…'
-                                                : isEditing
-                                                  ? 'O documento não muda depois do cadastro.'
-                                                  : 'Começamos por aqui para não cadastrar a mesma pessoa duas vezes.'}
-                                        </FieldDescription>
                                     </Field>
 
                                     <Field className={`col-span-12 md:col-span-4 ${isCompany ? 'xl:col-span-4' : 'xl:col-span-7'}`}>
@@ -427,6 +432,7 @@ export default function EntityFormPage() {
                                         </FieldLabel>
                                         <Input
                                             id="name"
+                                            placeholder={isCompany ? 'Razão social, como no CNPJ' : 'Nome completo'}
                                             value={form.name}
                                             onChange={(event) => set('name', event.target.value)}
                                             required
@@ -438,6 +444,7 @@ export default function EntityFormPage() {
                                             <FieldLabel htmlFor="trade-name">Nome fantasia</FieldLabel>
                                             <Input
                                                 id="trade-name"
+                                                placeholder="Como a empresa é conhecida"
                                                 value={form.trade_name}
                                                 onChange={(event) => set('trade_name', event.target.value)}
                                             />
@@ -448,6 +455,7 @@ export default function EntityFormPage() {
                                         <FieldLabel htmlFor="email">E-mail</FieldLabel>
                                         <Input
                                             id="email"
+                                            placeholder="contato@empresa.com.br"
                                             type="email"
                                             value={form.email}
                                             onChange={(event) => set('email', event.target.value)}
@@ -469,6 +477,7 @@ export default function EntityFormPage() {
                                         </FieldLabel>
                                         <Input
                                             id="national-id"
+                                            placeholder={isCompany ? 'Número ou ISENTO' : 'Número do RG'}
                                             value={isCompany ? form.state_registration : form.national_id}
                                             onChange={(event) =>
                                                 set(
@@ -499,6 +508,7 @@ export default function EntityFormPage() {
 
                             <FieldSet>
                                 <FieldLegend variant="label">Endereço</FieldLegend>
+                            <FieldDescription>O endereço principal, usado em documentos e na operação.</FieldDescription>
                                 <FieldGroup className="md:grid md:grid-cols-12 md:gap-4">
                                     <Field className="col-span-12 md:col-span-3 xl:col-span-2">
                                         <FieldLabel htmlFor="postal-code">CEP</FieldLabel>
@@ -513,6 +523,7 @@ export default function EntityFormPage() {
                                         <FieldLabel htmlFor="street">Rua</FieldLabel>
                                         <Input
                                             id="street"
+                                            placeholder="Rua, avenida, rodovia…"
                                             value={form.street}
                                             onChange={(event) => set('street', event.target.value)}
                                         />
@@ -522,6 +533,7 @@ export default function EntityFormPage() {
                                         <FieldLabel htmlFor="street-number">Número</FieldLabel>
                                         <Input
                                             id="street-number"
+                                            placeholder="Nº"
                                             value={form.street_number}
                                             onChange={(event) => set('street_number', event.target.value)}
                                         />
@@ -531,6 +543,7 @@ export default function EntityFormPage() {
                                         <FieldLabel htmlFor="neighborhood">Bairro</FieldLabel>
                                         <Input
                                             id="neighborhood"
+                                            placeholder="Bairro"
                                             value={form.neighborhood}
                                             onChange={(event) => set('neighborhood', event.target.value)}
                                         />
@@ -540,6 +553,7 @@ export default function EntityFormPage() {
                                         <FieldLabel htmlFor="complement">Complemento</FieldLabel>
                                         <Input
                                             id="complement"
+                                            placeholder="Sala, bloco, km…"
                                             value={form.complement}
                                             onChange={(event) => set('complement', event.target.value)}
                                         />
@@ -574,11 +588,13 @@ export default function EntityFormPage() {
                     {tab === 'cnh' && config.hasDetails ? (
                         <FieldSet>
                             <FieldLegend variant="label">CNH</FieldLegend>
+                            <FieldDescription>A carteira de habilitação do motorista. Número e categoria são obrigatórios.</FieldDescription>
                             <FieldGroup className="md:grid md:grid-cols-12 md:gap-4">
                                 <Field className="col-span-12 md:col-span-4 xl:col-span-3">
                                     <FieldLabel htmlFor="license-number">Número</FieldLabel>
                                     <Input
                                         id="license-number"
+                                        placeholder="Número do registro"
                                         value={form.license_number}
                                         onChange={(event) =>
                                             set('license_number', event.target.value)
@@ -649,7 +665,7 @@ export default function EntityFormPage() {
                     {tab === 'pagamento' ? (
                         <FieldSet>
                             <FieldLegend variant="label">Pagamento</FieldLegend>
-                            <FieldDescription className="mb-3">
+                            <FieldDescription>
                                 A chave PIX é da pessoa e vale para todos os cadastros dela.
                             </FieldDescription>
                             <FieldGroup className="md:grid md:grid-cols-12 md:gap-4">
@@ -679,6 +695,7 @@ export default function EntityFormPage() {
                                     <FieldLabel htmlFor="pix-key">Chave PIX</FieldLabel>
                                     <Input
                                         id="pix-key"
+                                        placeholder={pixPlaceholder[form.pix_key_type] ?? 'Escolha o tipo da chave'}
                                         value={form.pix_key}
                                         onChange={(event) => set('pix_key', event.target.value)}
                                         disabled={!form.pix_key_type}

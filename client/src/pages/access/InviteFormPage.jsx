@@ -79,6 +79,10 @@ export default function InviteFormPage() {
             <form onSubmit={handleSubmit} className="max-w-xl">
                 <FieldSet>
                     <FieldLegend variant="label">Quem você quer convidar</FieldLegend>
+                    <FieldDescription>
+                        A pessoa recebe um link para entrar em {organization?.display_name ?? 'sua organização'}.
+                        Quem já tem conta no LogIV só aceita; quem não tem cria na hora. O convite vale por 7 dias.
+                    </FieldDescription>
                     <FieldGroup>
                         <Field>
                             <FieldLabel htmlFor="email">E-mail</FieldLabel>
@@ -91,12 +95,6 @@ export default function InviteFormPage() {
                                 autoFocus
                                 required
                             />
-                            <FieldDescription>
-                                A pessoa recebe um link para entrar em{' '}
-                                {organization?.display_name ?? 'sua organização'}. Se ela já tiver
-                                conta no LogIV, é só aceitar; se não, cria a conta na hora.
-                                O convite vale por 7 dias.
-                            </FieldDescription>
                         </Field>
                     </FieldGroup>
                 </FieldSet>
