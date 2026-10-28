@@ -16,6 +16,15 @@ use App\Http\Controllers\Station\StationCompanyController;
 use App\Http\Controllers\System\OrganizationController;
 use Illuminate\Support\Facades\Route;
 
+/**
+ * Todo `{uuid}` precisa ter forma de UUID para a rota casar.
+ *
+ * No Postgres a coluna é do tipo `uuid`: um valor fora do formato não dá
+ * "não encontrado", dá erro de sintaxe no banco — 500 numa URL digitada
+ * errada. Com a restrição aqui, o Laravel responde 404 antes de consultar.
+ */
+Route::pattern('uuid', '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}');
+
 Route::get('/health', fn () => response()->json(['status' => 'up']));
 
 // =============================== AUTENTICAÇÃO ===============================

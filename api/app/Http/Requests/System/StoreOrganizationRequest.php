@@ -5,6 +5,7 @@ namespace App\Http\Requests\System;
 use App\Rules\Cnpj;
 use App\Support\Text;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreOrganizationRequest extends FormRequest
 {
@@ -31,7 +32,13 @@ class StoreOrganizationRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'document' => ['required', 'string', 'size:14', new Cnpj],
+            // O serviço também confere, para a corrida entre dois cadastros
+            // simultâneos. Aqui é para a tela marcar o campo do CNPJ em vez
+            // de mostrar um aviso solto.
+            'document' => [
+                'required', 'string', 'size:14', new Cnpj,
+                Rule::unique('organizations', 'document')->withoutTrashed(),
+            ],
             'legal_name' => ['required', 'string', 'max:255'],
             'trade_name' => ['nullable', 'string', 'max:255'],
             'owner_email' => ['required', 'email', 'max:255'],
@@ -45,6 +52,7 @@ class StoreOrganizationRequest extends FormRequest
         return [
             'document.required' => 'Informe o CNPJ da empresa',
             'document.size' => 'O CNPJ deve ter 14 dígitos',
+            'document.unique' => 'Já existe uma organização com este CNPJ',
             'legal_name.required' => 'Informe a razão social',
             'owner_email.required' => 'Informe o e-mail de quem vai administrar a empresa',
             'owner_email.email' => 'Informe um e-mail válido',

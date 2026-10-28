@@ -4,12 +4,12 @@ namespace Tests\Feature\Auth;
 
 use App\Mail\StationSignupExistingAccountMail;
 use App\Mail\VerificationCodeMail;
-use App\Models\Company;
-use App\Models\FuelStation;
-use App\Models\FuelStationUser;
+use App\Models\Membership;
+use App\Models\Organization;
 use App\Models\Invitation;
 use App\Models\User;
 use App\Models\VerificationCode;
+use App\Services\Auth\VerificationCodeService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -17,7 +17,6 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Testing\TestResponse;
-use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
 class VerificationCodeTest extends TestCase
@@ -227,16 +226,10 @@ class VerificationCodeTest extends TestCase
             $this->postReset($email, '000000')->assertUnprocessable();
         }
 
-        $company = Company::query()->create([
-            'legal_name' => 'Melo LTDA',
-            'trade_name' => 'Melo',
-            'cnpj' => '00000000000191',
-        ]);
         Invitation::query()->create([
-            'company_id' => $company->id,
+            'organization_id' => Organization::factory()->company()->create()->getKey(),
             'email' => $email,
-            'role' => 'member',
-            'status' => 'pending',
+            'status' => Invitation::PENDING,
             'token_hash' => hash('sha256', $plain),
             'expires_at' => now()->addDays(7),
         ]);
@@ -251,9 +244,10 @@ class VerificationCodeTest extends TestCase
         ])->assertCreated()
             ->assertJsonPath('user.email', $email);
 
-        $this->postReset($email, '123456')
-            ->assertStatus(429)
-            ->assertJsonPath('message', 'Muitas tentativas. Tente novamente em 60 min.');
+        // O antigo orçamento por e-mail travava a recuperação de senha da
+        // vítima por uma hora e saiu no ADR-004. O que importa aqui é que
+        // os palpites no reset não contaminaram o caminho do convite.
+        $this->postReset($email, '123456')->assertUnprocessable();
     }
 
     public function test_teto_por_ip_responde_429_igual_com_ou_sem_conta(): void
@@ -286,80 +280,40 @@ class VerificationCodeTest extends TestCase
         $this->assertLessThan(1000, abs($knownMs - $unknownMs));
     }
 
-    public function test_palpites_paralelos_nao_passam_de_dez_no_postgres(): void
+    /**
+     * O limite é por código, não por e-mail.
+     *
+     * O orçamento por e-mail saiu de propósito: um terceiro que soubesse o
+     * endereço da vítima podia gastá-lo com palpites e trancar a
+     * recuperação de senha dela por uma hora. Cada código morre depois de
+     * cinco erros, e pedir outro recomeça a contagem — o que machuca quem
+     * chuta, não quem é alvo.
+     */
+    public function test_palpites_gastam_o_codigo_e_nao_o_endereco(): void
     {
-        if (config('database.default') !== 'pgsql' || ! function_exists('proc_open')) {
-            $this->markTestSkipped('Concorrência só roda no PostgreSQL.');
-        }
-
-        $email = 'paralelo.'.bin2hex(random_bytes(6)).'@posto.test';
-        $config = config('database.connections.pgsql');
-        config(['database.connections.guess_outside' => $config]);
-        DB::purge('guess_outside');
-        $outside = DB::connection('guess_outside');
-
-        $outside->table('verification_codes')->where('email', $email)->delete();
-        $outside->table('verification_codes')->insert([
-            'email' => $email,
-            'purpose' => VerificationCode::STATION_SIGNUP,
-            'code_hash' => hash('sha256', '999999'),
-            'expires_at' => now()->addMinutes(10),
-            'attempts' => 0,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        $payload = json_encode([
+        Mail::fake();
+        Http::fake(['brasilapi.com.br/api/cnpj/v1/*' => Http::response([
             'cnpj' => self::CNPJ,
-            'name' => 'Dona do Posto',
-            'email' => $email,
-            'password' => 'senha1234',
-            'password_confirmation' => 'senha1234',
-            'code' => '000000',
-        ], JSON_THROW_ON_ERROR);
+            'razao_social' => 'POSTO EXEMPLO LTDA',
+            'descricao_situacao_cadastral' => 'ATIVA',
+            'situacao_cadastral' => 2,
+            'uf' => 'SP',
+            'municipio' => 'SAO PAULO',
+        ])]);
 
-        $env = [];
+        $email = 'alvo@posto.test';
+        $this->plant($email, '123456', VerificationCode::STATION_SIGNUP);
 
-        foreach (array_merge(getenv() ?: [], $_ENV) as $name => $value) {
-            if (is_string($name) && is_scalar($value)) {
-                $env[$name] = (string) $value;
-            }
+        for ($erro = 0; $erro < VerificationCodeService::MAX_ATTEMPTS; $erro++) {
+            $this->signupWithCode($email, '000000')->assertUnprocessable();
         }
 
-        $env = array_merge($env, [
-            'APP_ENV' => 'testing',
-            'CACHE_STORE' => 'file',
-            'DB_CONNECTION' => 'pgsql',
-            'GUESS_PAYLOAD' => $payload,
-            'GUESS_IP' => '10.'.random_int(0, 255).'.'.random_int(0, 255).'.'.random_int(1, 254),
-        ]);
+        // O código certo já não vale: aquele código morreu.
+        $this->signupWithCode($email, '123456')->assertUnprocessable();
 
-        try {
-            $processes = [];
-
-            for ($attempt = 0; $attempt < 12; $attempt++) {
-                $process = new Process([PHP_BINARY, base_path('tests/Support/parallel_guess.php')], base_path(), $env);
-                $process->setTimeout(30);
-                $process->start();
-                $processes[] = $process;
-            }
-
-            $statuses = [];
-
-            foreach ($processes as $process) {
-                $process->wait();
-                $statuses[] = (int) strtok($process->getOutput(), "\n");
-                $this->assertTrue($process->isSuccessful(), $process->getErrorOutput().$process->getOutput());
-            }
-
-            $counts = array_count_values($statuses);
-            $summary = json_encode($statuses);
-            $this->assertSame(10, $counts[422] ?? 0, $summary);
-            $this->assertSame(2, $counts[429] ?? 0, $summary);
-            $this->assertNull($outside->table('verification_codes')->where('email', $email)->value('consumed_at'));
-        } finally {
-            $outside->table('verification_codes')->where('email', $email)->delete();
-        }
+        // Mas um código novo para o mesmo e-mail volta a funcionar.
+        $this->plant($email, '654321', VerificationCode::STATION_SIGNUP);
+        $this->signupWithCode($email, '654321')->assertCreated();
     }
 
     public function test_codigo_errado_expirado_esgotado_e_reutilizado(): void
@@ -473,16 +427,10 @@ class VerificationCodeTest extends TestCase
     {
         Mail::fake();
         $plain = 'token-convite-teste';
-        $company = Company::query()->create([
-            'legal_name' => 'Melo LTDA',
-            'trade_name' => 'Melo',
-            'cnpj' => '00000000000191',
-        ]);
         Invitation::query()->create([
-            'company_id' => $company->id,
+            'organization_id' => Organization::factory()->company()->create()->getKey(),
             'email' => 'dona@melo.test',
-            'role' => 'owner',
-            'status' => 'pending',
+            'status' => Invitation::PENDING,
             'token_hash' => hash('sha256', $plain),
             'expires_at' => now()->addDays(7),
         ]);
@@ -536,13 +484,6 @@ class VerificationCodeTest extends TestCase
                 'code_hash' => hash('sha256', '111111'),
                 'expires_at' => now()->addMinutes(10),
             ]);
-            VerificationCode::query()->create([
-                'email' => $email,
-                'purpose' => VerificationCode::INVITATION_REGISTER,
-                'code_hash' => null,
-                'expires_at' => null,
-            ]);
-
             $sent = $this->postJson('/api/auth/verification-codes', [
                 'email' => $email,
                 'purpose' => 'invitation_register',
@@ -588,11 +529,14 @@ class VerificationCodeTest extends TestCase
             $user = User::query()->where('email', $email)->first();
             $this->assertNotNull($user->email_verified_at);
 
-            if ($kind === 'station') {
-                $this->assertTrue(FuelStationUser::query()->where('user_id', $user->id)->where('role', 'member')->where('status', 'active')->exists());
-            } else {
-                $this->assertTrue($user->companies()->where('companies.cnpj', '00000000000191')->exists());
-            }
+            // Empresa e posto chegam pela mesma tabela: o vínculo é um só.
+            $this->assertTrue(
+                Membership::query()
+                    ->where('user_id', $user->getKey())
+                    ->where('status', Membership::ACTIVE)
+                    ->exists(),
+                "vínculo ausente para {$kind}",
+            );
         }
 
         Mail::assertQueued(VerificationCodeMail::class, 2);
@@ -654,38 +598,23 @@ class VerificationCodeTest extends TestCase
     /**
      * @return array{0: TestResponse, 1: float}
      */
+    /**
+     * Um convite pendente, com o token em claro devolvido.
+     *
+     * Empresa e posto são a mesma tabela agora: muda só o tipo.
+     */
     private function inviteLink(string $email, bool $station): string
     {
         $plain = $station ? 'token-posto-novo' : 'token-empresa-nova';
 
-        if ($station) {
-            $place = FuelStation::query()->create([
-                'cnpj' => '34028316000103',
-                'corporate_name' => 'SIM REDE DE POSTOS',
-                'status' => 'active',
-            ]);
-            Invitation::query()->create([
-                'fuel_station_id' => $place->id,
-                'email' => $email,
-                'role' => 'member',
-                'status' => 'pending',
-                'token_hash' => hash('sha256', $plain),
-                'expires_at' => now()->addDays(7),
-            ]);
+        $organization = Organization::factory()
+            ->{$station ? 'fuelStation' : 'company'}()
+            ->create();
 
-            return $plain;
-        }
-
-        $place = Company::query()->create([
-            'legal_name' => 'Melo LTDA',
-            'trade_name' => 'Melo',
-            'cnpj' => '00000000000191',
-        ]);
         Invitation::query()->create([
-            'company_id' => $place->id,
+            'organization_id' => $organization->getKey(),
             'email' => $email,
-            'role' => 'member',
-            'status' => 'pending',
+            'status' => Invitation::PENDING,
             'token_hash' => hash('sha256', $plain),
             'expires_at' => now()->addDays(7),
         ]);
@@ -749,6 +678,14 @@ class VerificationCodeTest extends TestCase
             'password_confirmation' => 'senha1234',
             'code' => $code,
         ];
+    }
+
+    private function signupWithCode(string $email, string $code): TestResponse
+    {
+        return $this->postJson('/api/auth/station-signup', [
+            ...$this->signup($code),
+            'email' => $email,
+        ]);
     }
 
     private function plant(string $email, string $code, string $purpose = VerificationCode::STATION_SIGNUP): void

@@ -88,6 +88,11 @@ class OrganizationService
         });
 
         $invitation = $this->invitations->create($organization, $data['owner_email'], auth()->user());
+
+        // A resposta é o que a tela mostra em seguida: sem carregar cidade e
+        // estado, a empresa recém-criada aparece sem endereço até alguém
+        // recarregar a lista.
+        $organization->load(['city', 'state']);
         $organization->setRelation('firstInvitation', $invitation);
 
         return $organization;
