@@ -83,7 +83,7 @@ export default function Home() {
 
     return (
         <>
-            <LayoutToolbar breadcrumbs={[{ text: 'Início' }]} />
+            {/* <LayoutToolbar breadcrumbs={[{ text: 'Início' }]} /> */}
 
             <header className="mb-5">
                 <h1 className="text-xl font-semibold tracking-tight">

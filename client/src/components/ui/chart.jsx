@@ -3,9 +3,15 @@ import { cn } from "cn"
 import * as RechartsPrimitive from "recharts"
 
 // Format: { THEME_NAME: CSS_SELECTOR }
-const THEMES = { light: "", dark: ".dark" }
+const THEMES = {
+  light: "",
+  dark: ".dark"
+}
 
-const INITIAL_DIMENSION = { width: 320, height: 200 }
+const INITIAL_DIMENSION = {
+  width: 320,
+  height: 200
+}
 
 const ChartContext = React.createContext(null)
 
@@ -42,7 +48,9 @@ function ChartContainer({
         {...props}
       >
         <ChartStyle id={chartId} config={config} />
-        <RechartsPrimitive.ResponsiveContainer initialDimension={initialDimension}>
+        <RechartsPrimitive.ResponsiveContainer
+          initialDimension={initialDimension}
+        >
           {children}
         </RechartsPrimitive.ResponsiveContainer>
       </div>
@@ -50,9 +58,12 @@ function ChartContainer({
   )
 }
 
-const ChartStyle = ({ id, config }) => {
+const ChartStyle = ({
+  id,
+  config
+}) => {
   const colorConfig = Object.entries(config).filter(
-    ([, item]) => item.theme ?? item.color
+    ([, config]) => config.theme ?? config.color
   )
 
   if (!colorConfig.length) {
@@ -68,7 +79,9 @@ const ChartStyle = ({ id, config }) => {
 ${prefix} [data-chart=${id}] {
 ${colorConfig
   .map(([key, itemConfig]) => {
-    const color = itemConfig.theme?.[theme] ?? itemConfig.color
+    const color =
+      itemConfig.theme?.[theme] ??
+      itemConfig.color
     return color ? `  --color-${key}: ${color};` : null
   })
   .join("\n")}
@@ -78,7 +91,7 @@ ${colorConfig
           .join("\n"),
       }}
     />
-  )
+  );
 }
 
 const ChartTooltip = RechartsPrimitive.Tooltip
@@ -96,7 +109,7 @@ function ChartTooltipContent({
   formatter,
   color,
   nameKey,
-  labelKey,
+  labelKey
 }) {
   const { config } = useChart()
 
@@ -126,7 +139,15 @@ function ChartTooltipContent({
     }
 
     return <div className={cn("font-medium", labelClassName)}>{value}</div>
-  }, [label, labelFormatter, payload, hideLabel, labelClassName, config, labelKey])
+  }, [
+    label,
+    labelFormatter,
+    payload,
+    hideLabel,
+    labelClassName,
+    config,
+    labelKey,
+  ])
 
   if (!active || !payload?.length) {
     return null
@@ -137,7 +158,7 @@ function ChartTooltipContent({
   return (
     <div
       className={cn(
-        "grid min-w-[8rem] items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl",
+        "grid min-w-32 items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl",
         className
       )}
     >
@@ -177,10 +198,12 @@ function ChartTooltipContent({
                               "my-0.5": nestLabel && indicator === "dashed",
                             }
                           )}
-                          style={{
-                            "--color-bg": indicatorColor,
-                            "--color-border": indicatorColor,
-                          }}
+                          style={
+                            {
+                              "--color-bg": indicatorColor,
+                              "--color-border": indicatorColor
+                            }
+                          }
                         />
                       )
                     )}
@@ -199,7 +222,7 @@ function ChartTooltipContent({
                       {item.value != null && (
                         <span className="font-mono font-medium text-foreground tabular-nums">
                           {typeof item.value === "number"
-                            ? item.value.toLocaleString("pt-BR")
+                            ? item.value.toLocaleString()
                             : String(item.value)}
                         </span>
                       )}
@@ -207,11 +230,11 @@ function ChartTooltipContent({
                   </>
                 )}
               </div>
-            )
+            );
           })}
       </div>
     </div>
-  )
+  );
 }
 
 const ChartLegend = RechartsPrimitive.Legend
@@ -221,7 +244,7 @@ function ChartLegendContent({
   hideIcon = false,
   payload,
   verticalAlign = "bottom",
-  nameKey,
+  nameKey
 }) {
   const { config } = useChart()
 
@@ -255,7 +278,9 @@ function ChartLegendContent({
               ) : (
                 <div
                   className="h-2 w-2 shrink-0 rounded-[2px]"
-                  style={{ backgroundColor: item.color }}
+                  style={{
+                    backgroundColor: item.color,
+                  }}
                 />
               )}
               {itemConfig?.label}
@@ -266,8 +291,11 @@ function ChartLegendContent({
   )
 }
 
-// Helper to extract item config from a payload.
-function getPayloadConfigFromPayload(config, payload, key) {
+function getPayloadConfigFromPayload(
+  config,
+  payload,
+  key
+) {
   if (typeof payload !== "object" || payload === null) {
     return undefined
   }
@@ -281,7 +309,10 @@ function getPayloadConfigFromPayload(config, payload, key) {
 
   let configLabelKey = key
 
-  if (key in payload && typeof payload[key] === "string") {
+  if (
+    key in payload &&
+    typeof payload[key] === "string"
+  ) {
     configLabelKey = payload[key]
   } else if (
     payloadPayload &&
