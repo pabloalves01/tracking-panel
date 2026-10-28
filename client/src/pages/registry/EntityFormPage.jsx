@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { InfoIcon, TriangleAlertIcon } from 'lucide-react'
 
 import { LayoutToolbar } from '@/components/common/LayoutToolbar'
+import { TabButton } from '@/components/common/TabButton'
 import { LoadingWrapper } from '@/components/common/LoadingWrapper'
 import { InputCity } from '@/components/common/inputs/InputCity'
 import { InputCpfCnpj } from '@/components/common/inputs/InputCpfCnpj'
@@ -56,6 +57,20 @@ const pixKeyTypes = [
 
 const licenseCategories = ['A', 'B', 'C', 'D', 'E', 'AB', 'AC', 'AD', 'AE', 'ACC']
 
+// A UF de emissão é texto de duas letras, não um estado da tabela: a CNH
+// vale com o que está impresso nela, e a tabela de estados pode não estar
+// carregada.
+const ufs = ['AC', 'AL', 'AM', 'AP', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MG', 'MS', 'MT', 'PA', 'PB',
+    'PE', 'PI', 'PR', 'RJ', 'RN', 'RO', 'RR', 'RS', 'SC', 'SE', 'SP', 'TO']
+
+/** Em que aba mora cada campo — é para lá que a tela vai quando ele dá erro. */
+function tabOf(field) {
+    if (field.startsWith('license_')) return 'cnh'
+    if (field.startsWith('pix_')) return 'pagamento'
+
+    return 'geral'
+}
+
 const emptyForm = {
     kind: 'organization',
     document: '',
@@ -105,6 +120,7 @@ function formFrom(entity) {
 export default function EntityFormPage() {
     const { role: slug, uuid } = useParams()
     const navigate = useNavigate()
+    const [searchParams, setSearchParams] = useSearchParams()
 
     const config = roleFromSlug(slug) ?? ENTITY_ROLES.customer
     const basePath = rolePath(config)
@@ -119,13 +135,35 @@ export default function EntityFormPage() {
     const [match, setMatch] = useState(null)
     const [lookingUp, setLookingUp] = useState(false)
 
+    /** Abas com campo recusado pela API no último envio. */
+    const [errorTabs, setErrorTabs] = useState([])
+
     const isCompany = form.kind === 'organization'
     const expectedLength = isCompany ? 14 : 11
 
+    // A aba vai na URL, como na tela de usuários: recarregar ou voltar cai
+    // no mesmo lugar.
+    const tabs = [
+        { key: 'geral', label: 'Dados gerais' },
+        ...(config.hasDetails ? [{ key: 'cnh', label: 'CNH' }] : []),
+        { key: 'pagamento', label: 'Pagamento' },
+    ]
+    const requested = searchParams.get('aba')
+    const tab = tabs.some((item) => item.key === requested) ? requested : 'geral'
+
+    function selectTab(next) {
+        const params = new URLSearchParams(searchParams)
+
+        if (next === 'geral') params.delete('aba')
+        else params.set('aba', next)
+
+        setSearchParams(params, { replace: true })
+    }
+
     useEffect(() => {
+        // `loading` já nasce verdadeiro na edição.
         if (!isEditing) return
 
-        setLoading(true)
         getEntity(config.role, uuid)
             .then((entity) => {
                 setForm(formFrom(entity))
@@ -178,6 +216,7 @@ export default function EntityFormPage() {
         if (match?.kind === 'taken') return
 
         setSaving(true)
+        setErrorTabs([])
 
         const payload = {
             ...form,
@@ -204,6 +243,17 @@ export default function EntityFormPage() {
             navigate(basePath)
         } catch (error) {
             notifyError(error)
+
+            // O erro pode ser de um campo que está em outra aba. Sem isto a
+            // pessoa via o aviso e não achava o campo: a tela vai para a aba
+            // do primeiro erro, e as outras com erro ganham a bolinha.
+            const fields = Object.keys(error?.response?.data?.errors ?? {})
+
+            if (fields.length > 0) {
+                const withErrors = [...new Set(fields.map(tabOf))]
+                setErrorTabs(withErrors)
+                selectTab(tabOf(fields[0]))
+            }
         } finally {
             setSaving(false)
         }
@@ -235,7 +285,7 @@ export default function EntityFormPage() {
             />
 
             <LoadingWrapper loading={loading}>
-                <form onSubmit={handleSubmit} className="max-w-4xl">
+                <form onSubmit={handleSubmit}>
                     {/* Aviso de quem já existe. É o que evita a redigitação e
                         o descarte silencioso de dados da versão anterior. */}
                     {match?.kind === 'free' ? (
@@ -303,210 +353,44 @@ export default function EntityFormPage() {
                         </div>
                     ) : null}
 
-                    <FieldSet>
-                        <FieldLegend variant="label">Identificação</FieldLegend>
-                        <FieldGroup className="md:grid md:grid-cols-12 md:gap-4">
-                            <Field className="col-span-12 md:col-span-4">
-                                <FieldLabel htmlFor="kind">Tipo de pessoa</FieldLabel>
-                                <Select
-                                    items={kinds}
-                                    value={form.kind}
-                                    onValueChange={(value) => {
-                                        set('kind', value)
-                                        set('document', '')
-                                        setMatch(null)
-                                    }}
-                                    disabled={isEditing}
-                                >
-                                    <SelectTrigger id="kind" className="w-full">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectGroup>
-                                            {kinds.map((option) => (
-                                                <SelectItem key={option.value} value={option.value}>
-                                                    {option.label}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectGroup>
-                                    </SelectContent>
-                                </Select>
-                            </Field>
+                    <div role="tablist" className="mb-6 flex gap-1 border-b">
+                        {tabs.map((item) => (
+                            <TabButton
+                                key={item.key}
+                                active={tab === item.key}
+                                alert={tab !== item.key && errorTabs.includes(item.key)}
+                                onClick={() => selectTab(item.key)}
+                            >
+                                {item.label}
+                            </TabButton>
+                        ))}
+                    </div>
 
-                            <Field className="col-span-12 md:col-span-4">
-                                <FieldLabel htmlFor="document">
-                                    {isCompany ? 'CNPJ' : 'CPF'}
-                                </FieldLabel>
-                                <InputCpfCnpj
-                                    id="document"
-                                    type={isCompany ? 'cnpj' : 'cpf'}
-                                    value={form.document}
-                                    onChange={(digits) => {
-                                        set('document', digits)
-                                        lookup(digits)
-                                    }}
-                                    disabled={isEditing}
-                                />
-                                <FieldDescription>
-                                    {lookingUp
-                                        ? 'Procurando…'
-                                        : isEditing
-                                          ? 'O documento não muda depois do cadastro.'
-                                          : 'Começamos por aqui para não cadastrar a mesma pessoa duas vezes.'}
-                                </FieldDescription>
-                            </Field>
-
-                            <Field className="col-span-12 md:col-span-4">
-                                <FieldLabel htmlFor="name">
-                                    {isCompany ? 'Razão social' : 'Nome'}
-                                </FieldLabel>
-                                <Input
-                                    id="name"
-                                    value={form.name}
-                                    onChange={(event) => set('name', event.target.value)}
-                                    required
-                                />
-                            </Field>
-
-                            {isCompany ? (
-                                <Field className="col-span-12 md:col-span-4">
-                                    <FieldLabel htmlFor="trade-name">Nome fantasia</FieldLabel>
-                                    <Input
-                                        id="trade-name"
-                                        value={form.trade_name}
-                                        onChange={(event) => set('trade_name', event.target.value)}
-                                    />
-                                </Field>
-                            ) : null}
-
-                            <Field className="col-span-12 md:col-span-4">
-                                <FieldLabel htmlFor="email">E-mail</FieldLabel>
-                                <Input
-                                    id="email"
-                                    type="email"
-                                    value={form.email}
-                                    onChange={(event) => set('email', event.target.value)}
-                                />
-                            </Field>
-
-                            <Field className="col-span-12 md:col-span-4">
-                                <FieldLabel htmlFor="phone">Telefone</FieldLabel>
-                                <InputPhone
-                                    id="phone"
-                                    value={form.phone}
-                                    onChange={(digits) => set('phone', digits)}
-                                />
-                            </Field>
-
-                            <Field className="col-span-12 md:col-span-4">
-                                <FieldLabel htmlFor="national-id">
-                                    {isCompany ? 'Inscrição estadual' : 'RG'}
-                                </FieldLabel>
-                                <Input
-                                    id="national-id"
-                                    value={isCompany ? form.state_registration : form.national_id}
-                                    onChange={(event) =>
-                                        set(
-                                            isCompany ? 'state_registration' : 'national_id',
-                                            event.target.value
-                                        )
-                                    }
-                                />
-                            </Field>
-
-                            <Field className="col-span-12 md:col-span-8">
-                                <FieldLabel htmlFor="emergency-phone">
-                                    Telefone de emergência
-                                </FieldLabel>
-                                <InputEmergencyNumber
-                                    id="emergency-phone"
-                                    value={form.emergency_phone}
-                                    type={form.emergency_phone_type}
-                                    onValueChange={(digits) => set('emergency_phone', digits)}
-                                    onTypeChange={(type) => set('emergency_phone_type', type)}
-                                />
-                            </Field>
-                        </FieldGroup>
-                    </FieldSet>
-
-                    <Separator className="my-6" />
-
-                    <FieldSet>
-                        <FieldLegend variant="label">Pagamento</FieldLegend>
-                        <FieldDescription className="mb-3">
-                            A chave PIX é da pessoa e vale para todos os cadastros dela.
-                        </FieldDescription>
-                        <FieldGroup className="md:grid md:grid-cols-12 md:gap-4">
-                            <Field className="col-span-12 md:col-span-4">
-                                <FieldLabel htmlFor="pix-type">Tipo da chave</FieldLabel>
-                                <Select
-                                    items={pixKeyTypes}
-                                    value={form.pix_key_type}
-                                    onValueChange={(value) => set('pix_key_type', value)}
-                                >
-                                    <SelectTrigger id="pix-type" className="w-full">
-                                        <SelectValue placeholder="Sem chave PIX" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectGroup>
-                                            {pixKeyTypes.map((option) => (
-                                                <SelectItem key={option.value} value={option.value}>
-                                                    {option.label}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectGroup>
-                                    </SelectContent>
-                                </Select>
-                            </Field>
-
-                            <Field className="col-span-12 md:col-span-8">
-                                <FieldLabel htmlFor="pix-key">Chave PIX</FieldLabel>
-                                <Input
-                                    id="pix-key"
-                                    value={form.pix_key}
-                                    onChange={(event) => set('pix_key', event.target.value)}
-                                    disabled={!form.pix_key_type}
-                                />
-                            </Field>
-                        </FieldGroup>
-                    </FieldSet>
-
-                    {config.hasDetails ? (
+                    {tab === 'geral' ? (
                         <>
-                            <Separator className="my-6" />
                             <FieldSet>
-                                <FieldLegend variant="label">CNH</FieldLegend>
+                                <FieldLegend variant="label">Identificação</FieldLegend>
                                 <FieldGroup className="md:grid md:grid-cols-12 md:gap-4">
-                                    <Field className="col-span-12 md:col-span-4">
-                                        <FieldLabel htmlFor="license-number">Número</FieldLabel>
-                                        <Input
-                                            id="license-number"
-                                            value={form.license_number}
-                                            onChange={(event) =>
-                                                set('license_number', event.target.value)
-                                            }
-                                            required
-                                        />
-                                    </Field>
-
-                                    <Field className="col-span-12 md:col-span-3">
-                                        <FieldLabel htmlFor="license-category">Categoria</FieldLabel>
+                                    <Field className="col-span-12 md:col-span-4 xl:col-span-2">
+                                        <FieldLabel htmlFor="kind">Tipo de pessoa</FieldLabel>
                                         <Select
-                                            items={licenseCategories.map((value) => ({
-                                                value,
-                                                label: value,
-                                            }))}
-                                            value={form.license_category}
-                                            onValueChange={(value) => set('license_category', value)}
+                                            items={kinds}
+                                            value={form.kind}
+                                            onValueChange={(value) => {
+                                                set('kind', value)
+                                                set('document', '')
+                                                setMatch(null)
+                                            }}
+                                            disabled={isEditing}
                                         >
-                                            <SelectTrigger id="license-category" className="w-full">
-                                                <SelectValue placeholder="Selecione" />
+                                            <SelectTrigger id="kind" className="w-full">
+                                                <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectGroup>
-                                                    {licenseCategories.map((value) => (
-                                                        <SelectItem key={value} value={value}>
-                                                            {value}
+                                                    {kinds.map((option) => (
+                                                        <SelectItem key={option.value} value={option.value}>
+                                                            {option.label}
                                                         </SelectItem>
                                                     ))}
                                                 </SelectGroup>
@@ -514,12 +398,172 @@ export default function EntityFormPage() {
                                         </Select>
                                     </Field>
 
-                                    <Field className="col-span-12 md:col-span-5">
-                                        <FieldLabel htmlFor="license-expires">Validade</FieldLabel>
-                                        <DatePicker
-                                            id="license-expires"
-                                            value={form.license_expires_on}
-                                            onChange={(value) => set('license_expires_on', value)}
+                                    <Field className="col-span-12 md:col-span-4 xl:col-span-3">
+                                        <FieldLabel htmlFor="document">
+                                            {isCompany ? 'CNPJ' : 'CPF'}
+                                        </FieldLabel>
+                                        <InputCpfCnpj
+                                            id="document"
+                                            type={isCompany ? 'cnpj' : 'cpf'}
+                                            value={form.document}
+                                            onChange={(digits) => {
+                                                set('document', digits)
+                                                lookup(digits)
+                                            }}
+                                            disabled={isEditing}
+                                        />
+                                        <FieldDescription>
+                                            {lookingUp
+                                                ? 'Procurando…'
+                                                : isEditing
+                                                  ? 'O documento não muda depois do cadastro.'
+                                                  : 'Começamos por aqui para não cadastrar a mesma pessoa duas vezes.'}
+                                        </FieldDescription>
+                                    </Field>
+
+                                    <Field className={`col-span-12 md:col-span-4 ${isCompany ? 'xl:col-span-4' : 'xl:col-span-7'}`}>
+                                        <FieldLabel htmlFor="name">
+                                            {isCompany ? 'Razão social' : 'Nome'}
+                                        </FieldLabel>
+                                        <Input
+                                            id="name"
+                                            value={form.name}
+                                            onChange={(event) => set('name', event.target.value)}
+                                            required
+                                        />
+                                    </Field>
+
+                                    {isCompany ? (
+                                        <Field className="col-span-12 md:col-span-4 xl:col-span-3">
+                                            <FieldLabel htmlFor="trade-name">Nome fantasia</FieldLabel>
+                                            <Input
+                                                id="trade-name"
+                                                value={form.trade_name}
+                                                onChange={(event) => set('trade_name', event.target.value)}
+                                            />
+                                        </Field>
+                                    ) : null}
+
+                                    <Field className="col-span-12 md:col-span-4 xl:col-span-3">
+                                        <FieldLabel htmlFor="email">E-mail</FieldLabel>
+                                        <Input
+                                            id="email"
+                                            type="email"
+                                            value={form.email}
+                                            onChange={(event) => set('email', event.target.value)}
+                                        />
+                                    </Field>
+
+                                    <Field className="col-span-12 md:col-span-4 xl:col-span-3">
+                                        <FieldLabel htmlFor="phone">Telefone</FieldLabel>
+                                        <InputPhone
+                                            id="phone"
+                                            value={form.phone}
+                                            onChange={(digits) => set('phone', digits)}
+                                        />
+                                    </Field>
+
+                                    <Field className="col-span-12 md:col-span-4 xl:col-span-2">
+                                        <FieldLabel htmlFor="national-id">
+                                            {isCompany ? 'Inscrição estadual' : 'RG'}
+                                        </FieldLabel>
+                                        <Input
+                                            id="national-id"
+                                            value={isCompany ? form.state_registration : form.national_id}
+                                            onChange={(event) =>
+                                                set(
+                                                    isCompany ? 'state_registration' : 'national_id',
+                                                    event.target.value
+                                                )
+                                            }
+                                        />
+                                    </Field>
+
+                                    <Field className="col-span-12 md:col-span-8 xl:col-span-4">
+                                        <FieldLabel htmlFor="emergency-phone">
+                                            Telefone de emergência
+                                        </FieldLabel>
+                                        <InputEmergencyNumber
+                                            id="emergency-phone"
+                                            value={form.emergency_phone}
+                                            type={form.emergency_phone_type}
+                                            onValueChange={(digits) => set('emergency_phone', digits)}
+                                            onTypeChange={(type) => set('emergency_phone_type', type)}
+                                        />
+                                    </Field>
+                                </FieldGroup>
+                            </FieldSet>
+
+
+                            <Separator className="my-6" />
+
+                            <FieldSet>
+                                <FieldLegend variant="label">Endereço</FieldLegend>
+                                <FieldGroup className="md:grid md:grid-cols-12 md:gap-4">
+                                    <Field className="col-span-12 md:col-span-3 xl:col-span-2">
+                                        <FieldLabel htmlFor="postal-code">CEP</FieldLabel>
+                                        <InputPostalCode
+                                            id="postal-code"
+                                            value={form.postal_code}
+                                            onChange={(digits) => set('postal_code', digits)}
+                                        />
+                                    </Field>
+
+                                    <Field className="col-span-12 md:col-span-7 xl:col-span-5">
+                                        <FieldLabel htmlFor="street">Rua</FieldLabel>
+                                        <Input
+                                            id="street"
+                                            value={form.street}
+                                            onChange={(event) => set('street', event.target.value)}
+                                        />
+                                    </Field>
+
+                                    <Field className="col-span-12 md:col-span-2 xl:col-span-1">
+                                        <FieldLabel htmlFor="street-number">Número</FieldLabel>
+                                        <Input
+                                            id="street-number"
+                                            value={form.street_number}
+                                            onChange={(event) => set('street_number', event.target.value)}
+                                        />
+                                    </Field>
+
+                                    <Field className="col-span-12 md:col-span-4 xl:col-span-4">
+                                        <FieldLabel htmlFor="neighborhood">Bairro</FieldLabel>
+                                        <Input
+                                            id="neighborhood"
+                                            value={form.neighborhood}
+                                            onChange={(event) => set('neighborhood', event.target.value)}
+                                        />
+                                    </Field>
+
+                                    <Field className="col-span-12 md:col-span-4 xl:col-span-4">
+                                        <FieldLabel htmlFor="complement">Complemento</FieldLabel>
+                                        <Input
+                                            id="complement"
+                                            value={form.complement}
+                                            onChange={(event) => set('complement', event.target.value)}
+                                        />
+                                    </Field>
+
+                                    <Field className="col-span-12 md:col-span-2 xl:col-span-3">
+                                        <FieldLabel htmlFor="state">Estado</FieldLabel>
+                                        <SelectState
+                                            id="state"
+                                            value={form.state_id}
+                                            onChange={(value) => {
+                                                set('state_id', value)
+                                                set('city_id', null)
+                                            }}
+                                        />
+                                    </Field>
+
+                                    <Field className="col-span-12 md:col-span-2 xl:col-span-5">
+                                        <FieldLabel htmlFor="city">Cidade</FieldLabel>
+                                        <InputCity
+                                            id="city"
+                                            stateId={form.state_id}
+                                            value={form.city_id}
+                                            onChange={(value) => set('city_id', value)}
                                         />
                                     </Field>
                                 </FieldGroup>
@@ -527,79 +571,122 @@ export default function EntityFormPage() {
                         </>
                     ) : null}
 
-                    <Separator className="my-6" />
+                    {tab === 'cnh' && config.hasDetails ? (
+                        <FieldSet>
+                            <FieldLegend variant="label">CNH</FieldLegend>
+                            <FieldGroup className="md:grid md:grid-cols-12 md:gap-4">
+                                <Field className="col-span-12 md:col-span-4 xl:col-span-3">
+                                    <FieldLabel htmlFor="license-number">Número</FieldLabel>
+                                    <Input
+                                        id="license-number"
+                                        value={form.license_number}
+                                        onChange={(event) =>
+                                            set('license_number', event.target.value)
+                                        }
+                                        required
+                                    />
+                                </Field>
 
-                    <FieldSet>
-                        <FieldLegend variant="label">Endereço</FieldLegend>
-                        <FieldGroup className="md:grid md:grid-cols-12 md:gap-4">
-                            <Field className="col-span-12 md:col-span-3">
-                                <FieldLabel htmlFor="postal-code">CEP</FieldLabel>
-                                <InputPostalCode
-                                    id="postal-code"
-                                    value={form.postal_code}
-                                    onChange={(digits) => set('postal_code', digits)}
-                                />
-                            </Field>
+                                <Field className="col-span-12 md:col-span-2 xl:col-span-2">
+                                    <FieldLabel htmlFor="license-category">Categoria</FieldLabel>
+                                    <Select
+                                        items={licenseCategories.map((value) => ({
+                                            value,
+                                            label: value,
+                                        }))}
+                                        value={form.license_category}
+                                        onValueChange={(value) => set('license_category', value)}
+                                    >
+                                        <SelectTrigger id="license-category" className="w-full">
+                                            <SelectValue placeholder="Selecione" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectGroup>
+                                                {licenseCategories.map((value) => (
+                                                    <SelectItem key={value} value={value}>
+                                                        {value}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectGroup>
+                                        </SelectContent>
+                                    </Select>
+                                </Field>
 
-                            <Field className="col-span-12 md:col-span-7">
-                                <FieldLabel htmlFor="street">Rua</FieldLabel>
-                                <Input
-                                    id="street"
-                                    value={form.street}
-                                    onChange={(event) => set('street', event.target.value)}
-                                />
-                            </Field>
+                                <Field className="col-span-12 md:col-span-3 xl:col-span-2">
+                                    <FieldLabel htmlFor="license-expires">Validade</FieldLabel>
+                                    <DatePicker
+                                        id="license-expires"
+                                        value={form.license_expires_on}
+                                        onChange={(value) => set('license_expires_on', value)}
+                                    />
+                                </Field>
 
-                            <Field className="col-span-12 md:col-span-2">
-                                <FieldLabel htmlFor="street-number">Número</FieldLabel>
-                                <Input
-                                    id="street-number"
-                                    value={form.street_number}
-                                    onChange={(event) => set('street_number', event.target.value)}
-                                />
-                            </Field>
+                                <Field className="col-span-12 md:col-span-3 xl:col-span-2">
+                                    <FieldLabel htmlFor="license-state">UF de emissão</FieldLabel>
+                                    <Select
+                                        items={ufs.map((value) => ({ value, label: value }))}
+                                        value={form.license_issued_state}
+                                        onValueChange={(value) => set('license_issued_state', value)}
+                                    >
+                                        <SelectTrigger id="license-state" className="w-full">
+                                            <SelectValue placeholder="Selecione" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectGroup>
+                                                {ufs.map((value) => (
+                                                    <SelectItem key={value} value={value}>
+                                                        {value}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectGroup>
+                                        </SelectContent>
+                                    </Select>
+                                </Field>
+                            </FieldGroup>
+                        </FieldSet>
+                    ) : null}
 
-                            <Field className="col-span-12 md:col-span-4">
-                                <FieldLabel htmlFor="neighborhood">Bairro</FieldLabel>
-                                <Input
-                                    id="neighborhood"
-                                    value={form.neighborhood}
-                                    onChange={(event) => set('neighborhood', event.target.value)}
-                                />
-                            </Field>
+                    {tab === 'pagamento' ? (
+                        <FieldSet>
+                            <FieldLegend variant="label">Pagamento</FieldLegend>
+                            <FieldDescription className="mb-3">
+                                A chave PIX é da pessoa e vale para todos os cadastros dela.
+                            </FieldDescription>
+                            <FieldGroup className="md:grid md:grid-cols-12 md:gap-4">
+                                <Field className="col-span-12 md:col-span-4 xl:col-span-3">
+                                    <FieldLabel htmlFor="pix-type">Tipo da chave</FieldLabel>
+                                    <Select
+                                        items={pixKeyTypes}
+                                        value={form.pix_key_type}
+                                        onValueChange={(value) => set('pix_key_type', value)}
+                                    >
+                                        <SelectTrigger id="pix-type" className="w-full">
+                                            <SelectValue placeholder="Sem chave PIX" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectGroup>
+                                                {pixKeyTypes.map((option) => (
+                                                    <SelectItem key={option.value} value={option.value}>
+                                                        {option.label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectGroup>
+                                        </SelectContent>
+                                    </Select>
+                                </Field>
 
-                            <Field className="col-span-12 md:col-span-4">
-                                <FieldLabel htmlFor="complement">Complemento</FieldLabel>
-                                <Input
-                                    id="complement"
-                                    value={form.complement}
-                                    onChange={(event) => set('complement', event.target.value)}
-                                />
-                            </Field>
-
-                            <Field className="col-span-12 md:col-span-2">
-                                <FieldLabel htmlFor="state">Estado</FieldLabel>
-                                <SelectState
-                                    id="state"
-                                    value={form.state_id}
-                                    onChange={(value) => {
-                                        set('state_id', value)
-                                        set('city_id', null)
-                                    }}
-                                />
-                            </Field>
-
-                            <Field className="col-span-12 md:col-span-2">
-                                <FieldLabel htmlFor="city">Cidade</FieldLabel>
-                                <InputCity
-                                    id="city"
-                                    stateId={form.state_id}
-                                    value={form.city_id}
-                                    onChange={(value) => set('city_id', value)}
-                                />
-                            </Field>
-                        </FieldGroup>
-                    </FieldSet>
+                                <Field className="col-span-12 md:col-span-8 xl:col-span-6">
+                                    <FieldLabel htmlFor="pix-key">Chave PIX</FieldLabel>
+                                    <Input
+                                        id="pix-key"
+                                        value={form.pix_key}
+                                        onChange={(event) => set('pix_key', event.target.value)}
+                                        disabled={!form.pix_key_type}
+                                    />
+                                </Field>
+                            </FieldGroup>
+                        </FieldSet>
+                    ) : null}
                 </form>
             </LoadingWrapper>
         </>

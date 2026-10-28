@@ -13,6 +13,7 @@ import {
 
 import { InviteLinkDialog } from '@/components/access/InviteLinkDialog'
 import { ActionButton } from '@/components/common/button/ActionButton'
+import { TabButton } from '@/components/common/TabButton'
 import { LayoutToolbar } from '@/components/common/LayoutToolbar'
 import {
     AlertDialog,
@@ -152,7 +153,7 @@ export default function MembersPage() {
                 ]}
             />
 
-            <div className="mb-4 flex gap-1 border-b">
+            <div role="tablist" className="mb-4 flex gap-1 border-b">
                 <TabButton active={tab === 'usuarios'} onClick={() => selectTab('usuarios')}>
                     Usuários
                     <Badge variant="secondary">{members.length}</Badge>
@@ -199,23 +200,6 @@ export default function MembersPage() {
 
             <InviteLinkDialog invite={created} onClose={() => setCreated(null)} />
         </>
-    )
-}
-
-function TabButton({ active, onClick, children }) {
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            aria-current={active ? 'page' : undefined}
-            className={`flex items-center gap-2 border-b-2 px-3 pb-2 text-sm transition-colors ${
-                active
-                    ? 'border-foreground text-foreground font-medium'
-                    : 'text-muted-foreground hover:text-foreground border-transparent'
-            }`}
-        >
-            {children}
-        </button>
     )
 }
 

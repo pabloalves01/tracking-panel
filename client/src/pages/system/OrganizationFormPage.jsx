@@ -126,11 +126,11 @@ export default function OrganizationFormPage() {
             />
 
             <LoadingWrapper loading={loading}>
-                <form onSubmit={handleSubmit} className="max-w-3xl">
+                <form onSubmit={handleSubmit}>
                     <FieldSet>
                         <FieldLegend variant="label">Empresa</FieldLegend>
                         <FieldGroup className="md:grid md:grid-cols-12 md:gap-4">
-                            <Field className="col-span-12 md:col-span-4">
+                            <Field className="col-span-12 md:col-span-4 xl:col-span-3">
                                 <FieldLabel htmlFor="document">CNPJ</FieldLabel>
                                 <InputCpfCnpj
                                     id="document"
@@ -146,7 +146,7 @@ export default function OrganizationFormPage() {
                                 ) : null}
                             </Field>
 
-                            <Field className="col-span-12 md:col-span-8">
+                            <Field className="col-span-12 md:col-span-8 xl:col-span-5">
                                 <FieldLabel htmlFor="legal-name">Razão social</FieldLabel>
                                 <Input
                                     id="legal-name"
@@ -156,7 +156,7 @@ export default function OrganizationFormPage() {
                                 />
                             </Field>
 
-                            <Field className="col-span-12 md:col-span-6">
+                            <Field className="col-span-12 md:col-span-6 xl:col-span-4">
                                 <FieldLabel htmlFor="trade-name">Nome fantasia</FieldLabel>
                                 <Input
                                     id="trade-name"
@@ -173,7 +173,7 @@ export default function OrganizationFormPage() {
                             <FieldSet>
                                 <FieldLegend variant="label">Primeiro acesso</FieldLegend>
                                 <FieldGroup className="md:grid md:grid-cols-12 md:gap-4">
-                                    <Field className="col-span-12 md:col-span-6">
+                                    <Field className="col-span-12 md:col-span-6 xl:col-span-4">
                                         <FieldLabel htmlFor="owner-email">
                                             E-mail de quem vai administrar
                                         </FieldLabel>
@@ -199,7 +199,7 @@ export default function OrganizationFormPage() {
                     <FieldSet>
                         <FieldLegend variant="label">Endereço</FieldLegend>
                         <FieldGroup className="md:grid md:grid-cols-12 md:gap-4">
-                            <Field className="col-span-12 md:col-span-3">
+                            <Field className="col-span-12 md:col-span-3 xl:col-span-2">
                                 <FieldLabel htmlFor="postal-code">CEP</FieldLabel>
                                 <InputPostalCode
                                     id="postal-code"
@@ -208,7 +208,7 @@ export default function OrganizationFormPage() {
                                 />
                             </Field>
 
-                            <Field className="col-span-12 md:col-span-7">
+                            <Field className="col-span-12 md:col-span-7 xl:col-span-5">
                                 <FieldLabel htmlFor="street">Rua</FieldLabel>
                                 <Input
                                     id="street"
@@ -217,7 +217,7 @@ export default function OrganizationFormPage() {
                                 />
                             </Field>
 
-                            <Field className="col-span-12 md:col-span-2">
+                            <Field className="col-span-12 md:col-span-2 xl:col-span-1">
                                 <FieldLabel htmlFor="street-number">Número</FieldLabel>
                                 <Input
                                     id="street-number"
@@ -226,7 +226,7 @@ export default function OrganizationFormPage() {
                                 />
                             </Field>
 
-                            <Field className="col-span-12 md:col-span-4">
+                            <Field className="col-span-12 md:col-span-4 xl:col-span-4">
                                 <FieldLabel htmlFor="neighborhood">Bairro</FieldLabel>
                                 <Input
                                     id="neighborhood"
@@ -235,7 +235,7 @@ export default function OrganizationFormPage() {
                                 />
                             </Field>
 
-                            <Field className="col-span-12 md:col-span-4">
+                            <Field className="col-span-12 md:col-span-4 xl:col-span-4">
                                 <FieldLabel htmlFor="complement">Complemento</FieldLabel>
                                 <Input
                                     id="complement"
@@ -244,7 +244,7 @@ export default function OrganizationFormPage() {
                                 />
                             </Field>
 
-                            <Field className="col-span-12 md:col-span-2">
+                            <Field className="col-span-12 md:col-span-2 xl:col-span-3">
                                 <FieldLabel htmlFor="state">Estado</FieldLabel>
                                 <SelectState
                                     id="state"
@@ -256,7 +256,7 @@ export default function OrganizationFormPage() {
                                 />
                             </Field>
 
-                            <Field className="col-span-12 md:col-span-2">
+                            <Field className="col-span-12 md:col-span-2 xl:col-span-5">
                                 <FieldLabel htmlFor="city">Cidade</FieldLabel>
                                 <InputCity
                                     id="city"
