@@ -132,6 +132,9 @@ code {
     --color-chart-3: var(--chart-3);
     --color-chart-2: var(--chart-2);
     --color-chart-1: var(--chart-1);
+    --color-status-good: var(--status-good);
+    --color-status-warning: var(--status-warning);
+    --color-status-critical: var(--status-critical);
     --color-ring: var(--ring);
     --color-input: var(--input);
     --color-border: var(--border);
@@ -186,11 +189,23 @@ code {
     --border: oklch(0.922 0 0);
     --input: oklch(0.922 0 0);
     --ring: oklch(0.708 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
+    /* Paleta categórica dos gráficos. A ordem é fixa: a série 1 é sempre
+       azul, a 2 sempre laranja. Cor segue a entidade, nunca a posição no
+       filtro — trocar o filtro não pode repintar as séries que sobraram.
+       Validada para faixa de luminosidade, piso de croma, separação sob
+       daltonismo e contraste contra o fundo. */
+    --chart-1: #1e4db7; /* azul — herdado do royal da marca */
+    --chart-2: #fe5000; /* laranja da marca */
+    --chart-3: #0f9b8e; /* teal */
+    --chart-4: #8b5cf6; /* violeta */
+    --chart-5: #65a30d; /* lima */
+
+    /* Estado, reservado: nunca usado como "série 6". Sempre acompanhado de
+       rótulo ou ícone, nunca só a cor. */
+    --status-good: #15803d;
+    --status-warning: #a16207;
+    --status-critical: #b91c1c;
+
     --radius: 0.625rem;
     /* Sidebar no azul da marca; o dark mode mantém as cores padrão.
        O item ativo fica só com o texto mais claro, sem fundo nem borda. */
@@ -223,11 +238,18 @@ code {
     --border: oklch(1 0 0 / 10%);
     --input: oklch(1 0 0 / 15%);
     --ring: oklch(0.556 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
+    /* Passos próprios para o fundo escuro, não um espelho dos claros: cada
+       um foi escolhido e validado contra a superfície escura. */
+    --chart-1: #4a7fe0;
+    --chart-2: #f0631a;
+    --chart-3: #14a394;
+    --chart-4: #9575f0;
+    --chart-5: #6fa214;
+
+    --status-good: #4ade80;
+    --status-warning: #fbbf24;
+    --status-critical: #f87171;
+
     --sidebar: oklch(0.205 0 0);
     --sidebar-foreground: oklch(0.985 0 0);
     --sidebar-primary: oklch(0.488 0.243 264.376);
