@@ -233,6 +233,7 @@ export function AccountGate({
                             id="account-name"
                             value={name}
                             autoComplete="name"
+                            placeholder="Digite seu nome"
                             required
                             autoFocus
                             onChange={(event) => setName(event.target.value)}
