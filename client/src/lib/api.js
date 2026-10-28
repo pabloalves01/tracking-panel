@@ -19,9 +19,17 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
     (response) => response,
     (error) => {
-        if (error.response?.data?.code === 'context_access_lost') {
-            if (window.location.pathname !== '/auth/contextos') {
-                window.location.assign('/auth/contextos')
+        // Perdeu o vínculo, não selecionou organização, ou entrou numa área
+        // que não é do tipo da organização ativa: o seletor resolve os três.
+        const organizationCodes = [
+            'organization_access_lost',
+            'organization_not_selected',
+            'organization_wrong_type',
+        ]
+
+        if (organizationCodes.includes(error.response?.data?.code)) {
+            if (window.location.pathname !== '/auth/organizacoes') {
+                window.location.assign('/auth/organizacoes')
             }
             return Promise.reject(error)
         }

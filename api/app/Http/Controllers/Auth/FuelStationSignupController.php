@@ -6,40 +6,47 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\StoreFuelStationSignupRequest;
 use App\Http\Requests\Auth\StoreStationRequest;
 use App\Http\Resources\Auth\UserResource;
-use App\Http\Resources\FuelStation\FuelStationResource;
-use App\Services\FuelStation\FuelStationSignupService;
+use App\Http\Resources\OrganizationResource;
+use App\Services\Organization\FuelStationSignupService;
+use Illuminate\Http\JsonResponse;
 
+/**
+ * O cadastro de um posto: público, ou por quem já está logado.
+ */
 class FuelStationSignupController extends Controller
 {
-    public function __construct(private FuelStationSignupService $fuelStationSignupService) {}
+    public function __construct(private readonly FuelStationSignupService $signup) {}
 
-    public function cnpj(string $cnpj)
+    /** Consulta o CNPJ para preencher o formulário. */
+    public function cnpj(string $cnpj): JsonResponse
     {
-        return response()->json($this->fuelStationSignupService->lookup($cnpj));
+        return response()->json(['data' => $this->signup->lookup($cnpj)]);
     }
 
-    public function store(StoreFuelStationSignupRequest $request)
+    public function store(StoreFuelStationSignupRequest $request): JsonResponse
     {
-        $result = $this->fuelStationSignupService->store($request->validated());
+        $result = $this->signup->store($request->validated());
 
         return response()->json([
             'message' => $result['message'],
             'token' => $result['token'],
             'user' => UserResource::make($result['user']),
-            'fuel_station' => FuelStationResource::make($result['fuel_station']),
+            'organization' => OrganizationResource::make($result['organization']),
+            'redirect_to' => $result['organization']->type->homePath(),
         ], 201);
     }
 
-    public function storeForUser(StoreStationRequest $request)
+    public function storeForUser(StoreStationRequest $request): JsonResponse
     {
-        $result = $this->fuelStationSignupService->storeForUser(
+        $result = $this->signup->storeForUser(
             $request->user(),
             $request->validated('cnpj'),
         );
 
         return response()->json([
             'message' => $result['message'],
-            'fuel_station' => FuelStationResource::make($result['fuel_station']),
+            'organization' => OrganizationResource::make($result['organization']),
+            'redirect_to' => $result['organization']->type->homePath(),
         ], 201);
     }
 }

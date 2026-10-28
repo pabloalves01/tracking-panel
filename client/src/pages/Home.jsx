@@ -74,7 +74,7 @@ const rangeLabel = {
 }
 
 export default function Home() {
-    const { user, currentCompany } = useSession()
+    const { user, current_organization: organization } = useSession()
     const [range, setRange] = useState('30')
     const firstName = user?.name?.split(' ')[0]
 
@@ -99,7 +99,7 @@ export default function Home() {
                         </>
                     ) : null}
                     18 operações em andamento
-                    {currentCompany ? ` em ${currentCompany.trade_name}` : ''}.
+                    {organization ? ` em ${organization.display_name}` : ''}.
                 </p>
             </header>
 

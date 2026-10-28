@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button'
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { invitationStatusLabel } from '@/helpers/labels/linkStatusLabel'
-import { roleLabel } from '@/helpers/labels/roleLabel'
 import { logout, me } from '@/lib/auth/auth'
 import { acceptInvitation, declineInvitation, previewInvitation, registerInvitation } from '@/lib/auth/invitations'
 import { sendVerificationCode, verificationError } from '@/lib/auth/verification'
@@ -206,7 +205,7 @@ export default function InvitationPage() {
                                 <div className="flex flex-col items-center gap-1 text-center">
                                     <h1 className="text-2xl font-bold">Convite</h1>
                                     <p className="text-sm text-muted-foreground">
-                                        {invite.organization?.name} convidou {invite.email} como {roleLabel[invite.role] ?? invite.role}.
+                                        {invite.invited_by ? `${invite.invited_by} convidou` : 'Você foi convidado'} {invite.email} para {invite.organization}.
                                     </p>
                                 </div>
 

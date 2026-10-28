@@ -7,24 +7,18 @@ use App\Http\Controllers\Auth\FuelStationSignupController;
 use App\Http\Controllers\Auth\InvitationAcceptController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\VerificationCodeController;
-use App\Http\Controllers\FuelStation\StationCompanyController;
-use App\Http\Controllers\FuelStation\StationController;
 use App\Http\Controllers\Location\LocationController;
 use App\Http\Controllers\Operations\ShipOperationPerimeterController;
 use App\Http\Controllers\Registry\EntityController;
 use App\Http\Controllers\Registry\FuelStationLinkController;
 use App\Http\Controllers\Registry\VehicleController;
-use App\Http\Controllers\System\Company\CompanyAccessController;
-use App\Http\Controllers\System\Company\CompanyController;
+use App\Http\Controllers\Station\StationCompanyController;
+use App\Http\Controllers\System\OrganizationController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/health', function () {
-    return response()->json([
-        'status' => 'up',
-    ]);
-});
+Route::get('/health', fn () => response()->json(['status' => 'up']));
 
-// =============================== AUTH ROUTES ===============================
+// =============================== AUTENTICAÇÃO ===============================
 
 Route::prefix('auth')->group(function () {
     Route::post('login', [AuthController::class, 'login'])
@@ -36,6 +30,7 @@ Route::prefix('auth')->group(function () {
     Route::post('password/reset', [PasswordResetController::class, 'reset'])
         ->middleware('throttle:10,1,password-reset');
 
+    // Cadastro público de posto.
     Route::prefix('station-signup')->group(function () {
         Route::get('cnpj/{cnpj}', [FuelStationSignupController::class, 'cnpj'])
             ->middleware('throttle:20,1,station-signup-cnpj');
@@ -43,6 +38,7 @@ Route::prefix('auth')->group(function () {
             ->middleware('throttle:20,1,station-signup');
     });
 
+    // Convite, pelo link. Quem tem o link pode ver e recusar sem entrar.
     Route::prefix('invitations/{token}')->group(function () {
         Route::get('/', [InvitationAcceptController::class, 'show'])
             ->middleware('throttle:20,1,invitation-show');
@@ -53,14 +49,16 @@ Route::prefix('auth')->group(function () {
     });
 
     Route::middleware('auth:sanctum')->group(function () {
+        // Traz usuário, organização atual, organizações disponíveis e
+        // convites pendentes de uma vez.
         Route::get('me', [AuthController::class, 'me']);
+        Route::get('organizations', [AuthController::class, 'organizations']);
+        Route::post('organization', [AuthController::class, 'selectOrganization']);
         Route::post('logout', [AuthController::class, 'logout']);
-        Route::get('companies', [AuthController::class, 'companies']);
-        Route::post('company', [AuthController::class, 'selectCompany']);
-        Route::get('contexts', [AuthController::class, 'contexts']);
-        Route::post('station', [AuthController::class, 'selectStation']);
+
         Route::post('stations', [FuelStationSignupController::class, 'storeForUser'])
             ->middleware('throttle:20,1,station-create');
+
         Route::post('invitations/{token}/accept', [InvitationAcceptController::class, 'accept'])
             ->middleware('throttle:20,1,invitation-accept');
         Route::get('pending-invitations', [InvitationAcceptController::class, 'mine']);
@@ -69,16 +67,34 @@ Route::prefix('auth')->group(function () {
     });
 });
 
-// =============================== LOCATION ROUTES ===============================
+// =============================== LOCALIDADES ===============================
 
 Route::middleware('auth:sanctum')->prefix('locations')->group(function () {
     Route::get('states', [LocationController::class, 'states']);
     Route::get('states/{state}/cities', [LocationController::class, 'cities']);
 });
 
-// =============================== API COMPANY ROUTES ===============================
+// =============================== ORGANIZAÇÃO ATIVA ===============================
+// Membros e convites valem para qualquer tipo de organização: empresa hoje,
+// posto hoje, fornecedor amanhã. Eram as mesmas rotas escritas três vezes.
 
-Route::middleware(['auth:sanctum', 'ensure.company'])->group(function () {
+Route::middleware(['auth:sanctum', 'organization'])->prefix('organization')->group(function () {
+    Route::get('members', [MemberController::class, 'index']);
+    Route::post('members/{uuid}/suspend', [MemberController::class, 'suspend']);
+    Route::post('members/{uuid}/reactivate', [MemberController::class, 'reactivate']);
+    Route::delete('members/{uuid}', [MemberController::class, 'destroy']);
+
+    Route::get('invitations', [InvitationController::class, 'index']);
+    Route::post('invitations', [InvitationController::class, 'store'])
+        ->middleware('throttle:10,1,invitation-store');
+    Route::post('invitations/{uuid}/resend', [InvitationController::class, 'resend'])
+        ->middleware('throttle:10,1,invitation-resend');
+    Route::delete('invitations/{uuid}', [InvitationController::class, 'destroy']);
+});
+
+// =============================== EMPRESA ===============================
+
+Route::middleware(['auth:sanctum', 'organization:company'])->group(function () {
     Route::get('/ship-operation-perimeters/{shipOperationId}', [ShipOperationPerimeterController::class, 'get']);
     Route::post('/ship-operation-perimeters', [ShipOperationPerimeterController::class, 'create']);
 
@@ -100,16 +116,15 @@ Route::middleware(['auth:sanctum', 'ensure.company'])->group(function () {
             });
         });
 
+        // Postos conveniados.
         Route::prefix('fuel-stations')->group(function () {
             Route::get('/', [FuelStationLinkController::class, 'index']);
-            Route::get('/by-cnpj', [FuelStationLinkController::class, 'show'])
-                ->middleware('throttle:20,1,company-fuel-station-cnpj');
+            Route::get('by-document', [FuelStationLinkController::class, 'byDocument'])
+                ->middleware('throttle:20,1,fuel-station-lookup');
             Route::post('/', [FuelStationLinkController::class, 'store'])
-                ->middleware('throttle:10,1,company-fuel-station-store');
+                ->middleware('throttle:10,1,fuel-station-request');
             Route::delete('/{uuid}', [FuelStationLinkController::class, 'destroy']);
             Route::post('/{uuid}/disconnect', [FuelStationLinkController::class, 'disconnect']);
-            Route::post('/{uuid}/resend-request', [FuelStationLinkController::class, 'resendRequest'])
-                ->middleware('throttle:10,1,company-fuel-station-resend');
         });
 
         Route::prefix('vehicles')->group(function () {
@@ -120,73 +135,26 @@ Route::middleware(['auth:sanctum', 'ensure.company'])->group(function () {
             Route::delete('/{uuid}', [VehicleController::class, 'destroy']);
         });
     });
-
-    Route::prefix('company')->group(function () {
-        Route::get('users', [MemberController::class, 'index']);
-        Route::patch('users/{uuid}', [MemberController::class, 'update']);
-        Route::post('users/{uuid}/suspend', [MemberController::class, 'suspend']);
-        Route::post('users/{uuid}/reactivate', [MemberController::class, 'reactivate']);
-        Route::post('users/{uuid}/remove', [MemberController::class, 'remove']);
-        Route::delete('users/{uuid}', [MemberController::class, 'destroy']);
-        Route::get('invitations/lookup', [InvitationController::class, 'lookup'])
-            ->middleware('throttle:30,1,invitation-lookup');
-        Route::get('invitations', [InvitationController::class, 'index']);
-        Route::post('invitations', [InvitationController::class, 'store'])
-            ->middleware('throttle:10,1,invitation-store');
-        Route::post('invitations/{uuid}/resend', [InvitationController::class, 'resend'])
-            ->middleware('throttle:10,1,invitation-resend');
-        Route::delete('invitations/{uuid}', [InvitationController::class, 'destroy']);
-    });
 });
 
-// =============================== API STATION ROUTES ===============================
+// =============================== POSTO ===============================
 
-Route::middleware(['auth:sanctum', 'ensure.station'])->prefix('station')->group(function () {
-    Route::get('me', [StationController::class, 'me']);
+Route::middleware(['auth:sanctum', 'organization:fuel_station'])->prefix('station')->group(function () {
     Route::get('companies', [StationCompanyController::class, 'index']);
     Route::post('companies/{uuid}/accept', [StationCompanyController::class, 'accept']);
     Route::post('companies/{uuid}/reject', [StationCompanyController::class, 'reject']);
     Route::post('companies/{uuid}/disconnect', [StationCompanyController::class, 'disconnect']);
-    Route::get('users', [MemberController::class, 'index']);
-    Route::patch('users/{uuid}', [MemberController::class, 'update']);
-    Route::post('users/{uuid}/suspend', [MemberController::class, 'suspend']);
-    Route::post('users/{uuid}/reactivate', [MemberController::class, 'reactivate']);
-    Route::post('users/{uuid}/remove', [MemberController::class, 'remove']);
-    Route::delete('users/{uuid}', [MemberController::class, 'destroy']);
-    Route::get('invitations/lookup', [InvitationController::class, 'lookup'])
-        ->middleware('throttle:30,1,station-invitation-lookup');
-    Route::get('invitations', [InvitationController::class, 'index']);
-    Route::post('invitations', [InvitationController::class, 'store'])
-        ->middleware('throttle:10,1,station-invitation-store');
-    Route::post('invitations/{uuid}/resend', [InvitationController::class, 'resend'])
-        ->middleware('throttle:10,1,station-invitation-resend');
-    Route::delete('invitations/{uuid}', [InvitationController::class, 'destroy']);
 });
 
-// =============================== ADMIN SYSTEM ROUTES ===============================
+// =============================== SISTEMA ===============================
 
-Route::middleware(['auth:sanctum', 'ensure.system'])->group(function () {
-    Route::group(['prefix' => '/system'], function () {
-        Route::group(['prefix' => '/companies'], function () {
-            Route::get('/', [CompanyController::class, 'index']);
-            Route::post('/', [CompanyController::class, 'store']);
-            Route::get('/{uuid}', [CompanyController::class, 'show']);
-            Route::put('/{uuid}', [CompanyController::class, 'update']);
-            Route::post('/{uuid}/deactivate', [CompanyController::class, 'deactivate']);
-            Route::post('/{uuid}/activate', [CompanyController::class, 'activate']);
-            Route::get('/{uuid}/users', [CompanyAccessController::class, 'users']);
-            Route::patch('/{uuid}/users/{user}', [CompanyAccessController::class, 'updateUser']);
-            Route::delete('/{uuid}/users/{user}', [CompanyAccessController::class, 'suspendUser']);
-            Route::post('/{uuid}/users/{user}/reactivate', [CompanyAccessController::class, 'reactivateUser']);
-            Route::post('/{uuid}/users/{user}/remove', [CompanyAccessController::class, 'removeUser']);
-            Route::get('/{uuid}/invitations/lookup', [CompanyAccessController::class, 'lookup'])
-                ->middleware('throttle:30,1,system-invitation-lookup');
-            Route::get('/{uuid}/invitations', [CompanyAccessController::class, 'index']);
-            Route::post('/{uuid}/invitations', [CompanyAccessController::class, 'store'])
-                ->middleware('throttle:10,1,system-invitation-store');
-            Route::post('/{uuid}/invitations/{invitation}/resend', [CompanyAccessController::class, 'resend'])
-                ->middleware('throttle:10,1,system-invitation-resend');
-            Route::delete('/{uuid}/invitations/{invitation}', [CompanyAccessController::class, 'destroy']);
-        });
+Route::middleware(['auth:sanctum', 'system'])->prefix('system')->group(function () {
+    Route::prefix('organizations')->group(function () {
+        Route::get('/', [OrganizationController::class, 'index']);
+        Route::post('/', [OrganizationController::class, 'store']);
+        Route::get('/{uuid}', [OrganizationController::class, 'show']);
+        Route::put('/{uuid}', [OrganizationController::class, 'update']);
+        Route::post('/{uuid}/activate', [OrganizationController::class, 'activate']);
+        Route::post('/{uuid}/deactivate', [OrganizationController::class, 'deactivate']);
     });
 });

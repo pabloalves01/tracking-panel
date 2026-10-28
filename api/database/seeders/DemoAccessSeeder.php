@@ -2,28 +2,36 @@
 
 namespace Database\Seeders;
 
-use App\Models\Company;
-use App\Models\CompanyFuelStation;
-use App\Models\CompanyUser;
-use App\Models\FuelStation;
-use App\Models\FuelStationUser;
+use App\Enums\OrganizationType;
+use App\Models\FuelSupplyLink;
 use App\Models\Invitation;
+use App\Models\Membership;
+use App\Models\Organization;
 use App\Models\User;
-use App\Support\Membership;
 use Illuminate\Database\Seeder;
 
 /**
  * Contas de demonstração. A senha de todas é mesquita2016.
  *
- * - logiv@logiv.com.br: administrador do sistema
- * - ana@melo.test: proprietária da Transportes Melo e membro do Posto Exemplo
- * - bruno@melo.test: membro da Transportes Melo
- * - carla@posto.test: proprietária do Posto Exemplo
- * - eduardo@posto.test: proprietário do Posto Norte (pedido de vínculo pendente)
- * - diego@melo.test: convite pendente de membro. O link é /auth/convite/convite-demo-diego
+ * Cobre todos os caminhos que a tela de escolher organização precisa
+ * mostrar: uma organização só, várias organizações, convite pendente e
+ * conta que ainda não existe.
+ *
+ * | Conta                 | Situação                                            |
+ * |-----------------------|-----------------------------------------------------|
+ * | logiv@logiv.com.br    | admin do sistema, sem organização                   |
+ * | ana@melo.test         | Transportes Melo e Posto Exemplo — dois contextos   |
+ * | bruno@melo.test       | só a Transportes Melo — entra direto                |
+ * | carla@posto.test      | só o Posto Exemplo — entra direto                   |
+ * | eduardo@posto.test    | Posto Norte, com pedido de convênio pendente        |
+ * | diego@melo.test       | sem conta; convite pendente em /auth/convite/convite-demo-diego |
  */
 class DemoAccessSeeder extends Seeder
 {
+    private const PASSWORD = 'mesquita2016';
+
+    private const DIEGO_TOKEN = 'convite-demo-diego';
+
     public function run(): void
     {
         $ana = $this->user('Ana Melo', 'ana@melo.test');
@@ -31,87 +39,80 @@ class DemoAccessSeeder extends Seeder
         $carla = $this->user('Carla Posto', 'carla@posto.test');
         $eduardo = $this->user('Eduardo Norte', 'eduardo@posto.test');
 
-        $company = Company::query()->create([
-            'legal_name' => 'Transportes Melo LTDA',
-            'trade_name' => 'Transportes Melo',
-            'cnpj' => '00000000000191',
-            'status' => 'active',
-        ]);
+        $melo = $this->organization(OrganizationType::Company, '00000000000191', 'Transportes Melo LTDA', 'Transportes Melo');
+        $exemplo = $this->organization(OrganizationType::FuelStation, '11222333000181', 'Posto Exemplo LTDA', 'Posto Exemplo');
+        $norte = $this->organization(OrganizationType::FuelStation, '19131243000197', 'Posto Norte LTDA', 'Posto Norte');
 
-        CompanyUser::query()->create([
-            'company_id' => $company->id,
-            'user_id' => $ana->id,
-            'role' => Membership::OWNER,
-            'status' => Membership::ACTIVE,
-        ]);
-        CompanyUser::query()->create([
-            'company_id' => $company->id,
-            'user_id' => $bruno->id,
-            'role' => Membership::MEMBER,
-            'status' => Membership::ACTIVE,
-        ]);
+        // Ana tem dois contextos: cai no seletor de organização.
+        $this->member($melo, $ana);
+        $this->member($exemplo, $ana);
 
-        $exemplo = $this->station('19131243000197', 'POSTO EXEMPLO LTDA', 'Posto Exemplo');
-        $norte = $this->station('34028316000103', 'POSTO NORTE LTDA', 'Posto Norte');
+        // Bruno e Carla têm um só: entram direto.
+        $this->member($melo, $bruno);
+        $this->member($exemplo, $carla);
+        $this->member($norte, $eduardo);
 
-        FuelStationUser::query()->create([
-            'fuel_station_id' => $exemplo->id,
-            'user_id' => $carla->id,
-            'role' => Membership::OWNER,
-            'status' => Membership::ACTIVE,
-        ]);
-        FuelStationUser::query()->create([
-            'fuel_station_id' => $exemplo->id,
-            'user_id' => $ana->id,
-            'role' => Membership::MEMBER,
-            'status' => Membership::ACTIVE,
-        ]);
-        FuelStationUser::query()->create([
-            'fuel_station_id' => $norte->id,
-            'user_id' => $eduardo->id,
-            'role' => Membership::OWNER,
-            'status' => Membership::ACTIVE,
-        ]);
+        // Um convênio ativo e um pedido esperando resposta.
+        $this->link($melo, $exemplo, FuelSupplyLink::ACTIVE);
+        $this->link($melo, $norte, FuelSupplyLink::REQUEST_SENT);
 
-        CompanyFuelStation::query()->create([
-            'company_id' => $company->id,
-            'fuel_station_id' => $exemplo->id,
-            'status' => 'active',
-        ]);
-        CompanyFuelStation::query()->create([
-            'company_id' => $company->id,
-            'fuel_station_id' => $norte->id,
-            'status' => 'request_sent',
-        ]);
-
+        // Convite para quem ainda não tem conta. O token é fixo para dar
+        // para abrir o link direto, sem procurar no log.
         Invitation::query()->create([
-            'company_id' => $company->id,
+            'organization_id' => $melo->getKey(),
             'email' => 'diego@melo.test',
-            'role' => Membership::MEMBER,
+            'token_hash' => hash('sha256', self::DIEGO_TOKEN),
             'status' => Invitation::PENDING,
-            'token_hash' => hash('sha256', 'convite-demo-diego'),
             'expires_at' => now()->addDays(Invitation::DAYS),
-            'invited_by' => $ana->id,
+            'invited_by' => $ana->getKey(),
         ]);
+
+        $this->command?->info('Convite de demonstração: /auth/convite/'.self::DIEGO_TOKEN);
     }
 
     private function user(string $name, string $email): User
     {
-        return User::query()->create([
+        $user = User::query()->create([
             'name' => $name,
             'email' => $email,
-            'password' => 'mesquita2016',
-            'email_verified_at' => now(),
+            'password' => self::PASSWORD,
+        ]);
+
+        $user->forceFill(['email_verified_at' => now()])->save();
+
+        return $user;
+    }
+
+    private function organization(
+        OrganizationType $type,
+        string $document,
+        string $legalName,
+        string $tradeName,
+    ): Organization {
+        return Organization::query()->create([
+            'type' => $type,
+            'document' => $document,
+            'legal_name' => $legalName,
+            'trade_name' => $tradeName,
+            'status' => Organization::ACTIVE,
         ]);
     }
 
-    private function station(string $cnpj, string $corporateName, string $tradeName): FuelStation
+    private function member(Organization $organization, User $user): Membership
     {
-        return FuelStation::query()->create([
-            'cnpj' => $cnpj,
-            'corporate_name' => $corporateName,
-            'trade_name' => $tradeName,
-            'status' => 'active',
+        return Membership::query()->create([
+            'organization_id' => $organization->getKey(),
+            'user_id' => $user->getKey(),
+            'status' => Membership::ACTIVE,
+        ]);
+    }
+
+    private function link(Organization $company, Organization $station, string $status): FuelSupplyLink
+    {
+        return FuelSupplyLink::query()->create([
+            'company_id' => $company->getKey(),
+            'station_id' => $station->getKey(),
+            'status' => $status,
         ]);
     }
 }

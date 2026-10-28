@@ -32,7 +32,7 @@ export default function RegisterFuelStationPage() {
   const [retryAfter, setRetryAfter] = useState(60)
   const [codeError, setCodeError] = useState("")
 
-  const cnpjReady = station?.cnpj === cnpj
+  const cnpjReady = station?.document === cnpj || station?.cnpj === cnpj
 
   useEffect(() => {
     if (!localStorage.getItem("token")) return
@@ -88,7 +88,7 @@ export default function RegisterFuelStationPage() {
 
   async function finishSignup(code) {
     const result = await storeStationSignup({
-      cnpj: station.cnpj,
+      cnpj: station.document ?? station.cnpj,
       name,
       email,
       password,
@@ -106,7 +106,7 @@ export default function RegisterFuelStationPage() {
 
     try {
       if (loggedIn) {
-        const result = await storeStationForUser(station.cnpj)
+        const result = await storeStationForUser(station.document ?? station.cnpj)
         notifySuccess(result)
         window.location.assign("/posto")
         return
@@ -187,7 +187,7 @@ export default function RegisterFuelStationPage() {
                     </Field>
                     {cnpjReady ? (
                       <div className="space-y-1 text-sm text-muted-foreground">
-                        <p className="font-medium text-foreground">{station.corporate_name}</p>
+                        <p className="font-medium text-foreground">{station.legal_name ?? station.razao_social}</p>
                         {station.trade_name ? <p>{station.trade_name}</p> : null}
                         <p>
                           {[station.street, station.number, station.complement, station.district, station.zip_code]

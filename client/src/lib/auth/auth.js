@@ -1,5 +1,13 @@
 import { api } from '../api'
 
+/**
+ * Entrar, sair e escolher a organização da sessão.
+ *
+ * Eram três módulos — `auth`, `session` e `stationSession` — com rotas
+ * separadas para empresa e posto. A API agora devolve tudo resolvido numa
+ * resposta só.
+ */
+
 export function login(credentials) {
     return api.post('/auth/login', credentials).then((response) => {
         localStorage.setItem('token', response.data.token)
@@ -7,24 +15,23 @@ export function login(credentials) {
     })
 }
 
+/** Usuário, organização atual, organizações disponíveis e convites pendentes. */
 export function me() {
-    return api.get('/auth/me').then((response) => response.data.data)
+    return api.get('/auth/me').then((response) => response.data)
 }
 
-export function getAuthCompanies() {
-    return api.get('/auth/companies').then((response) => response.data.data)
+export function getOrganizations() {
+    return api.get('/auth/organizations').then((response) => response.data)
 }
 
-export function selectCompany(uuid) {
-    return api.post('/auth/company', { uuid }).then((response) => response.data.data)
-}
-
-export function getAuthContexts() {
-    return api.get('/auth/contexts').then((response) => response.data)
-}
-
-export function selectFuelStation(uuid) {
-    return api.post('/auth/station', { uuid }).then((response) => response.data.data)
+/**
+ * Troca a organização da sessão.
+ *
+ * Devolve `redirect_to`, então o client navega normalmente em vez de
+ * recarregar a página inteira com `location.assign`.
+ */
+export function selectOrganization(uuid) {
+    return api.post('/auth/organization', { uuid }).then((response) => response.data)
 }
 
 export function logout() {

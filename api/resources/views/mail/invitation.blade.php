@@ -38,7 +38,7 @@
 
     {{-- Preheader: o trecho que o cliente mostra ao lado do assunto. --}}
     <div style="display:none;max-height:0;overflow:hidden;opacity:0;">
-        Você foi convidado como {{ $roleLabel }} em {{ $organization }}. O convite vale até {{ $expiresAt }}.
+        Você foi convidado para {{ $organization }}. O convite vale até {{ $expiresAt }}.
         &#8203;&#8203;&#8203;&#8203;&#8203;&#8203;&#8203;&#8203;&#8203;&#8203;&#8203;&#8203;&#8203;&#8203;&#8203;
     </div>
 
@@ -79,20 +79,19 @@
                                     </td>
                                 </tr>
 
-                                {{-- O papel, com uma linha do que ele permite. --}}
+                                {{-- Que tipo de organização é. Quem recebe o
+                                     convite nem sempre sabe se está entrando
+                                     numa transportadora ou num posto. --}}
                                 <tr>
                                     <td class="sm-pad" style="padding:24px 40px 0;">
                                         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="dm-panel dm-border" style="background-color:#f7f9fc;border:1px solid #e4e9f0;border-radius:10px;">
                                             <tr>
                                                 <td style="padding:16px 18px;">
                                                     <p class="dm-muted" style="margin:0 0 4px;font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.08em;color:#667085;text-transform:uppercase;">
-                                                        Seu acesso
+                                                        {{ $organizationKind }}
                                                     </p>
                                                     <p class="dm-text" style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:700;color:#101828;">
-                                                        {{ $roleLabel }}
-                                                    </p>
-                                                    <p class="dm-muted" style="margin:4px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#475467;">
-                                                        {{ $roleSummary }}
+                                                        {{ $organization }}
                                                     </p>
                                                 </td>
                                             </tr>

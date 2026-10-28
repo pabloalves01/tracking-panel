@@ -1,129 +1,105 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router'
+import { CopyIcon } from 'lucide-react'
 
 import { LayoutToolbar } from '@/components/common/LayoutToolbar'
-import { LoadingWrapper } from '@/components/common/LoadingWrapper'
-import { Field, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field'
+import { Button } from '@/components/ui/button'
+import {
+    Field,
+    FieldDescription,
+    FieldGroup,
+    FieldLabel,
+    FieldLegend,
+    FieldSet,
+} from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { memberApi } from '@/lib/access/members'
+import { createInvitation } from '@/lib/access/members'
+import { useSession } from '@/lib/auth/session'
 import { copyText, notifyError, notifySuccess } from '@/lib/notify'
 
-function looksLikeEmail(email) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-}
-
-export default function InviteFormPage({ breadcrumbs, listPath, apiBase, roleOptions }) {
+/**
+ * Convidar uma pessoa para a organização ativa.
+ *
+ * Um e-mail por vez: o convite em lote chegou a existir e foi rejeitado —
+ * o padrão aqui é um registro por formulário.
+ *
+ * Sem escolha de papel: todo membro tem o mesmo acesso por enquanto.
+ */
+export default function InviteFormPage() {
     const navigate = useNavigate()
-    const access = useMemo(() => memberApi(apiBase), [apiBase])
-    const [loading, setLoading] = useState(false)
+    const { current_organization: organization } = useSession()
     const [email, setEmail] = useState('')
-    const [role, setRole] = useState(roleOptions[0]?.value ?? 'member')
-    const [accountExists, setAccountExists] = useState(false)
+    const [saving, setSaving] = useState(false)
 
-    useEffect(() => {
-        if (!looksLikeEmail(email)) {
-            setAccountExists(false)
-            return undefined
-        }
-
-        let cancelled = false
-        const timer = setTimeout(() => {
-            access.lookup(email.trim())
-                .then((result) => {
-                    if (!cancelled) setAccountExists(Boolean(result?.account_exists))
-                })
-                .catch(() => {
-                    if (!cancelled) setAccountExists(false)
-                })
-        }, 400)
-
-        return () => {
-            cancelled = true
-            clearTimeout(timer)
-        }
-    }, [access, email])
+    const basePath = organization?.home_path ?? '/app'
+    const listPath = `${basePath}/usuarios`
 
     async function handleSubmit(event) {
         event.preventDefault()
-        setLoading(true)
+        setSaving(true)
 
         try {
-            const response = await access.invite({ email: email.trim(), role })
-            const created = response.data ?? response
-            const url = created.invite_url
-            const exists = Boolean(created.account_exists)
-            notifySuccess(
-                { message: exists ? 'Convite enviado. Esta pessoa já tem conta e só precisa aceitar.' : 'Convite enviado' },
-                url ? { action: { label: 'Copiar link', onClick: () => copyText(url) } } : undefined,
-            )
+            const response = await createInvitation(email.trim())
+            const url = response.data?.invite_url
+
+            notifySuccess(response)
+
+            // O link fica à mão para quem quiser mandar por outro canal —
+            // o e-mail às vezes demora ou cai no spam.
+            if (url) {
+                copyText(url, 'Link do convite copiado')
+            }
+
             navigate(`${listPath}?aba=convites`)
         } catch (error) {
             notifyError(error)
-        } finally {
-            setLoading(false)
+            setSaving(false)
         }
     }
 
     return (
         <>
             <LayoutToolbar
-                breadcrumbs={breadcrumbs}
+                breadcrumbs={[
+                    { text: 'Início', to: basePath },
+                    { text: 'Usuários', to: listPath },
+                    { text: 'Convidar' },
+                ]}
                 buttons={[
-                    { title: 'Cancelar', variant: 'outline', to: listPath },
+                    { title: 'Cancelar', variant: 'ghost', to: listPath },
                     {
-                        title: 'Salvar',
-                        permission: 'write',
-                        onClick: () => document.getElementById('invite-form')?.requestSubmit(),
+                        title: saving ? 'Enviando…' : 'Enviar convite',
+                        onClick: handleSubmit,
+                        disabled: saving || !email.trim(),
                     },
                 ]}
             />
 
-            <LoadingWrapper loading={loading}>
-                <form id="invite-form" className="flex w-full flex-col gap-10" onSubmit={handleSubmit}>
-                    <FieldSet>
-                        <FieldLegend variant="label">Novo usuário</FieldLegend>
-                        <FieldDescription>
-                            Um e-mail por convite. Quem já tem conta na Logiv só precisa aceitar. O link vale 7 dias.
-                        </FieldDescription>
-                        <FieldGroup className="md:grid grid-cols-1 md:grid-cols-12">
-                            <Field className="col-span-12 md:col-span-6">
-                                <FieldLabel htmlFor="invite-email">E-mail</FieldLabel>
-                                <Input
-                                    id="invite-email"
-                                    name="email"
-                                    type="email"
-                                    value={email}
-                                    placeholder="Ex: ana@empresa.com.br"
-                                    autoComplete="off"
-                                    required
-                                    onChange={(event) => setEmail(event.target.value)}
-                                />
-                                {accountExists ? (
-                                    <FieldDescription>Já tem conta, só vai aceitar.</FieldDescription>
-                                ) : null}
-                            </Field>
-                            <Field className="col-span-12 md:col-span-6">
-                                <FieldLabel htmlFor="invite-role">Papel</FieldLabel>
-                                <Select items={roleOptions} value={role} onValueChange={setRole}>
-                                    <SelectTrigger id="invite-role" className="w-full">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectGroup>
-                                            {roleOptions.map((option) => (
-                                                <SelectItem key={option.value} value={option.value}>
-                                                    {option.label}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectGroup>
-                                    </SelectContent>
-                                </Select>
-                            </Field>
-                        </FieldGroup>
-                    </FieldSet>
-                </form>
-            </LoadingWrapper>
+            <form onSubmit={handleSubmit} className="max-w-xl">
+                <FieldSet>
+                    <FieldLegend variant="label">Quem você quer convidar</FieldLegend>
+                    <FieldGroup>
+                        <Field>
+                            <FieldLabel htmlFor="email">E-mail</FieldLabel>
+                            <Input
+                                id="email"
+                                type="email"
+                                value={email}
+                                onChange={(event) => setEmail(event.target.value)}
+                                placeholder="nome@empresa.com.br"
+                                autoFocus
+                                required
+                            />
+                            <FieldDescription>
+                                A pessoa recebe um link para entrar em{' '}
+                                {organization?.display_name ?? 'sua organização'}. Se ela já tiver
+                                conta no LogIV, é só aceitar; se não, cria a conta na hora.
+                                O convite vale por 7 dias.
+                            </FieldDescription>
+                        </Field>
+                    </FieldGroup>
+                </FieldSet>
+            </form>
         </>
     )
 }

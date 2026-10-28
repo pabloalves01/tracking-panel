@@ -7,22 +7,29 @@ import { ThemeToggle } from "@/components/layout/ThemeToggle"
 import { Button } from "@/components/ui/button"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { getAuthContexts, login, logout, me } from "@/lib/auth/auth"
+import { login, logout, me } from "@/lib/auth/auth"
 import { safeInternalPath } from "@/lib/auth/redirect"
 import { apiMessage } from "@/lib/notify"
 
 const REMEMBERED_EMAIL = "logiv.email"
 
-function routeAfterLogin({ user, companies = [], fuel_stations: stations = [], invitations = [] }, redirect) {
+/**
+ * Para onde ir depois de entrar.
+ *
+ * Com uma organização só e nenhum convite pendente, a API já selecionou a
+ * organização no token — então dá para ir direto. Nos demais casos, a
+ * pessoa escolhe.
+ */
+function routeAfterLogin({ user, organizations = [], invitations = [] }, redirect) {
   if (redirect) return redirect
-  if (invitations.length > 0) return "/auth/contextos"
+  if (invitations.length > 0) return "/auth/organizacoes"
 
-  const total = companies.length + stations.length
+  if (organizations.length === 1) return organizations[0].home_path
 
-  if (total === 1) return stations.length === 1 ? "/posto" : "/app"
-  if (total === 0 && user?.is_system_admin) return "/app"
+  // Admin do sistema sem organização entra direto nas telas de Sistema.
+  if (organizations.length === 0 && user?.is_system_admin) return "/app/sistema/organizacoes"
 
-  return "/auth/contextos"
+  return "/auth/organizacoes"
 }
 
 export default function LoginPage() {
@@ -52,23 +59,17 @@ export default function LoginPage() {
     const lockedEmail = (params.get("email") || "").trim().toLowerCase()
 
     me()
-      .then(async (user) => {
+      .then(async (session) => {
         if (!active) return
+
+        const user = session.user
 
         if (emailLocked && lockedEmail && user?.email?.toLowerCase() !== lockedEmail) {
           await logout()
           return
         }
 
-        const contexts = await getAuthContexts()
-        if (!active) return
-
-        navigate(routeAfterLogin({
-          user,
-          companies: contexts.companies ?? [],
-          fuel_stations: contexts.fuel_stations ?? [],
-          invitations: contexts.invitations ?? [],
-        }, redirect), { replace: true })
+        navigate(routeAfterLogin(session, redirect), { replace: true })
       })
       .catch(() => {
         localStorage.removeItem("token")

@@ -1,7 +1,6 @@
 <?php
 
-use App\Http\Middleware\EnsureCompanySelected;
-use App\Http\Middleware\EnsureFuelStationSelected;
+use App\Http\Middleware\EnsureOrganization;
 use App\Http\Middleware\EnsureSystemAdmin;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
@@ -23,9 +22,11 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
-            'ensure.company' => EnsureCompanySelected::class, // Verifica se a empresa está selecionada
-            'ensure.station' => EnsureFuelStationSelected::class, // Verifica se o posto está selecionado
-            'ensure.system' => EnsureSystemAdmin::class, // Verifica se o usuário é um administrador do sistema
+            // 'organization' exige uma organização selecionada e vínculo
+            // ativo; com parâmetro — 'organization:company' — exige também
+            // o tipo. Antes eram dois middlewares quase idênticos.
+            'organization' => EnsureOrganization::class,
+            'system' => EnsureSystemAdmin::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -2,13 +2,11 @@ import { LayoutToolbar } from "@/components/common/LayoutToolbar"
 import { Badge } from "@/components/ui/badge"
 import { formatCpfCnpj } from "@/helpers/formatters"
 import { useSession } from "@/lib/auth/session"
-import { useStationSession } from "@/lib/auth/stationSession"
 
 export default function StationHome() {
-    const { user } = useSession()
-    const { station } = useStationSession()
+    const { user, current_organization: station } = useSession()
     const firstName = user?.name?.split(" ")[0]
-    const stationName = station.trade_name || station.corporate_name
+    const stationName = station?.display_name
 
     return (
         <>
@@ -29,9 +27,9 @@ export default function StationHome() {
                     </Badge>
                 </div>
                 <dl className="grid gap-4 px-5 py-4 sm:grid-cols-2">
-                    <Item label="Razão social" value={station.corporate_name} />
-                    <Item label="Nome fantasia" value={station.trade_name} />
-                    <Item label="CNPJ" value={formatCpfCnpj(station.cnpj)} />
+                    <Item label="Razão social" value={station?.legal_name} />
+                    <Item label="Nome fantasia" value={station?.trade_name} />
+                    <Item label="CNPJ" value={formatCpfCnpj(station?.document)} />
                     <Item label="Endereço" value={addressOf(station)} className="sm:col-span-2" />
                 </dl>
             </section>

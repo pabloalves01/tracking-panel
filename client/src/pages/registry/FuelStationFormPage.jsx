@@ -7,7 +7,7 @@ import { LoadingWrapper } from '@/components/common/LoadingWrapper'
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
-import { lookupCompanyFuelStation, storeCompanyFuelStation } from '@/lib/registry/fuelStations'
+import { lookupFuelStation, requestFuelSupplyLink } from '@/lib/registry/fuelStations'
 import { notifyError, notifySuccess } from '@/lib/notify'
 
 const listPath = '/app/cadastros/entidades/postos'
@@ -61,7 +61,7 @@ export default function FuelStationFormPage() {
         setCnpjError('')
         setLoading(true)
 
-        lookupCompanyFuelStation(cnpj)
+        lookupFuelStation(cnpj)
             .then((data) => {
                 if (cancelled) {
                     return
@@ -76,7 +76,7 @@ export default function FuelStationFormPage() {
                 }
 
                 setStation(null)
-                const message = fieldError(error, 'cnpj')
+                const message = fieldError(error, 'document')
 
                 if (message) {
                     setCnpjError(message)
@@ -105,11 +105,11 @@ export default function FuelStationFormPage() {
         setLoading(true)
 
         try {
-            const response = await storeCompanyFuelStation(cnpj)
+            const response = await requestFuelSupplyLink(cnpj)
             notifySuccess(response)
             navigate(listPath)
         } catch (error) {
-            const message = fieldError(error, 'cnpj')
+            const message = fieldError(error, 'document')
 
             if (message) {
                 setCnpjError(message)
@@ -176,7 +176,7 @@ export default function FuelStationFormPage() {
                                     </Field>
                                     <Field className="col-span-12 md:col-span-4">
                                         <FieldLabel htmlFor="posto-corporate-name">Razão social</FieldLabel>
-                                        <Input id="posto-corporate-name" value={station.corporate_name ?? ''} disabled />
+                                        <Input id="posto-corporate-name" value={station.legal_name ?? ''} disabled />
                                     </Field>
                                     <Field className="col-span-12 md:col-span-4">
                                         <FieldLabel htmlFor="posto-trade-name">Nome fantasia</FieldLabel>

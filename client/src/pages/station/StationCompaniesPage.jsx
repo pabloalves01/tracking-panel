@@ -23,7 +23,7 @@ import { acceptStationCompany, disconnectStationCompany, getStationCompanies, re
 import { notifyError, notifySuccess } from "@/lib/notify"
 
 function companyLabel(link) {
-    return link?.company?.trade_name || link?.company?.legal_name || "esta empresa"
+    return link?.company?.display_name || "esta empresa"
 }
 
 export default function StationCompaniesPage() {
@@ -51,7 +51,7 @@ export default function StationCompaniesPage() {
         setLoading(true)
 
         try {
-            notifySuccess(await acceptStationCompany(link.company.uuid))
+            notifySuccess(await acceptStationCompany(link.uuid))
             loadLinks()
         } catch (error) {
             notifyError(error)
@@ -64,7 +64,7 @@ export default function StationCompaniesPage() {
         setLoading(true)
 
         try {
-            notifySuccess(await rejectStationCompany(linkToReject.company.uuid))
+            notifySuccess(await rejectStationCompany(linkToReject.uuid))
             loadLinks()
         } catch (error) {
             notifyError(error)
@@ -82,7 +82,7 @@ export default function StationCompaniesPage() {
         setLoading(true)
 
         try {
-            const response = await disconnectStationCompany(linkToUndo.company.uuid)
+            const response = await disconnectStationCompany(linkToUndo.uuid)
             notifySuccess(response)
             loadLinks()
         } catch (error) {
@@ -122,11 +122,11 @@ export default function StationCompaniesPage() {
                         </TableHeader>
                         <TableBody>
                             {links.map((link) => (
-                                <TableRow key={link.company.uuid}>
+                                <TableRow key={link.uuid}>
                                     <TableCell>
-                                        {link.company.trade_name || link.company.legal_name}
+                                        {link.company.display_name}
                                     </TableCell>
-                                    <TableCell>{formatCpfCnpj(link.company.cnpj)}</TableCell>
+                                    <TableCell>{formatCpfCnpj(link.company.document)}</TableCell>
                                     <TableCell>
                                         <Badge variant="outline" className={statusBadgeClass(link.status)}>
                                             {linkStatusLabel[link.status] ?? link.status}

@@ -57,7 +57,6 @@ export const navigation = [
                 title: 'Usuários',
                 path: 'usuarios',
                 icon: UsersIcon,
-                roles: ['owner', 'admin'],
             },
         ],
     },
@@ -187,8 +186,8 @@ export const navigation = [
         access: 'system',
         items: [
             {
-                title: 'Empresas',
-                path: 'sistema/empresas',
+                title: 'Organizações',
+                path: 'sistema/organizacoes',
                 icon: BuildingIcon,
             },
         ],

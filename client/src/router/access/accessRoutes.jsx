@@ -1,14 +1,11 @@
-import CompanyInvitePage from '@/pages/access/CompanyInvitePage'
-import CompanyMembersPage from '@/pages/access/CompanyMembersPage'
+import InviteFormPage from '@/pages/access/InviteFormPage'
+import MembersPage from '@/pages/access/MembersPage'
 
-import { RequireManager } from '../RequireManager'
-
+/**
+ * Usuários e convites da organização ativa. Sem guard de papel: todo membro
+ * gerencia, por enquanto.
+ */
 export default [
-    {
-        element: <RequireManager home="/app" />,
-        children: [
-            { path: 'usuarios', element: <CompanyMembersPage /> },
-            { path: 'usuarios/convidar', element: <CompanyInvitePage /> },
-        ],
-    },
+    { path: 'usuarios', element: <MembersPage /> },
+    { path: 'usuarios/convidar', element: <InviteFormPage /> },
 ]

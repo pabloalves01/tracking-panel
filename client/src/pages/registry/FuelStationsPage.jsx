@@ -19,14 +19,18 @@ import { linkStatusLabel, statusBadgeClass } from '@/helpers/labels/linkStatusLa
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { formatCpfCnpj } from '@/helpers/formatters'
-import { deleteCompanyFuelStation, disconnectCompanyFuelStation, getCompanyFuelStations, resendCompanyFuelStationRequest } from '@/lib/registry/fuelStations'
+import {
+    cancelFuelSupplyLink,
+    disconnectFuelSupplyLink,
+    getFuelSupplyLinks,
+    requestFuelSupplyLink,
+} from '@/lib/registry/fuelStations'
 import { notifyError, notifySuccess } from '@/lib/notify'
 
 const listPath = '/app/cadastros/entidades/postos'
 
 function stationLabel(link) {
-    return link?.fuel_station?.trade_name
-        || link?.fuel_station?.corporate_name
+    return link?.station?.display_name
         || 'Posto excluído'
 }
 
@@ -41,7 +45,7 @@ export default function FuelStationsPage() {
 
     function loadLinks() {
         setLoading(true)
-        getCompanyFuelStations()
+        getFuelSupplyLinks()
             .then(setLinks)
             .catch(notifyError)
             .finally(() => setLoading(false))
@@ -54,9 +58,11 @@ export default function FuelStationsPage() {
         setLoading(true)
 
         try {
+            // O uuid é o do vínculo, não o do posto: é o vínculo que tem
+            // estado, e é dele que a ação fala.
             const response = linkToRemove.status === 'active'
-                ? await disconnectCompanyFuelStation(linkToRemove.fuel_station.uuid)
-                : await deleteCompanyFuelStation(linkToRemove.fuel_station.uuid)
+                ? await disconnectFuelSupplyLink(linkToRemove.uuid)
+                : await cancelFuelSupplyLink(linkToRemove.uuid)
             notifySuccess(response)
             loadLinks()
         } catch (error) {
@@ -71,7 +77,7 @@ export default function FuelStationsPage() {
         setLoading(true)
 
         try {
-            const response = await resendCompanyFuelStationRequest(link.fuel_station.uuid)
+            const response = await requestFuelSupplyLink(link.station.document)
             notifySuccess(response)
             loadLinks()
         } catch (error) {
@@ -119,7 +125,7 @@ export default function FuelStationsPage() {
                             {links.map((link) => (
                                 <TableRow key={link.uuid}>
                                     <TableCell>{stationLabel(link)}</TableCell>
-                                    <TableCell>{formatCpfCnpj(link.cnpj)}</TableCell>
+                                    <TableCell>{formatCpfCnpj(link.station?.document)}</TableCell>
                                     <TableCell>
                                         <Badge variant="outline" className={statusBadgeClass(link.status)}>
                                             {linkStatusLabel[link.status] ?? link.status}
@@ -127,7 +133,7 @@ export default function FuelStationsPage() {
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-2">
-                                            {link.status === 'request_sent' && link.fuel_station?.uuid ? (
+                                            {link.status === 'request_sent' && link.station?.uuid ? (
                                                 <ActionButton
                                                     icon={Trash2Icon}
                                                     tooltip="Remover pedido"
@@ -135,7 +141,7 @@ export default function FuelStationsPage() {
                                                     onClick={() => setLinkToRemove(link)}
                                                 />
                                             ) : null}
-                                            {link.status === 'active' && link.fuel_station?.uuid ? (
+                                            {link.status === 'active' && link.station?.uuid ? (
                                                 <ActionButton
                                                     icon={Link2Off}
                                                     tooltip="Encerrar conexão"
@@ -143,7 +149,7 @@ export default function FuelStationsPage() {
                                                     onClick={() => setLinkToRemove(link)}
                                                 />
                                             ) : null}
-                                            {(link.status === 'rejected' || link.status === 'disconnected') && link.fuel_station?.uuid ? (
+                                            {(link.status === 'rejected' || link.status === 'disconnected') && link.station?.uuid ? (
                                                 <ActionButton
                                                     icon={RefreshCw}
                                                     tooltip="Reenviar convite"
