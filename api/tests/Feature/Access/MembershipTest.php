@@ -135,7 +135,7 @@ class MembershipTest extends TestCase
     /** As mesmas regras valem no posto: são as mesmas rotas. */
     public function test_o_posto_segue_as_mesmas_regras(): void
     {
-        $this->actingAsStationMemberOf();
+        $this->actingAsFuelStationMemberOf();
         $colega = $this->addMember();
 
         $this->postJson("/api/organization/members/{$colega->uuid}/suspend")->assertOk();

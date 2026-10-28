@@ -67,13 +67,13 @@ class AccessControlTest extends TestCase
         $this->actingAsMemberOf();
 
         $this->getJson('/api/registry/entities')->assertOk();
-        $this->getJson('/api/station/companies')
+        $this->getJson('/api/fuel-station/companies')
             ->assertForbidden()
             ->assertJsonPath('code', 'organization_wrong_type');
 
-        $this->actingAsStationMemberOf();
+        $this->actingAsFuelStationMemberOf();
 
-        $this->getJson('/api/station/companies')->assertOk();
+        $this->getJson('/api/fuel-station/companies')->assertOk();
         $this->getJson('/api/registry/entities')
             ->assertForbidden()
             ->assertJsonPath('code', 'organization_wrong_type');
@@ -88,7 +88,7 @@ class AccessControlTest extends TestCase
         $this->actingAsMemberOf();
         $this->getJson('/api/organization/members')->assertOk();
 
-        $this->actingAsStationMemberOf();
+        $this->actingAsFuelStationMemberOf();
         $this->getJson('/api/organization/members')->assertOk();
     }
 

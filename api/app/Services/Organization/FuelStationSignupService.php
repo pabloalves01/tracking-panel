@@ -65,7 +65,7 @@ class FuelStationSignupService
         // cadastro falhe adiante.
         $code = $this->codes->verify(
             Text::email($data['email']),
-            VerificationCode::STATION_SIGNUP,
+            VerificationCode::FUEL_STATION_SIGNUP,
             $data['code'],
         );
 
@@ -82,27 +82,27 @@ class FuelStationSignupService
 
             $user->forceFill(['email_verified_at' => now()])->save();
 
-            $station = $this->createStation($cnpj, $payload);
+            $fuelStation = $this->createFuelStation($cnpj, $payload);
 
             Membership::query()->create([
-                'organization_id' => $station->getKey(),
+                'organization_id' => $fuelStation->getKey(),
                 'user_id' => $user->getKey(),
                 'status' => Membership::ACTIVE,
             ]);
 
-            $this->audit->log('organization.created', $station, [
+            $this->audit->log('organization.created', $fuelStation, [
                 'type' => OrganizationType::FuelStation->value,
-            ], $station->getKey());
+            ], $fuelStation->getKey());
 
             $token = $user->createToken('web');
-            $token->accessToken->forceFill(['organization_id' => $station->getKey()])->save();
+            $token->accessToken->forceFill(['organization_id' => $fuelStation->getKey()])->save();
             $user->withAccessToken($token->accessToken);
 
             return [
                 'message' => 'Posto cadastrado',
                 'token' => $token->plainTextToken,
                 'user' => $user,
-                'organization' => $station->load(['city', 'state']),
+                'organization' => $fuelStation->load(['city', 'state']),
             ];
         });
     }
@@ -118,25 +118,25 @@ class FuelStationSignupService
             $digits = $this->assertAvailable($cnpj);
             $payload = $this->brasilApi->cnpj($digits);
 
-            $station = $this->createStation($digits, $payload);
+            $fuelStation = $this->createFuelStation($digits, $payload);
 
             Membership::query()->create([
-                'organization_id' => $station->getKey(),
+                'organization_id' => $fuelStation->getKey(),
                 'user_id' => $user->getKey(),
                 'status' => Membership::ACTIVE,
             ]);
 
-            $this->audit->log('organization.created', $station, [
+            $this->audit->log('organization.created', $fuelStation, [
                 'type' => OrganizationType::FuelStation->value,
-            ], $station->getKey());
+            ], $fuelStation->getKey());
 
             $user->currentAccessToken()->forceFill([
-                'organization_id' => $station->getKey(),
+                'organization_id' => $fuelStation->getKey(),
             ])->save();
 
             return [
                 'message' => 'Posto cadastrado',
-                'organization' => $station->load(['city', 'state']),
+                'organization' => $fuelStation->load(['city', 'state']),
             ];
         });
     }
@@ -163,7 +163,7 @@ class FuelStationSignupService
     /**
      * @param  array<string, mixed>  $payload  resposta crua da BrasilAPI
      */
-    private function createStation(string $cnpj, array $payload): Organization
+    private function createFuelStation(string $cnpj, array $payload): Organization
     {
         $data = $this->normalize($cnpj, $payload);
 

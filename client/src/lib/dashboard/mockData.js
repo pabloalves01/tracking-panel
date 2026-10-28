@@ -65,13 +65,13 @@ export const fleetStatus = [
 ]
 
 /** Litros abastecidos no mês, por posto conveniado. */
-export const fuelByStation = [
-    { station: 'Rodovia BR-116', liters: 18420 },
-    { station: 'Santos Terminal', liters: 15180 },
-    { station: 'Curitiba Norte', liters: 11960 },
-    { station: 'Imbituba', liters: 9340 },
-    { station: 'Paranaguá', liters: 7210 },
-    { station: 'Joinville Sul', liters: 4880 },
+export const litersByFuelStation = [
+    { fuelStation: 'Rodovia BR-116', liters: 18420 },
+    { fuelStation: 'Santos Terminal', liters: 15180 },
+    { fuelStation: 'Curitiba Norte', liters: 11960 },
+    { fuelStation: 'Imbituba', liters: 9340 },
+    { fuelStation: 'Paranaguá', liters: 7210 },
+    { fuelStation: 'Joinville Sul', liters: 4880 },
 ]
 
 /** Sparklines dos indicadores: 14 pontos, sem eixo. */

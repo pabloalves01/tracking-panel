@@ -7,7 +7,7 @@ import { api } from '../api'
  * tem estado, e é dele que as ações falam.
  */
 
-export function getFuelSupplyLinks() {
+export function getFuelStationAgreements() {
     return api.get('/registry/fuel-stations').then((response) => response.data.data)
 }
 
@@ -18,15 +18,15 @@ export function lookupFuelStation(document) {
         .then((response) => response.data.data)
 }
 
-export function requestFuelSupplyLink(document) {
+export function requestFuelStationAgreement(document) {
     return api.post('/registry/fuel-stations', { document }).then((response) => response.data)
 }
 
 /** Cancela um pedido que o posto ainda não respondeu. */
-export function cancelFuelSupplyLink(uuid) {
+export function cancelFuelStationAgreement(uuid) {
     return api.delete(`/registry/fuel-stations/${uuid}`).then((response) => response.data)
 }
 
-export function disconnectFuelSupplyLink(uuid) {
+export function disconnectFuelStationAgreement(uuid) {
     return api.post(`/registry/fuel-stations/${uuid}/disconnect`).then((response) => response.data)
 }

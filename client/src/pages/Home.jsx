@@ -39,7 +39,7 @@ import {
 import {
     deliveriesByWeek,
     financeSummary,
-    fuelByStation,
+    litersByFuelStation,
     indicators,
     needsAttention,
     operationsByDay,
@@ -230,14 +230,14 @@ export default function Home() {
                     <CardContent>
                         <ChartContainer config={fuelConfig} className="aspect-auto h-[200px] w-full">
                             <BarChart
-                                data={fuelByStation}
+                                data={litersByFuelStation}
                                 layout="vertical"
                                 margin={{ left: 4, right: 56, top: 4 }}
                             >
                                 <XAxis type="number" hide />
                                 <YAxis
                                     type="category"
-                                    dataKey="station"
+                                    dataKey="fuelStation"
                                     tickLine={false}
                                     axisLine={false}
                                     tickMargin={6}

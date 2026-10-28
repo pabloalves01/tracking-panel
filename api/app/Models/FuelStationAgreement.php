@@ -13,7 +13,7 @@ use Override;
  * (rejected); qualquer um dos dois encerra (disconnected). De rejected ou
  * disconnected, a empresa pode reenviar.
  */
-class FuelSupplyLink extends Model
+class FuelStationAgreement extends Model
 {
     use HasUuids;
 
@@ -27,7 +27,7 @@ class FuelSupplyLink extends Model
 
     protected $fillable = [
         'company_id',
-        'station_id',
+        'fuel_station_id',
         'status',
     ];
 
@@ -36,9 +36,9 @@ class FuelSupplyLink extends Model
         return $this->belongsTo(Organization::class, 'company_id');
     }
 
-    public function station()
+    public function fuelStation()
     {
-        return $this->belongsTo(Organization::class, 'station_id');
+        return $this->belongsTo(Organization::class, 'fuel_station_id');
     }
 
     #[Override]

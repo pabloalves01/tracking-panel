@@ -9,7 +9,7 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class StationSignupExistingAccountMail extends Mailable implements ShouldQueue
+class FuelStationSignupExistingAccountMail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
 
@@ -23,8 +23,8 @@ class StationSignupExistingAccountMail extends Mailable implements ShouldQueue
     public function content(): Content
     {
         return new Content(
-            html: 'mail.station-signup-existing-account',
-            text: 'mail.station-signup-existing-account-text',
+            html: 'mail.fuel-station-signup-existing-account',
+            text: 'mail.fuel-station-signup-existing-account-text',
         );
     }
 }

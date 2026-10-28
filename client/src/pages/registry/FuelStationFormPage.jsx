@@ -7,12 +7,12 @@ import { LoadingWrapper } from '@/components/common/LoadingWrapper'
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
-import { lookupFuelStation, requestFuelSupplyLink } from '@/lib/registry/fuelStations'
+import { lookupFuelStation, requestFuelStationAgreement } from '@/lib/registry/fuelStations'
 import { notifyError, notifySuccess } from '@/lib/notify'
 
 const listPath = '/app/cadastros/entidades/postos'
 
-const stationStatusLabel = {
+const fuelStationStatusLabel = {
     active: 'Ativo',
     inactive: 'Inativo',
 }
@@ -47,17 +47,17 @@ export default function FuelStationFormPage() {
     const [loading, setLoading] = useState(false)
     const [cnpj, setCnpj] = useState('')
     const [cnpjError, setCnpjError] = useState('')
-    const [station, setStation] = useState(null)
+    const [fuelStation, setFuelStation] = useState(null)
 
     useEffect(() => {
         if (cnpj.length !== 14) {
-            setStation(null)
+            setFuelStation(null)
             setCnpjError('')
             return
         }
 
         let cancelled = false
-        setStation(null)
+        setFuelStation(null)
         setCnpjError('')
         setLoading(true)
 
@@ -67,7 +67,7 @@ export default function FuelStationFormPage() {
                     return
                 }
 
-                setStation(data)
+                setFuelStation(data)
                 setCnpjError('')
             })
             .catch((error) => {
@@ -75,7 +75,7 @@ export default function FuelStationFormPage() {
                     return
                 }
 
-                setStation(null)
+                setFuelStation(null)
                 const message = fieldError(error, 'document')
 
                 if (message) {
@@ -98,14 +98,14 @@ export default function FuelStationFormPage() {
     async function handleSubmit(event) {
         event.preventDefault()
 
-        if (!station) {
+        if (!fuelStation) {
             return
         }
 
         setLoading(true)
 
         try {
-            const response = await requestFuelSupplyLink(cnpj)
+            const response = await requestFuelStationAgreement(cnpj)
             notifySuccess(response)
             navigate(listPath)
         } catch (error) {
@@ -113,7 +113,7 @@ export default function FuelStationFormPage() {
 
             if (message) {
                 setCnpjError(message)
-                setStation(null)
+                setFuelStation(null)
             } else {
                 notifyError(error)
             }
@@ -137,7 +137,7 @@ export default function FuelStationFormPage() {
                     {
                         title: 'Pedir vínculo',
                         permission: 'write',
-                        disabled: !station || Boolean(cnpjError),
+                        disabled: !fuelStation || Boolean(cnpjError),
                         onClick: () => document.getElementById('fuel-station-form')?.requestSubmit(),
                     },
                 ]}
@@ -164,30 +164,30 @@ export default function FuelStationFormPage() {
                                 />
                                 <FieldError id="posto-cnpj-error">{cnpjError}</FieldError>
                             </Field>
-                            {station ? (
+                            {fuelStation ? (
                                 <>
                                     <Field className="col-span-12 md:col-span-4">
                                         <FieldLabel htmlFor="posto-status">Situação</FieldLabel>
                                         <Input
                                             id="posto-status"
-                                            value={stationStatusLabel[station.status] ?? station.status ?? ''}
+                                            value={fuelStationStatusLabel[fuelStation.status] ?? fuelStation.status ?? ''}
                                             disabled
                                         />
                                     </Field>
                                     <Field className="col-span-12 md:col-span-4">
                                         <FieldLabel htmlFor="posto-corporate-name">Razão social</FieldLabel>
-                                        <Input id="posto-corporate-name" value={station.legal_name ?? ''} disabled />
+                                        <Input id="posto-corporate-name" value={fuelStation.legal_name ?? ''} disabled />
                                     </Field>
                                     <Field className="col-span-12 md:col-span-4">
                                         <FieldLabel htmlFor="posto-trade-name">Nome fantasia</FieldLabel>
-                                        <Input id="posto-trade-name" value={station.trade_name ?? ''} disabled />
+                                        <Input id="posto-trade-name" value={fuelStation.trade_name ?? ''} disabled />
                                     </Field>
                                 </>
                             ) : null}
                         </FieldGroup>
                     </FieldSet>
 
-                    {station ? (
+                    {fuelStation ? (
                         <>
                             <Separator />
                             <FieldSet>
@@ -196,31 +196,31 @@ export default function FuelStationFormPage() {
                                 <FieldGroup className="md:grid grid-cols-1 md:grid-cols-12">
                                     <Field className="col-span-12 md:col-span-3">
                                         <FieldLabel htmlFor="posto-zip">CEP</FieldLabel>
-                                        <Input id="posto-zip" value={formatZipCode(station.zip_code)} disabled />
+                                        <Input id="posto-zip" value={formatZipCode(fuelStation.zip_code)} disabled />
                                     </Field>
                                     <Field className="col-span-12 md:col-span-6">
                                         <FieldLabel htmlFor="posto-street">Rua</FieldLabel>
-                                        <Input id="posto-street" value={station.street ?? ''} disabled />
+                                        <Input id="posto-street" value={fuelStation.street ?? ''} disabled />
                                     </Field>
                                     <Field className="col-span-12 md:col-span-3">
                                         <FieldLabel htmlFor="posto-number">Número</FieldLabel>
-                                        <Input id="posto-number" value={station.number ?? ''} disabled />
+                                        <Input id="posto-number" value={fuelStation.number ?? ''} disabled />
                                     </Field>
                                     <Field className="col-span-12 md:col-span-6">
                                         <FieldLabel htmlFor="posto-complement">Complemento</FieldLabel>
-                                        <Input id="posto-complement" value={station.complement ?? ''} disabled />
+                                        <Input id="posto-complement" value={fuelStation.complement ?? ''} disabled />
                                     </Field>
                                     <Field className="col-span-12 md:col-span-6">
                                         <FieldLabel htmlFor="posto-district">Bairro</FieldLabel>
-                                        <Input id="posto-district" value={station.district ?? ''} disabled />
+                                        <Input id="posto-district" value={fuelStation.district ?? ''} disabled />
                                     </Field>
                                     <Field className="col-span-12 md:col-span-6">
                                         <FieldLabel htmlFor="posto-uf">Estado</FieldLabel>
-                                        <Input id="posto-uf" value={station.uf ?? ''} disabled />
+                                        <Input id="posto-uf" value={fuelStation.uf ?? ''} disabled />
                                     </Field>
                                     <Field className="col-span-12 md:col-span-6">
                                         <FieldLabel htmlFor="posto-city">Cidade</FieldLabel>
-                                        <Input id="posto-city" value={station.city_name ?? ''} disabled />
+                                        <Input id="posto-city" value={fuelStation.city_name ?? ''} disabled />
                                     </Field>
                                 </FieldGroup>
                             </FieldSet>

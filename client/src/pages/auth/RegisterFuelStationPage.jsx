@@ -10,7 +10,7 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { CodeStep } from "@/components/auth/CodeStep"
 import { me } from "@/lib/auth/auth"
-import { lookupStationCnpj, storeStationForUser, storeStationSignup } from "@/lib/auth/stationSignup"
+import { lookupFuelStationCnpj, storeFuelStationForUser, storeFuelStationSignup } from "@/lib/auth/fuelStationSignup"
 import { sendVerificationCode, verificationError } from "@/lib/auth/verification"
 import { notifyError, notifySuccess } from "@/lib/notify"
 
@@ -24,7 +24,7 @@ export default function RegisterFuelStationPage() {
   const [loading, setLoading] = useState(false)
   const [loggedIn, setLoggedIn] = useState(false)
   const [cnpj, setCnpj] = useState(() => onlyDigits(params.get("cnpj")))
-  const [station, setStation] = useState(null)
+  const [fuelStation, setFuelStation] = useState(null)
   const [email, setEmail] = useState("")
   const [name, setName] = useState("")
   const [password, setPassword] = useState("")
@@ -32,7 +32,7 @@ export default function RegisterFuelStationPage() {
   const [retryAfter, setRetryAfter] = useState(60)
   const [codeError, setCodeError] = useState("")
 
-  const cnpjReady = station?.document === cnpj
+  const cnpjReady = fuelStation?.document === cnpj
 
   useEffect(() => {
     if (!localStorage.getItem("token")) return
@@ -66,9 +66,9 @@ export default function RegisterFuelStationPage() {
     setLoading(true)
 
     try {
-      setStation(await lookupStationCnpj(cnpj))
+      setFuelStation(await lookupFuelStationCnpj(cnpj))
     } catch (error) {
-      setStation(null)
+      setFuelStation(null)
       notifyError(error)
     } finally {
       setLoading(false)
@@ -78,7 +78,7 @@ export default function RegisterFuelStationPage() {
   async function sendCode() {
     const response = await sendVerificationCode({
       email,
-      purpose: "station_signup",
+      purpose: "fuel_station_signup",
     })
     const seconds = Number(response.retry_after) || 60
     setRetryAfter(seconds)
@@ -87,8 +87,8 @@ export default function RegisterFuelStationPage() {
   }
 
   async function finishSignup(code) {
-    const result = await storeStationSignup({
-      cnpj: station.document,
+    const result = await storeFuelStationSignup({
+      cnpj: fuelStation.document,
       name,
       email,
       password,
@@ -106,7 +106,7 @@ export default function RegisterFuelStationPage() {
 
     try {
       if (loggedIn) {
-        const result = await storeStationForUser(station.document)
+        const result = await storeFuelStationForUser(fuelStation.document)
         notifySuccess(result)
         window.location.assign("/posto")
         return
@@ -173,28 +173,28 @@ export default function RegisterFuelStationPage() {
                       </p>
                     </div>
                     <Field>
-                      <FieldLabel htmlFor="station-cnpj">CNPJ</FieldLabel>
+                      <FieldLabel htmlFor="fuel-station-cnpj">CNPJ</FieldLabel>
                       <InputCpfCnpj
-                        id="station-cnpj"
+                        id="fuel-station-cnpj"
                         type="cnpj"
                         value={cnpj}
                         onChange={(value) => {
                           setCnpj(value)
-                          setStation(null)
+                          setFuelStation(null)
                         }}
                         autoFocus
                       />
                     </Field>
                     {cnpjReady ? (
                       <div className="space-y-1 text-sm text-muted-foreground">
-                        <p className="font-medium text-foreground">{station.legal_name}</p>
-                        {station.trade_name ? <p>{station.trade_name}</p> : null}
+                        <p className="font-medium text-foreground">{fuelStation.legal_name}</p>
+                        {fuelStation.trade_name ? <p>{fuelStation.trade_name}</p> : null}
                         <p>
-                          {[station.street, station.street_number, station.complement, station.neighborhood, station.postal_code]
+                          {[fuelStation.street, fuelStation.street_number, fuelStation.complement, fuelStation.neighborhood, fuelStation.postal_code]
                             .filter(Boolean)
                             .join(", ")}
                         </p>
-                        <p>{[station.city, station.state].filter(Boolean).join("/")}</p>
+                        <p>{[fuelStation.city, fuelStation.state].filter(Boolean).join("/")}</p>
                       </div>
                     ) : null}
                     <Field>
@@ -264,9 +264,9 @@ export default function RegisterFuelStationPage() {
                     {loggedIn ? null : (
                       <>
                         <Field>
-                          <FieldLabel htmlFor="station-name">Nome</FieldLabel>
+                          <FieldLabel htmlFor="fuel-station-name">Nome</FieldLabel>
                           <Input
-                            id="station-name"
+                            id="fuel-station-name"
                             value={name}
                             autoComplete="name"
                             required
@@ -274,9 +274,9 @@ export default function RegisterFuelStationPage() {
                           />
                         </Field>
                         <Field>
-                          <FieldLabel htmlFor="station-email">E-mail</FieldLabel>
+                          <FieldLabel htmlFor="fuel-station-email">E-mail</FieldLabel>
                           <Input
-                            id="station-email"
+                            id="fuel-station-email"
                             type="email"
                             placeholder="responsavel@posto.com.br"
                             value={email}
@@ -286,9 +286,9 @@ export default function RegisterFuelStationPage() {
                           />
                         </Field>
                         <Field>
-                          <FieldLabel htmlFor="station-password">Senha</FieldLabel>
+                          <FieldLabel htmlFor="fuel-station-password">Senha</FieldLabel>
                           <InputPassword
-                            id="station-password"
+                            id="fuel-station-password"
                             value={password}
                             autoComplete="new-password"
                             onChange={setPassword}
@@ -296,9 +296,9 @@ export default function RegisterFuelStationPage() {
                           />
                         </Field>
                         <Field>
-                          <FieldLabel htmlFor="station-password-confirmation">Confirmação da senha</FieldLabel>
+                          <FieldLabel htmlFor="fuel-station-password-confirmation">Confirmação da senha</FieldLabel>
                           <InputPassword
-                            id="station-password-confirmation"
+                            id="fuel-station-password-confirmation"
                             value={passwordConfirmation}
                             autoComplete="new-password"
                             onChange={setPasswordConfirmation}

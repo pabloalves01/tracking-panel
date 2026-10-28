@@ -13,7 +13,7 @@ import {
     SidebarRail,
 } from '@/components/ui/sidebar'
 
-export function StationSidebar() {
+export function FuelStationSidebar() {
     const { pathname } = useLocation()
     const home = pathname === '/posto'
     const companies = pathname === '/posto/empresas' || pathname.startsWith('/posto/empresas/')
@@ -52,18 +52,16 @@ export function StationSidebar() {
                                 <span>Empresas</span>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
-                        {true ? (
-                            <SidebarMenuItem>
-                                <SidebarMenuButton
-                                    isActive={users}
-                                    tooltip="Usuários"
-                                    render={<Link to="/posto/usuarios" />}
-                                >
-                                    <UsersIcon />
-                                    <span>Usuários</span>
-                                </SidebarMenuButton>
-                            </SidebarMenuItem>
-                        ) : null}
+                        <SidebarMenuItem>
+                            <SidebarMenuButton
+                                isActive={users}
+                                tooltip="Usuários"
+                                render={<Link to="/posto/usuarios" />}
+                            >
+                                <UsersIcon />
+                                <span>Usuários</span>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
                     </SidebarMenu>
                 </SidebarGroup>
             </SidebarContent>

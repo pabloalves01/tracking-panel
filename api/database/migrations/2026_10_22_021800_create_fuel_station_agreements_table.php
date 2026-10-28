@@ -15,24 +15,24 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('fuel_supply_links', function (Blueprint $table) {
+        Schema::create('fuel_station_agreements', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid')->unique();
             $table->foreignId('company_id')->constrained('organizations');
-            $table->foreignId('station_id')->constrained('organizations');
+            $table->foreignId('fuel_station_id')->constrained('organizations');
 
             // request_sent | active | rejected | disconnected
             $table->string('status', 20)->default('request_sent');
 
             $table->timestamps();
 
-            $table->unique(['company_id', 'station_id']);
-            $table->index(['station_id', 'status']);
+            $table->unique(['company_id', 'fuel_station_id']);
+            $table->index(['fuel_station_id', 'status']);
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('fuel_supply_links');
+        Schema::dropIfExists('fuel_station_agreements');
     }
 };

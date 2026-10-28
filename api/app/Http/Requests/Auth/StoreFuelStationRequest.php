@@ -5,7 +5,7 @@ namespace App\Http\Requests\Auth;
 use App\Rules\Cnpj;
 use Illuminate\Foundation\Http\FormRequest;
 
-class StoreStationRequest extends FormRequest
+class StoreFuelStationRequest extends FormRequest
 {
     public function authorize(): bool
     {

@@ -82,7 +82,7 @@ class ResponseShapeTest extends TestCase
             'municipio' => 'SAO PAULO',
         ])]);
 
-        $body = $this->getJson('/api/auth/station-signup/cnpj/19131243000197')->assertOk()->json();
+        $body = $this->getJson('/api/auth/fuel-station-signup/cnpj/19131243000197')->assertOk()->json();
 
         // A tela lê `response.data.data.legal_name` — sem o envelope ela
         // preenche o formulário com undefined e nada acontece ao consultar.

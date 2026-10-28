@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Http\Controllers\Station;
+namespace App\Http\Controllers\FuelStation;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\Organization\FuelSupplyLinkResource;
-use App\Services\Organization\FuelSupplyLinkService;
+use App\Http\Resources\Organization\FuelStationAgreementResource;
+use App\Services\Organization\FuelStationAgreementService;
 use App\Support\CurrentOrganization;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -12,17 +12,17 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 /**
  * As empresas que pedem ou têm convênio com este posto.
  */
-class StationCompanyController extends Controller
+class FuelStationCompanyController extends Controller
 {
     public function __construct(
-        private readonly FuelSupplyLinkService $links,
+        private readonly FuelStationAgreementService $links,
         private readonly CurrentOrganization $current,
     ) {}
 
     public function index(): AnonymousResourceCollection
     {
-        return FuelSupplyLinkResource::collection(
-            $this->links->listForStation($this->current->organization)
+        return FuelStationAgreementResource::collection(
+            $this->links->listForFuelStation($this->current->organization)
         );
     }
 

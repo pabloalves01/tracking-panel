@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Auth;
 
-use App\Mail\StationSignupExistingAccountMail;
+use App\Mail\FuelStationSignupExistingAccountMail;
 use App\Mail\VerificationCodeMail;
 use App\Models\Membership;
 use App\Models\Organization;
@@ -32,12 +32,12 @@ class VerificationCodeTest extends TestCase
 
         $known = $this->postJson('/api/auth/verification-codes', [
             'email' => ' JA@posto.test ',
-            'purpose' => 'station_signup',
+            'purpose' => 'fuel_station_signup',
         ])->assertOk();
 
         $unknown = $this->postJson('/api/auth/verification-codes', [
             'email' => 'nova@posto.test',
-            'purpose' => 'station_signup',
+            'purpose' => 'fuel_station_signup',
         ])->assertOk();
 
         $this->assertSame($known->json('message'), $unknown->json('message'));
@@ -47,7 +47,7 @@ class VerificationCodeTest extends TestCase
         );
         Mail::assertQueued(VerificationCodeMail::class, 1);
         Mail::assertQueued(VerificationCodeMail::class, fn (VerificationCodeMail $mail) => $mail->hasTo('nova@posto.test'));
-        Mail::assertQueued(StationSignupExistingAccountMail::class, fn (StationSignupExistingAccountMail $mail) => $mail->hasTo('ja@posto.test'));
+        Mail::assertQueued(FuelStationSignupExistingAccountMail::class, fn (FuelStationSignupExistingAccountMail $mail) => $mail->hasTo('ja@posto.test'));
         $this->assertNull(VerificationCode::query()->where('email', 'ja@posto.test')->value('code_hash'));
         $this->assertNotNull(VerificationCode::query()->where('email', 'nova@posto.test')->value('code_hash'));
     }
@@ -302,7 +302,7 @@ class VerificationCodeTest extends TestCase
         ])]);
 
         $email = 'alvo@posto.test';
-        $this->plant($email, '123456', VerificationCode::STATION_SIGNUP);
+        $this->plant($email, '123456', VerificationCode::FUEL_STATION_SIGNUP);
 
         for ($erro = 0; $erro < VerificationCodeService::MAX_ATTEMPTS; $erro++) {
             $this->signupWithCode($email, '000000')->assertUnprocessable();
@@ -312,7 +312,7 @@ class VerificationCodeTest extends TestCase
         $this->signupWithCode($email, '123456')->assertUnprocessable();
 
         // Mas um código novo para o mesmo e-mail volta a funcionar.
-        $this->plant($email, '654321', VerificationCode::STATION_SIGNUP);
+        $this->plant($email, '654321', VerificationCode::FUEL_STATION_SIGNUP);
         $this->signupWithCode($email, '654321')->assertCreated();
     }
 
@@ -320,13 +320,13 @@ class VerificationCodeTest extends TestCase
     {
         $this->plant('nova@posto.test', '123456');
 
-        $this->postJson('/api/auth/station-signup', $this->signup('000000'))
+        $this->postJson('/api/auth/fuel-station-signup', $this->signup('000000'))
             ->assertUnprocessable()
             ->assertJsonPath('message', 'Código inválido');
 
         VerificationCode::query()->update(['expires_at' => now()->subMinute(), 'attempts' => 0]);
 
-        $this->postJson('/api/auth/station-signup', $this->signup('123456'))
+        $this->postJson('/api/auth/fuel-station-signup', $this->signup('123456'))
             ->assertUnprocessable()
             ->assertJsonPath('message', 'Código inválido');
 
@@ -336,7 +336,7 @@ class VerificationCodeTest extends TestCase
             'invalidated_at' => null,
         ]);
 
-        $this->postJson('/api/auth/station-signup', $this->signup('000000'))
+        $this->postJson('/api/auth/fuel-station-signup', $this->signup('000000'))
             ->assertUnprocessable()
             ->assertJsonPath('message', 'Código inválido');
 
@@ -346,7 +346,7 @@ class VerificationCodeTest extends TestCase
             'consumed_at' => now(),
         ]);
 
-        $this->postJson('/api/auth/station-signup', $this->signup('123456'))
+        $this->postJson('/api/auth/fuel-station-signup', $this->signup('123456'))
             ->assertUnprocessable()
             ->assertJsonPath('message', 'Código inválido');
     }
@@ -357,14 +357,14 @@ class VerificationCodeTest extends TestCase
 
         $this->postJson('/api/auth/verification-codes', [
             'email' => 'nova@posto.test',
-            'purpose' => 'station_signup',
+            'purpose' => 'fuel_station_signup',
         ])->assertOk()->assertJsonPath('retry_after', 60);
 
         $this->travel(10)->seconds();
 
         $again = $this->postJson('/api/auth/verification-codes', [
             'email' => 'nova@posto.test',
-            'purpose' => 'station_signup',
+            'purpose' => 'fuel_station_signup',
         ])->assertOk();
 
         $this->assertSame(50, $again->json('retry_after'));
@@ -374,7 +374,7 @@ class VerificationCodeTest extends TestCase
             $this->travel(61)->seconds();
             $this->postJson('/api/auth/verification-codes', [
                 'email' => 'nova@posto.test',
-                'purpose' => 'station_signup',
+                'purpose' => 'fuel_station_signup',
             ])->assertOk();
         }
 
@@ -383,7 +383,7 @@ class VerificationCodeTest extends TestCase
 
         $blocked = $this->postJson('/api/auth/verification-codes', [
             'email' => 'nova@posto.test',
-            'purpose' => 'station_signup',
+            'purpose' => 'fuel_station_signup',
         ])->assertOk();
 
         $this->assertGreaterThan(60, $blocked->json('retry_after'));
@@ -398,7 +398,7 @@ class VerificationCodeTest extends TestCase
 
         $this->postJson('/api/auth/verification-codes', [
             'email' => 'nova@posto.test',
-            'purpose' => 'station_signup',
+            'purpose' => 'fuel_station_signup',
         ])->assertOk();
 
         $code = null;
@@ -415,7 +415,7 @@ class VerificationCodeTest extends TestCase
         $this->assertStringContainsString($code, $html);
         $this->assertStringContainsString('Se não foi você, ignore este e-mail.', $html);
 
-        $this->postJson('/api/auth/station-signup', $this->signup($code))
+        $this->postJson('/api/auth/fuel-station-signup', $this->signup($code))
             ->assertCreated()
             ->assertJsonPath('user.email', 'nova@posto.test');
 
@@ -471,16 +471,16 @@ class VerificationCodeTest extends TestCase
     public function test_cadastro_por_convite_envia_codigo_mesmo_com_codigo_de_outra_finalidade(): void
     {
         Mail::fake();
-        $stationToken = $this->inviteLink('posto.novo@logiv.test', station: true);
-        $companyToken = $this->inviteLink('empresa.nova@melo.test', station: false);
+        $fuelStationToken = $this->inviteLink('posto.novo@logiv.test', fuelStation: true);
+        $companyToken = $this->inviteLink('empresa.nova@melo.test', fuelStation: false);
 
         foreach ([
-            ['posto.novo@logiv.test', $stationToken, 'station'],
+            ['posto.novo@logiv.test', $fuelStationToken, 'fuel_station'],
             ['empresa.nova@melo.test', $companyToken, 'company'],
         ] as [$email, $plain, $kind]) {
             VerificationCode::query()->create([
                 'email' => $email,
-                'purpose' => VerificationCode::STATION_SIGNUP,
+                'purpose' => VerificationCode::FUEL_STATION_SIGNUP,
                 'code_hash' => hash('sha256', '111111'),
                 'expires_at' => now()->addMinutes(10),
             ]);
@@ -546,7 +546,7 @@ class VerificationCodeTest extends TestCase
     {
         Mail::fake();
         User::factory()->create(['email' => 'dona@melo.test', 'password' => 'senha1234']);
-        $plain = $this->inviteLink('dona@melo.test', station: false);
+        $plain = $this->inviteLink('dona@melo.test', fuelStation: false);
 
         $this->postJson('/api/auth/verification-codes', [
             'email' => 'dona@melo.test',
@@ -584,13 +584,13 @@ class VerificationCodeTest extends TestCase
         for ($attempt = 0; $attempt < 10; $attempt++) {
             $this->postJson('/api/auth/verification-codes', [
                 'email' => 'alguem'.$attempt.'@posto.test',
-                'purpose' => 'station_signup',
+                'purpose' => 'fuel_station_signup',
             ])->assertOk();
         }
 
         $this->postJson('/api/auth/verification-codes', [
             'email' => 'mais-um@posto.test',
-            'purpose' => 'station_signup',
+            'purpose' => 'fuel_station_signup',
         ])->assertStatus(429)
             ->assertJsonStructure(['retry_after']);
     }
@@ -603,12 +603,12 @@ class VerificationCodeTest extends TestCase
      *
      * Empresa e posto são a mesma tabela agora: muda só o tipo.
      */
-    private function inviteLink(string $email, bool $station): string
+    private function inviteLink(string $email, bool $fuelStation): string
     {
-        $plain = $station ? 'token-posto-novo' : 'token-empresa-nova';
+        $plain = $fuelStation ? 'token-posto-novo' : 'token-empresa-nova';
 
         $organization = Organization::factory()
-            ->{$station ? 'fuelStation' : 'company'}()
+            ->{$fuelStation ? 'fuelStation' : 'company'}()
             ->create();
 
         Invitation::query()->create([
@@ -682,13 +682,13 @@ class VerificationCodeTest extends TestCase
 
     private function signupWithCode(string $email, string $code): TestResponse
     {
-        return $this->postJson('/api/auth/station-signup', [
+        return $this->postJson('/api/auth/fuel-station-signup', [
             ...$this->signup($code),
             'email' => $email,
         ]);
     }
 
-    private function plant(string $email, string $code, string $purpose = VerificationCode::STATION_SIGNUP): void
+    private function plant(string $email, string $code, string $purpose = VerificationCode::FUEL_STATION_SIGNUP): void
     {
         VerificationCode::query()->create([
             'email' => $email,

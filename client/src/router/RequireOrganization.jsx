@@ -2,14 +2,14 @@ import { useEffect, useState } from 'react'
 import { Navigate, useLocation } from 'react-router'
 
 import { AppLayout } from '@/layouts/AppLayout'
-import { StationLayout } from '@/layouts/StationLayout'
+import { FuelStationLayout } from '@/layouts/FuelStationLayout'
 import { Spinner } from '@/components/ui/spinner'
 import { SessionContext } from '@/lib/auth/session'
 import { me } from '@/lib/auth/auth'
 
 const layouts = {
     company: AppLayout,
-    fuel_station: StationLayout,
+    fuel_station: FuelStationLayout,
 }
 
 /**

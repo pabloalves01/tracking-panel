@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\StoreFuelStationSignupRequest;
-use App\Http\Requests\Auth\StoreStationRequest;
+use App\Http\Requests\Auth\StoreFuelStationRequest;
 use App\Http\Resources\Auth\UserResource;
 use App\Http\Resources\OrganizationResource;
 use App\Services\Organization\FuelStationSignupService;
@@ -36,7 +36,7 @@ class FuelStationSignupController extends Controller
         ], 201);
     }
 
-    public function storeForUser(StoreStationRequest $request): JsonResponse
+    public function storeForUser(StoreFuelStationRequest $request): JsonResponse
     {
         $result = $this->signup->storeForUser(
             $request->user(),

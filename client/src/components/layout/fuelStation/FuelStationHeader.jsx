@@ -25,7 +25,7 @@ function getInitials(name) {
     return (first + last).toUpperCase()
 }
 
-export function StationHeader() {
+export function FuelStationHeader() {
     const { user } = useSession()
     const navigate = useNavigate()
 

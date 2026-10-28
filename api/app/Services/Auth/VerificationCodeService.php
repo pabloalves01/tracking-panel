@@ -3,7 +3,7 @@
 namespace App\Services\Auth;
 
 use App\Exceptions\RejectedInput;
-use App\Mail\StationSignupExistingAccountMail;
+use App\Mail\FuelStationSignupExistingAccountMail;
 use App\Mail\VerificationCodeMail;
 use App\Models\Invitation;
 use App\Models\User;
@@ -205,8 +205,8 @@ class VerificationCodeService
 
         // Quem tenta cadastrar um posto com um e-mail que já tem conta recebe
         // um aviso para entrar, em vez de silêncio.
-        if ($purpose === VerificationCode::STATION_SIGNUP && $this->accountExists($email)) {
-            Mail::to($email)->queue(new StationSignupExistingAccountMail);
+        if ($purpose === VerificationCode::FUEL_STATION_SIGNUP && $this->accountExists($email)) {
+            Mail::to($email)->queue(new FuelStationSignupExistingAccountMail);
         }
     }
 
@@ -215,7 +215,7 @@ class VerificationCodeService
         $account = $this->accountExists($email);
 
         return match ($purpose) {
-            VerificationCode::STATION_SIGNUP => ! $account,
+            VerificationCode::FUEL_STATION_SIGNUP => ! $account,
             VerificationCode::PASSWORD_RESET => $account,
             VerificationCode::INVITATION_REGISTER => ! $account && $this->inviteMatches($email, $token),
             default => false,

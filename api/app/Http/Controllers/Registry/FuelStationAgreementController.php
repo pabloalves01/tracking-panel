@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\Registry;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Registry\StoreFuelSupplyLinkRequest;
-use App\Http\Resources\Organization\FuelSupplyLinkResource;
+use App\Http\Requests\Registry\StoreFuelStationAgreementRequest;
+use App\Http\Resources\Organization\FuelStationAgreementResource;
 use App\Http\Resources\OrganizationResource;
-use App\Services\Organization\FuelSupplyLinkService;
+use App\Services\Organization\FuelStationAgreementService;
 use App\Support\CurrentOrganization;
 use App\Support\Text;
 use Illuminate\Http\JsonResponse;
@@ -16,16 +16,16 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 /**
  * Os postos conveniados, do lado da empresa.
  */
-class FuelStationLinkController extends Controller
+class FuelStationAgreementController extends Controller
 {
     public function __construct(
-        private readonly FuelSupplyLinkService $links,
+        private readonly FuelStationAgreementService $links,
         private readonly CurrentOrganization $current,
     ) {}
 
     public function index(): AnonymousResourceCollection
     {
-        return FuelSupplyLinkResource::collection(
+        return FuelStationAgreementResource::collection(
             $this->links->listForCompany($this->current->organization)
         );
     }
@@ -39,14 +39,14 @@ class FuelStationLinkController extends Controller
             'document' => ['required', 'string', 'max:20'],
         ]);
 
-        $station = $this->links->findStationByDocument(Text::digits($validated['document']));
+        $fuelStation = $this->links->findFuelStationByDocument(Text::digits($validated['document']));
 
         return response()->json([
-            'data' => $station ? OrganizationResource::make($station) : null,
+            'data' => $fuelStation ? OrganizationResource::make($fuelStation) : null,
         ]);
     }
 
-    public function store(StoreFuelSupplyLinkRequest $request): JsonResponse
+    public function store(StoreFuelStationAgreementRequest $request): JsonResponse
     {
         $link = $this->links->request(
             $this->current->organization,
@@ -55,7 +55,7 @@ class FuelStationLinkController extends Controller
 
         return response()->json([
             'message' => 'Pedido de convênio enviado ao posto',
-            'data' => FuelSupplyLinkResource::make($link),
+            'data' => FuelStationAgreementResource::make($link),
         ], 201);
     }
 

@@ -91,15 +91,15 @@ class Organization extends Model
     }
 
     /** Postos conveniados — só faz sentido para uma empresa. */
-    public function stationLinks()
+    public function fuelStationAgreements()
     {
-        return $this->hasMany(FuelSupplyLink::class, 'company_id');
+        return $this->hasMany(FuelStationAgreement::class, 'company_id');
     }
 
     /** Empresas atendidas — só faz sentido para um posto. */
-    public function companyLinks()
+    public function companyAgreements()
     {
-        return $this->hasMany(FuelSupplyLink::class, 'station_id');
+        return $this->hasMany(FuelStationAgreement::class, 'fuel_station_id');
     }
 
     // ================================ SCOPES ================================

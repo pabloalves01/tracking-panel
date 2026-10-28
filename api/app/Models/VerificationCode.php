@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class VerificationCode extends Model
 {
-    public const STATION_SIGNUP = 'station_signup';
+    public const FUEL_STATION_SIGNUP = 'fuel_station_signup';
 
     public const INVITATION_REGISTER = 'invitation_register';
 

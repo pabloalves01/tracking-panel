@@ -45,7 +45,7 @@ class FuelStationSignupTest extends TestCase
     {
         $this->seedSaoPaulo();
 
-        $this->getJson('/api/auth/station-signup/cnpj/'.self::CNPJ)
+        $this->getJson('/api/auth/fuel-station-signup/cnpj/'.self::CNPJ)
             ->assertOk()
             ->assertJsonPath('data.document', self::CNPJ)
             ->assertJsonPath('data.legal_name', 'POSTO EXEMPLO LTDA')
@@ -63,7 +63,7 @@ class FuelStationSignupTest extends TestCase
      */
     public function test_consulta_sem_a_cidade_cadastrada_usa_o_nome_da_receita(): void
     {
-        $this->getJson('/api/auth/station-signup/cnpj/'.self::CNPJ)
+        $this->getJson('/api/auth/fuel-station-signup/cnpj/'.self::CNPJ)
             ->assertOk()
             ->assertJsonPath('data.city', 'SAO PAULO')
             ->assertJsonPath('data.state', 'SP')
@@ -72,7 +72,7 @@ class FuelStationSignupTest extends TestCase
 
     public function test_cnpj_invalido_nao_chega_a_consultar_a_receita(): void
     {
-        $this->getJson('/api/auth/station-signup/cnpj/123')
+        $this->getJson('/api/auth/fuel-station-signup/cnpj/123')
             ->assertUnprocessable()
             ->assertJsonPath('message', 'Informe um CNPJ válido');
 
@@ -83,7 +83,7 @@ class FuelStationSignupTest extends TestCase
     {
         Organization::factory()->fuelStation()->create(['document' => self::CNPJ]);
 
-        $this->getJson('/api/auth/station-signup/cnpj/'.self::CNPJ)
+        $this->getJson('/api/auth/fuel-station-signup/cnpj/'.self::CNPJ)
             ->assertStatus(409)
             ->assertJsonPath('message', 'Já existe um cadastro com este CNPJ');
     }
@@ -92,7 +92,7 @@ class FuelStationSignupTest extends TestCase
     {
         $this->fakeReceita([], 404);
 
-        $this->getJson('/api/auth/station-signup/cnpj/'.self::CNPJ)
+        $this->getJson('/api/auth/fuel-station-signup/cnpj/'.self::CNPJ)
             ->assertUnprocessable()
             ->assertJsonPath('message', 'CNPJ não encontrado na Receita Federal');
     }
@@ -102,7 +102,7 @@ class FuelStationSignupTest extends TestCase
         $this->resetHttp();
         Http::fake(fn () => throw new ConnectionException('timeout'));
 
-        $this->getJson('/api/auth/station-signup/cnpj/'.self::CNPJ)
+        $this->getJson('/api/auth/fuel-station-signup/cnpj/'.self::CNPJ)
             ->assertStatus(503)
             ->assertJsonPath('message', 'A consulta de CNPJ está indisponível. Tente novamente em instantes');
     }
@@ -113,24 +113,24 @@ class FuelStationSignupTest extends TestCase
     {
         [$state, $city] = $this->seedSaoPaulo();
 
-        $this->registerStation();
+        $this->registerFuelStation();
 
-        $station = Organization::query()->sole();
+        $fuelStation = Organization::query()->sole();
         $user = User::query()->sole();
 
-        $this->assertSame(OrganizationType::FuelStation, $station->type);
-        $this->assertSame(self::CNPJ, $station->document);
-        $this->assertSame('POSTO EXEMPLO LTDA', $station->legal_name);
-        $this->assertSame($city->id, $station->city_id);
-        $this->assertSame($state->id, $station->state_id);
-        $this->assertNotNull($station->receita_checked_at);
+        $this->assertSame(OrganizationType::FuelStation, $fuelStation->type);
+        $this->assertSame(self::CNPJ, $fuelStation->document);
+        $this->assertSame('POSTO EXEMPLO LTDA', $fuelStation->legal_name);
+        $this->assertSame($city->id, $fuelStation->city_id);
+        $this->assertSame($state->id, $fuelStation->state_id);
+        $this->assertNotNull($fuelStation->receita_checked_at);
 
         $this->assertSame('Dona do Posto', $user->name);
         $this->assertTrue(Hash::check('senha1234', $user->password));
         $this->assertNotNull($user->email_verified_at);
 
         $this->assertDatabaseHas('memberships', [
-            'organization_id' => $station->getKey(),
+            'organization_id' => $fuelStation->getKey(),
             'user_id' => $user->getKey(),
             'status' => Membership::ACTIVE,
         ]);
@@ -140,7 +140,7 @@ class FuelStationSignupTest extends TestCase
     {
         $this->plantCode('nova@posto.com');
 
-        $this->postJson('/api/auth/station-signup', [
+        $this->postJson('/api/auth/fuel-station-signup', [
             'cnpj' => self::CNPJ,
             'name' => 'Dona do Posto',
             'email' => 'nova@posto.com',
@@ -155,11 +155,11 @@ class FuelStationSignupTest extends TestCase
 
     public function test_segundo_cadastro_do_mesmo_cnpj_e_recusado(): void
     {
-        $this->registerStation();
+        $this->registerFuelStation();
 
         $this->plantCode('outra@posto.com');
 
-        $this->postJson('/api/auth/station-signup', [
+        $this->postJson('/api/auth/fuel-station-signup', [
             'cnpj' => self::CNPJ,
             'name' => 'Outra Dona',
             'email' => 'outra@posto.com',
@@ -184,7 +184,7 @@ class FuelStationSignupTest extends TestCase
         $this->resetHttp();
         Http::fake(fn () => throw new ConnectionException('timeout'));
 
-        $this->postJson('/api/auth/station-signup', [
+        $this->postJson('/api/auth/fuel-station-signup', [
             'cnpj' => self::CNPJ,
             'name' => 'Dona do Posto',
             'email' => 'nova@posto.com',
@@ -207,33 +207,33 @@ class FuelStationSignupTest extends TestCase
         $this->seedSaoPaulo();
         $this->actingAsMemberOf();
 
-        $this->postJson('/api/auth/stations', ['cnpj' => self::CNPJ])
+        $this->postJson('/api/auth/fuel-stations', ['cnpj' => self::CNPJ])
             ->assertCreated()
             ->assertJsonPath('message', 'Posto cadastrado')
             ->assertJsonPath('redirect_to', '/posto');
 
-        $station = Organization::query()
+        $fuelStation = Organization::query()
             ->where('document', self::CNPJ)
             ->sole();
 
         $this->assertDatabaseHas('memberships', [
-            'organization_id' => $station->getKey(),
+            'organization_id' => $fuelStation->getKey(),
             'user_id' => $this->member->getKey(),
             'status' => Membership::ACTIVE,
         ]);
 
         // A sessão já está no posto: a área da empresa fecha.
-        $this->getJson('/api/station/companies')->assertOk();
+        $this->getJson('/api/fuel-station/companies')->assertOk();
         $this->getJson('/api/registry/entities')->assertForbidden();
     }
 
     // ================================ HELPERS ================================
 
-    private function registerStation(string $email = 'nova@posto.com', string $name = 'Dona do Posto'): void
+    private function registerFuelStation(string $email = 'nova@posto.com', string $name = 'Dona do Posto'): void
     {
         $this->plantCode($email);
 
-        $this->postJson('/api/auth/station-signup', [
+        $this->postJson('/api/auth/fuel-station-signup', [
             'cnpj' => self::CNPJ,
             'name' => $name,
             'email' => $email,
@@ -249,7 +249,7 @@ class FuelStationSignupTest extends TestCase
     {
         VerificationCode::query()->create([
             'email' => $email,
-            'purpose' => VerificationCode::STATION_SIGNUP,
+            'purpose' => VerificationCode::FUEL_STATION_SIGNUP,
             'code_hash' => hash('sha256', '123456'),
             'expires_at' => now()->addMinutes(10),
         ]);

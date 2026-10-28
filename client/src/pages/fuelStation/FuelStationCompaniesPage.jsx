@@ -19,21 +19,21 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { formatCpfCnpj } from "@/helpers/formatters"
 import { linkStatusLabel, statusBadgeClass } from "@/helpers/labels/linkStatusLabel"
-import { acceptStationCompany, disconnectStationCompany, getStationCompanies, rejectStationCompany } from "@/lib/station/companies"
+import { acceptFuelStationCompany, disconnectFuelStationCompany, getFuelStationCompanies, rejectFuelStationCompany } from "@/lib/fuelStation/companies"
 import { notifyError, notifySuccess } from "@/lib/notify"
 
 function companyLabel(link) {
     return link?.company?.display_name || "esta empresa"
 }
 
-export default function StationCompaniesPage() {
+export default function FuelStationCompaniesPage() {
     const [links, setLinks] = useState([])
     const [loading, setLoading] = useState(true)
     const [linkToUndo, setLinkToUndo] = useState(null)
     const [linkToReject, setLinkToReject] = useState(null)
 
     useEffect(() => {
-        getStationCompanies()
+        getFuelStationCompanies()
             .then(setLinks)
             .catch(notifyError)
             .finally(() => setLoading(false))
@@ -41,7 +41,7 @@ export default function StationCompaniesPage() {
 
     function loadLinks() {
         setLoading(true)
-        getStationCompanies()
+        getFuelStationCompanies()
             .then(setLinks)
             .catch(notifyError)
             .finally(() => setLoading(false))
@@ -51,7 +51,7 @@ export default function StationCompaniesPage() {
         setLoading(true)
 
         try {
-            notifySuccess(await acceptStationCompany(link.uuid))
+            notifySuccess(await acceptFuelStationCompany(link.uuid))
             loadLinks()
         } catch (error) {
             notifyError(error)
@@ -64,7 +64,7 @@ export default function StationCompaniesPage() {
         setLoading(true)
 
         try {
-            notifySuccess(await rejectStationCompany(linkToReject.uuid))
+            notifySuccess(await rejectFuelStationCompany(linkToReject.uuid))
             loadLinks()
         } catch (error) {
             notifyError(error)
@@ -82,7 +82,7 @@ export default function StationCompaniesPage() {
         setLoading(true)
 
         try {
-            const response = await disconnectStationCompany(linkToUndo.uuid)
+            const response = await disconnectFuelStationCompany(linkToUndo.uuid)
             notifySuccess(response)
             loadLinks()
         } catch (error) {

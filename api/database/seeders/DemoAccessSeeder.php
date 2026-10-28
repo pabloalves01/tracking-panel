@@ -3,7 +3,7 @@
 namespace Database\Seeders;
 
 use App\Enums\OrganizationType;
-use App\Models\FuelSupplyLink;
+use App\Models\FuelStationAgreement;
 use App\Models\Invitation;
 use App\Models\Membership;
 use App\Models\Organization;
@@ -53,8 +53,8 @@ class DemoAccessSeeder extends Seeder
         $this->member($norte, $eduardo);
 
         // Um convênio ativo e um pedido esperando resposta.
-        $this->link($melo, $exemplo, FuelSupplyLink::ACTIVE);
-        $this->link($melo, $norte, FuelSupplyLink::REQUEST_SENT);
+        $this->link($melo, $exemplo, FuelStationAgreement::ACTIVE);
+        $this->link($melo, $norte, FuelStationAgreement::REQUEST_SENT);
 
         // Convite para quem ainda não tem conta. O token é fixo para dar
         // para abrir o link direto, sem procurar no log.
@@ -107,11 +107,11 @@ class DemoAccessSeeder extends Seeder
         ]);
     }
 
-    private function link(Organization $company, Organization $station, string $status): FuelSupplyLink
+    private function link(Organization $company, Organization $fuelStation, string $status): FuelStationAgreement
     {
-        return FuelSupplyLink::query()->create([
+        return FuelStationAgreement::query()->create([
             'company_id' => $company->getKey(),
-            'station_id' => $station->getKey(),
+            'fuel_station_id' => $fuelStation->getKey(),
             'status' => $status,
         ]);
     }

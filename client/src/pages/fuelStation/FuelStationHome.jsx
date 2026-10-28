@@ -3,10 +3,10 @@ import { Badge } from "@/components/ui/badge"
 import { formatCpfCnpj } from "@/helpers/formatters"
 import { useSession } from "@/lib/auth/session"
 
-export default function StationHome() {
-    const { user, current_organization: station } = useSession()
+export default function FuelStationHome() {
+    const { user, current_organization: fuelStation } = useSession()
     const firstName = user?.name?.split(" ")[0]
-    const stationName = station?.display_name
+    const fuelStationName = fuelStation?.display_name
 
     return (
         <>
@@ -16,21 +16,21 @@ export default function StationHome() {
                 <h1 className="text-3xl font-semibold tracking-tight">
                     Bem-vindo, {firstName}!
                 </h1>
-                <p className="mt-1 text-muted-foreground">Resumo de {stationName}.</p>
+                <p className="mt-1 text-muted-foreground">Resumo de {fuelStationName}.</p>
             </header>
 
             <section className="rounded-xl border bg-card">
                 <div className="flex items-center justify-between gap-3 border-b px-5 py-4">
-                    <h2 className="font-medium">{stationName}</h2>
-                    <Badge variant={station.status === "active" ? "secondary" : "outline"}>
-                        {station.status === "active" ? "Ativo" : "Inativo"}
+                    <h2 className="font-medium">{fuelStationName}</h2>
+                    <Badge variant={fuelStation.status === "active" ? "secondary" : "outline"}>
+                        {fuelStation.status === "active" ? "Ativo" : "Inativo"}
                     </Badge>
                 </div>
                 <dl className="grid gap-4 px-5 py-4 sm:grid-cols-2">
-                    <Item label="Razão social" value={station?.legal_name} />
-                    <Item label="Nome fantasia" value={station?.trade_name} />
-                    <Item label="CNPJ" value={formatCpfCnpj(station?.document)} />
-                    <Item label="Endereço" value={addressOf(station)} className="sm:col-span-2" />
+                    <Item label="Razão social" value={fuelStation?.legal_name} />
+                    <Item label="Nome fantasia" value={fuelStation?.trade_name} />
+                    <Item label="CNPJ" value={formatCpfCnpj(fuelStation?.document)} />
+                    <Item label="Endereço" value={addressOf(fuelStation)} className="sm:col-span-2" />
                 </dl>
             </section>
         </>
@@ -46,11 +46,11 @@ function Item({ label, value, className }) {
     )
 }
 
-function addressOf(station) {
-    const street = [station.street, station.number].filter(Boolean).join(", ")
-    const place = [station.district, station.city_name, station.uf].filter(Boolean).join(" · ")
+function addressOf(fuelStation) {
+    const street = [fuelStation.street, fuelStation.number].filter(Boolean).join(", ")
+    const place = [fuelStation.district, fuelStation.city_name, fuelStation.uf].filter(Boolean).join(" · ")
 
-    return [street, station.complement, place, formatZip(station.zip_code)].filter(Boolean).join(" · ")
+    return [street, fuelStation.complement, place, formatZip(fuelStation.zip_code)].filter(Boolean).join(" · ")
 }
 
 function formatZip(zip) {

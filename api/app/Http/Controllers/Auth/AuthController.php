@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Auth;
 /**
  * Entrar, sair e escolher a organização da sessão.
  *
- * Eram dois caminhos quase iguais — `selectCompany` e `selectStation`, duas
+ * Eram dois caminhos quase iguais — `selectCompany` e `selectFuelStation`, duas
  * colunas no token, duas rotas de listagem. Agora é um só: a organização
  * tem tipo, e o tipo decide para onde o client navega.
  */

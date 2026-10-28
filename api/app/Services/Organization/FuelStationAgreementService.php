@@ -4,7 +4,7 @@ namespace App\Services\Organization;
 
 use App\Exceptions\NotFound;
 use App\Enums\OrganizationType;
-use App\Models\FuelSupplyLink;
+use App\Models\FuelStationAgreement;
 use App\Models\Organization;
 use App\Services\AuditLogger;
 use App\Support\Text;
@@ -24,33 +24,33 @@ use Illuminate\Support\Facades\DB;
  * no estado esperado, então dois cliques simultâneos não a levam para dois
  * lugares diferentes.
  */
-class FuelSupplyLinkService
+class FuelStationAgreementService
 {
     public function __construct(private readonly AuditLogger $audit) {}
 
-    /** @return Collection<int, FuelSupplyLink> */
+    /** @return Collection<int, FuelStationAgreement> */
     public function listForCompany(Organization $company): Collection
     {
-        return FuelSupplyLink::query()
+        return FuelStationAgreement::query()
             ->where('company_id', $company->getKey())
-            ->with('station.city', 'station.state')
+            ->with('fuelStation.city', 'fuelStation.state')
             ->latest('id')
             ->get();
     }
 
     /** O posto só vê quem pediu ou está conveniado. */
-    public function listForStation(Organization $station): Collection
+    public function listForFuelStation(Organization $fuelStation): Collection
     {
-        return FuelSupplyLink::query()
-            ->where('station_id', $station->getKey())
-            ->whereIn('status', [FuelSupplyLink::REQUEST_SENT, FuelSupplyLink::ACTIVE])
+        return FuelStationAgreement::query()
+            ->where('fuel_station_id', $fuelStation->getKey())
+            ->whereIn('status', [FuelStationAgreement::REQUEST_SENT, FuelStationAgreement::ACTIVE])
             ->with('company')
             ->latest('id')
             ->get();
     }
 
     /** Procura um posto pelo CNPJ para a empresa pedir o convênio. */
-    public function findStationByDocument(string $document): ?Organization
+    public function findFuelStationByDocument(string $document): ?Organization
     {
         return Organization::query()
             ->fuelStations()
@@ -59,7 +59,7 @@ class FuelSupplyLinkService
             ->first();
     }
 
-    public function request(Organization $company, string $document): FuelSupplyLink
+    public function request(Organization $company, string $document): FuelStationAgreement
     {
         return DB::transaction(function () use ($company, $document) {
             $digits = Text::digits($document);
@@ -68,40 +68,40 @@ class FuelSupplyLinkService
                 throw new DomainException('Este CNPJ é o da sua própria empresa');
             }
 
-            $station = $this->findStationByDocument($digits);
+            $fuelStation = $this->findFuelStationByDocument($digits);
 
-            if (! $station) {
+            if (! $fuelStation) {
                 throw new DomainException(
                     'Nenhum posto encontrado com esse CNPJ. Peça ao posto para se cadastrar e depois vincule aqui.'
                 );
             }
 
-            if (! $station->isActive()) {
+            if (! $fuelStation->isActive()) {
                 throw new DomainException('Este posto está inativo no sistema');
             }
 
-            $link = FuelSupplyLink::query()
+            $link = FuelStationAgreement::query()
                 ->where('company_id', $company->getKey())
-                ->where('station_id', $station->getKey())
+                ->where('fuel_station_id', $fuelStation->getKey())
                 ->lockForUpdate()
                 ->first();
 
             if ($link === null) {
-                $link = FuelSupplyLink::query()->create([
+                $link = FuelStationAgreement::query()->create([
                     'company_id' => $company->getKey(),
-                    'station_id' => $station->getKey(),
-                    'status' => FuelSupplyLink::REQUEST_SENT,
+                    'fuel_station_id' => $fuelStation->getKey(),
+                    'status' => FuelStationAgreement::REQUEST_SENT,
                 ]);
             } else {
                 $this->assertCanResend($link);
-                $link->update(['status' => FuelSupplyLink::REQUEST_SENT]);
+                $link->update(['status' => FuelStationAgreement::REQUEST_SENT]);
             }
 
-            $this->audit->log('fuel_supply_link.requested', $link, [
-                'station_id' => $station->getKey(),
+            $this->audit->log('fuel_station_agreement.requested', $link, [
+                'fuel_station_id' => $fuelStation->getKey(),
             ], $company->getKey());
 
-            return $link->load('station.city', 'station.state');
+            return $link->load('fuelStation.city', 'fuelStation.state');
         });
     }
 
@@ -110,34 +110,34 @@ class FuelSupplyLinkService
     {
         $this->transition(
             $this->findForCompany($company, $uuid),
-            from: [FuelSupplyLink::REQUEST_SENT],
+            from: [FuelStationAgreement::REQUEST_SENT],
             to: null,
-            action: 'fuel_supply_link.cancelled',
+            action: 'fuel_station_agreement.cancelled',
             organizationId: $company->getKey(),
             error: 'Só dá para cancelar um pedido que ainda não foi respondido',
         );
     }
 
-    public function accept(Organization $station, string $uuid): void
+    public function accept(Organization $fuelStation, string $uuid): void
     {
         $this->transition(
-            $this->findForStation($station, $uuid),
-            from: [FuelSupplyLink::REQUEST_SENT],
-            to: FuelSupplyLink::ACTIVE,
-            action: 'fuel_supply_link.accepted',
-            organizationId: $station->getKey(),
+            $this->findForFuelStation($fuelStation, $uuid),
+            from: [FuelStationAgreement::REQUEST_SENT],
+            to: FuelStationAgreement::ACTIVE,
+            action: 'fuel_station_agreement.accepted',
+            organizationId: $fuelStation->getKey(),
             error: 'Este pedido já foi respondido',
         );
     }
 
-    public function reject(Organization $station, string $uuid): void
+    public function reject(Organization $fuelStation, string $uuid): void
     {
         $this->transition(
-            $this->findForStation($station, $uuid),
-            from: [FuelSupplyLink::REQUEST_SENT],
-            to: FuelSupplyLink::REJECTED,
-            action: 'fuel_supply_link.rejected',
-            organizationId: $station->getKey(),
+            $this->findForFuelStation($fuelStation, $uuid),
+            from: [FuelStationAgreement::REQUEST_SENT],
+            to: FuelStationAgreement::REJECTED,
+            action: 'fuel_station_agreement.rejected',
+            organizationId: $fuelStation->getKey(),
             error: 'Este pedido já foi respondido',
         );
     }
@@ -147,13 +147,13 @@ class FuelSupplyLinkService
     {
         $link = $organization->type === OrganizationType::Company
             ? $this->findForCompany($organization, $uuid)
-            : $this->findForStation($organization, $uuid);
+            : $this->findForFuelStation($organization, $uuid);
 
         $this->transition(
             $link,
-            from: [FuelSupplyLink::ACTIVE],
-            to: FuelSupplyLink::DISCONNECTED,
-            action: 'fuel_supply_link.disconnected',
+            from: [FuelStationAgreement::ACTIVE],
+            to: FuelStationAgreement::DISCONNECTED,
+            action: 'fuel_station_agreement.disconnected',
             organizationId: $organization->getKey(),
             error: 'Só dá para encerrar um convênio ativo',
         );
@@ -165,7 +165,7 @@ class FuelSupplyLinkService
      * @param  array<int, string>  $from
      */
     private function transition(
-        FuelSupplyLink $link,
+        FuelStationAgreement $link,
         array $from,
         ?string $to,
         string $action,
@@ -175,7 +175,7 @@ class FuelSupplyLinkService
         DB::transaction(function () use ($link, $from, $to, $action, $organizationId, $error) {
             // Update condicional: se o estado mudou entre a leitura e a
             // escrita, nenhuma linha é afetada e a transição é recusada.
-            $changed = FuelSupplyLink::query()
+            $changed = FuelStationAgreement::query()
                 ->whereKey($link->getKey())
                 ->whereIn('status', $from)
                 ->when($to === null,
@@ -191,33 +191,33 @@ class FuelSupplyLinkService
         });
     }
 
-    private function assertCanResend(FuelSupplyLink $link): void
+    private function assertCanResend(FuelStationAgreement $link): void
     {
-        $resendable = [FuelSupplyLink::REJECTED, FuelSupplyLink::DISCONNECTED];
+        $resendable = [FuelStationAgreement::REJECTED, FuelStationAgreement::DISCONNECTED];
 
         if (in_array($link->status, $resendable, true)) {
             return;
         }
 
         throw new DomainException(match ($link->status) {
-            FuelSupplyLink::REQUEST_SENT => 'Já existe um pedido aguardando resposta deste posto',
-            FuelSupplyLink::ACTIVE => 'Este posto já está conveniado',
+            FuelStationAgreement::REQUEST_SENT => 'Já existe um pedido aguardando resposta deste posto',
+            FuelStationAgreement::ACTIVE => 'Este posto já está conveniado',
             default => 'Não é possível pedir convênio a este posto agora',
         });
     }
 
-    private function findForCompany(Organization $company, string $uuid): FuelSupplyLink
+    private function findForCompany(Organization $company, string $uuid): FuelStationAgreement
     {
-        return FuelSupplyLink::query()
+        return FuelStationAgreement::query()
             ->where('company_id', $company->getKey())
             ->where('uuid', $uuid)
             ->firstOr(fn () => throw new NotFound('Convênio não encontrado'));
     }
 
-    private function findForStation(Organization $station, string $uuid): FuelSupplyLink
+    private function findForFuelStation(Organization $fuelStation, string $uuid): FuelStationAgreement
     {
-        return FuelSupplyLink::query()
-            ->where('station_id', $station->getKey())
+        return FuelStationAgreement::query()
+            ->where('fuel_station_id', $fuelStation->getKey())
             ->where('uuid', $uuid)
             ->firstOr(fn () => throw new NotFound('Convênio não encontrado'));
     }

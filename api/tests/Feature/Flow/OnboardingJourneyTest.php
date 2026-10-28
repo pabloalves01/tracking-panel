@@ -167,9 +167,9 @@ class OnboardingJourneyTest extends TestCase
         $user = User::factory()->create(['email' => 'multi@exemplo.com.br']);
 
         $company = Organization::factory()->company()->create();
-        $station = Organization::factory()->fuelStation()->create();
+        $fuelStation = Organization::factory()->fuelStation()->create();
 
-        foreach ([$company, $station] as $organization) {
+        foreach ([$company, $fuelStation] as $organization) {
             Membership::query()->create([
                 'organization_id' => $organization->getKey(),
                 'user_id' => $user->getKey(),
@@ -192,7 +192,7 @@ class OnboardingJourneyTest extends TestCase
         $list = $this->getJson('/api/auth/organizations');
         $list->assertOk();
         $this->assertEqualsCanonicalizing(
-            [$company->uuid, $station->uuid],
+            [$company->uuid, $fuelStation->uuid],
             collect($list->json('organizations'))->pluck('uuid')->all(),
         );
 
@@ -202,14 +202,14 @@ class OnboardingJourneyTest extends TestCase
             ->assertJsonPath('redirect_to', '/app');
 
         $this->getJson('/api/registry/entities')->assertOk();
-        $this->getJson('/api/station/companies')->assertForbidden();
+        $this->getJson('/api/fuel-station/companies')->assertForbidden();
 
         // Trocar para o posto inverte exatamente isso.
-        $this->postJson('/api/auth/organization', ['uuid' => $station->uuid])
+        $this->postJson('/api/auth/organization', ['uuid' => $fuelStation->uuid])
             ->assertOk()
             ->assertJsonPath('redirect_to', '/posto');
 
-        $this->getJson('/api/station/companies')->assertOk();
+        $this->getJson('/api/fuel-station/companies')->assertOk();
         $this->getJson('/api/registry/entities')->assertForbidden();
     }
 

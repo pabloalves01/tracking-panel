@@ -1,18 +1,18 @@
 import { Outlet } from 'react-router'
 
 import { AppFooter } from '@/components/layout/app/AppFooter'
-import { StationHeader } from '@/components/layout/station/StationHeader'
-import { StationSidebar } from '@/components/layout/station/StationSidebar'
+import { FuelStationHeader } from '@/components/layout/fuelStation/FuelStationHeader'
+import { FuelStationSidebar } from '@/components/layout/fuelStation/FuelStationSidebar'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { TooltipProvider } from '@/components/ui/tooltip'
 
-export function StationLayout() {
+export function FuelStationLayout() {
     return (
         <TooltipProvider>
             <SidebarProvider>
-                <StationSidebar />
+                <FuelStationSidebar />
                 <SidebarInset className="min-h-svh">
-                    <StationHeader />
+                    <FuelStationHeader />
                     <div className="flex min-h-0 flex-1 flex-col overflow-auto p-6">
                         <Outlet />
                     </div>

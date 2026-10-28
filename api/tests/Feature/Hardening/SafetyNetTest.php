@@ -43,7 +43,7 @@ class SafetyNetTest extends TestCase
             'password' => $gigante,
         ])->assertUnprocessable();
 
-        $this->postJson('/api/auth/station-signup', [
+        $this->postJson('/api/auth/fuel-station-signup', [
             'cnpj' => ['19131243000197'],
             'name' => $gigante,
             'email' => ['nao@posto.test'],
@@ -54,7 +54,7 @@ class SafetyNetTest extends TestCase
 
         $this->postJson('/api/auth/verification-codes', [
             'email' => ['nao@posto.test'],
-            'purpose' => ['station_signup'],
+            'purpose' => ['fuel_station_signup'],
         ])->assertUnprocessable();
 
         $this->postJson('/api/auth/password/forgot', ['email' => ['x@y.test']])
@@ -67,7 +67,7 @@ class SafetyNetTest extends TestCase
             'password_confirmation' => $gigante,
         ])->assertUnprocessable();
 
-        $this->getJson('/api/auth/station-signup/cnpj/123')->assertUnprocessable();
+        $this->getJson('/api/auth/fuel-station-signup/cnpj/123')->assertUnprocessable();
     }
 
     public function test_token_de_convite_inexistente_e_404_nao_500(): void
@@ -125,7 +125,7 @@ class SafetyNetTest extends TestCase
             'api/organization/invitations/{uuid}/resend',
             'api/auth/verification-codes',
             'api/auth/password/forgot',
-            'api/auth/station-signup',
+            'api/auth/fuel-station-signup',
             'api/registry/fuel-stations',
         ];
 

@@ -9,7 +9,7 @@ import accessRoutes from './access/accessRoutes'
 import authRoutes from './auth/authRoutes'
 import registryRoutes from './registry/registryRoutes'
 import { RequireOrganization } from './RequireOrganization'
-import stationRoutes from './station/stationRoutes'
+import fuelStationPanelRoutes from './fuelStation/fuelStationPanelRoutes'
 import systemRoutes from './system/systemRoutes'
 
 export const router = createBrowserRouter([
@@ -32,7 +32,7 @@ export const router = createBrowserRouter([
     {
         path: '/posto',
         element: <RequireOrganization type="fuel_station" />,
-        children: stationRoutes,
+        children: fuelStationPanelRoutes,
     },
     { path: '*', element: <NotFound /> },
 ])

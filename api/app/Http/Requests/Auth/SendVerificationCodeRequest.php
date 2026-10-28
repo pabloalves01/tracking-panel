@@ -28,7 +28,7 @@ class SendVerificationCodeRequest extends FormRequest
         return [
             'email' => ['required', 'email', 'max:255'],
             'purpose' => ['required', Rule::in([
-                VerificationCode::STATION_SIGNUP,
+                VerificationCode::FUEL_STATION_SIGNUP,
                 VerificationCode::INVITATION_REGISTER,
                 VerificationCode::PASSWORD_RESET,
             ])],

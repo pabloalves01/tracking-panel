@@ -21,8 +21,8 @@ use Illuminate\Support\Str;
  * O ciclo do convite: criar, reenviar, cancelar, aceitar e recusar.
  *
  * A versão anterior tinha 591 linhas e 31 métodos, metade deles pares
- * gêmeos — `createForCompany`/`createForStation`,
- * `activateCompanyMembership`/`activateStationMembership` — que existiam só
+ * gêmeos — `createForCompany`/`createForFuelStation`,
+ * `activateCompanyMembership`/`activateFuelStationMembership` — que existiam só
  * porque empresa e posto eram tabelas diferentes. Com `organizations` e
  * `memberships` únicos, cada par virou um método.
  */

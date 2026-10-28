@@ -5,7 +5,7 @@ namespace App\Http\Requests\Registry;
 use App\Support\Text;
 use Illuminate\Foundation\Http\FormRequest;
 
-class StoreFuelSupplyLinkRequest extends FormRequest
+class StoreFuelStationAgreementRequest extends FormRequest
 {
     public function authorize(): bool
     {

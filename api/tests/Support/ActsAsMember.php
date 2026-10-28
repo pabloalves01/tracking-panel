@@ -37,10 +37,10 @@ trait ActsAsMember
         return $this->enter($this->member, $this->organization);
     }
 
-    protected function actingAsStationMemberOf(?Organization $station = null, ?User $user = null): static
+    protected function actingAsFuelStationMemberOf(?Organization $fuelStation = null, ?User $user = null): static
     {
         return $this->actingAsMemberOf(
-            $station ?? Organization::factory()->fuelStation()->create(),
+            $fuelStation ?? Organization::factory()->fuelStation()->create(),
             $user,
         );
     }

@@ -10,9 +10,9 @@ use App\Http\Controllers\Auth\VerificationCodeController;
 use App\Http\Controllers\Location\LocationController;
 use App\Http\Controllers\Operations\ShipOperationPerimeterController;
 use App\Http\Controllers\Registry\EntityController;
-use App\Http\Controllers\Registry\FuelStationLinkController;
+use App\Http\Controllers\Registry\FuelStationAgreementController;
 use App\Http\Controllers\Registry\VehicleController;
-use App\Http\Controllers\Station\StationCompanyController;
+use App\Http\Controllers\FuelStation\FuelStationCompanyController;
 use App\Http\Controllers\System\OrganizationController;
 use Illuminate\Support\Facades\Route;
 
@@ -40,11 +40,11 @@ Route::prefix('auth')->group(function () {
         ->middleware('throttle:10,1,password-reset');
 
     // Cadastro público de posto.
-    Route::prefix('station-signup')->group(function () {
+    Route::prefix('fuel-station-signup')->group(function () {
         Route::get('cnpj/{cnpj}', [FuelStationSignupController::class, 'cnpj'])
-            ->middleware('throttle:20,1,station-signup-cnpj');
+            ->middleware('throttle:20,1,fuel-station-signup-cnpj');
         Route::post('/', [FuelStationSignupController::class, 'store'])
-            ->middleware('throttle:20,1,station-signup');
+            ->middleware('throttle:20,1,fuel-station-signup');
     });
 
     // Convite, pelo link. Quem tem o link pode ver e recusar sem entrar.
@@ -65,8 +65,8 @@ Route::prefix('auth')->group(function () {
         Route::post('organization', [AuthController::class, 'selectOrganization']);
         Route::post('logout', [AuthController::class, 'logout']);
 
-        Route::post('stations', [FuelStationSignupController::class, 'storeForUser'])
-            ->middleware('throttle:20,1,station-create');
+        Route::post('fuel-stations', [FuelStationSignupController::class, 'storeForUser'])
+            ->middleware('throttle:20,1,fuel-station-create');
 
         Route::post('invitations/{token}/accept', [InvitationAcceptController::class, 'accept'])
             ->middleware('throttle:20,1,invitation-accept');
@@ -127,13 +127,13 @@ Route::middleware(['auth:sanctum', 'organization:company'])->group(function () {
 
         // Postos conveniados.
         Route::prefix('fuel-stations')->group(function () {
-            Route::get('/', [FuelStationLinkController::class, 'index']);
-            Route::get('by-document', [FuelStationLinkController::class, 'byDocument'])
+            Route::get('/', [FuelStationAgreementController::class, 'index']);
+            Route::get('by-document', [FuelStationAgreementController::class, 'byDocument'])
                 ->middleware('throttle:20,1,fuel-station-lookup');
-            Route::post('/', [FuelStationLinkController::class, 'store'])
+            Route::post('/', [FuelStationAgreementController::class, 'store'])
                 ->middleware('throttle:10,1,fuel-station-request');
-            Route::delete('/{uuid}', [FuelStationLinkController::class, 'destroy']);
-            Route::post('/{uuid}/disconnect', [FuelStationLinkController::class, 'disconnect']);
+            Route::delete('/{uuid}', [FuelStationAgreementController::class, 'destroy']);
+            Route::post('/{uuid}/disconnect', [FuelStationAgreementController::class, 'disconnect']);
         });
 
         Route::prefix('vehicles')->group(function () {
@@ -148,11 +148,11 @@ Route::middleware(['auth:sanctum', 'organization:company'])->group(function () {
 
 // =============================== POSTO ===============================
 
-Route::middleware(['auth:sanctum', 'organization:fuel_station'])->prefix('station')->group(function () {
-    Route::get('companies', [StationCompanyController::class, 'index']);
-    Route::post('companies/{uuid}/accept', [StationCompanyController::class, 'accept']);
-    Route::post('companies/{uuid}/reject', [StationCompanyController::class, 'reject']);
-    Route::post('companies/{uuid}/disconnect', [StationCompanyController::class, 'disconnect']);
+Route::middleware(['auth:sanctum', 'organization:fuel_station'])->prefix('fuel-station')->group(function () {
+    Route::get('companies', [FuelStationCompanyController::class, 'index']);
+    Route::post('companies/{uuid}/accept', [FuelStationCompanyController::class, 'accept']);
+    Route::post('companies/{uuid}/reject', [FuelStationCompanyController::class, 'reject']);
+    Route::post('companies/{uuid}/disconnect', [FuelStationCompanyController::class, 'disconnect']);
 });
 
 // =============================== SISTEMA ===============================

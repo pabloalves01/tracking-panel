@@ -3,14 +3,14 @@
 namespace App\Http\Resources\Organization;
 
 use App\Http\Resources\OrganizationResource;
-use App\Models\FuelSupplyLink;
+use App\Models\FuelStationAgreement;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * @mixin FuelSupplyLink
+ * @mixin FuelStationAgreement
  */
-class FuelSupplyLinkResource extends JsonResource
+class FuelStationAgreementResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
@@ -19,7 +19,7 @@ class FuelSupplyLinkResource extends JsonResource
             'status' => $this->status,
             'status_label' => $this->statusLabel(),
             'requested_at' => $this->created_at,
-            'station' => $this->whenLoaded('station', fn () => OrganizationResource::make($this->station)),
+            'fuel_station' => $this->whenLoaded('fuelStation', fn () => OrganizationResource::make($this->fuelStation)),
             'company' => $this->whenLoaded('company', fn () => OrganizationResource::make($this->company)),
         ];
     }
