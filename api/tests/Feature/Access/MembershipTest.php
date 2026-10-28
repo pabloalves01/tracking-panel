@@ -2,176 +2,169 @@
 
 namespace Tests\Feature\Access;
 
-use App\Models\Company;
-use App\Models\CompanyUser;
-use App\Models\FuelStation;
-use App\Models\FuelStationUser;
+use App\Models\Membership;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Support\ActsAsMember;
 use Tests\TestCase;
 
+/**
+ * Os membros de uma organização.
+ *
+ * Sem papéis, sobra suspender, reativar e remover — e duas travas: ninguém
+ * mexe no próprio acesso, e a organização nunca fica sem nenhum membro
+ * ativo, porque aí ela ficaria inacessível a todos.
+ */
 class MembershipTest extends TestCase
 {
+    use ActsAsMember;
     use RefreshDatabase;
 
-    public function test_proprietario_muda_papel_e_protege_o_ultimo(): void
+    public function test_lista_os_membros_da_organizacao_ativa(): void
     {
-        [$company, $owner, $admin] = $this->company();
+        $this->actingAsMemberOf();
+        $colega = $this->addMember();
 
-        $this->actingToken($this->token($owner, $company))
-            ->patchJson('/api/company/users/'.$admin->uuid, ['role' => 'member'])
-            ->assertOk();
-
-        $this->assertSame('member', CompanyUser::query()->where('user_id', $admin->id)->value('role'));
-
-        $this->actingToken($this->token($owner, $company))
-            ->patchJson('/api/company/users/'.$owner->uuid, ['role' => 'admin'])
-            ->assertUnprocessable()
-            ->assertJsonPath('message', 'Você não pode alterar o próprio papel');
-
-        $this->actingToken($this->token($owner, $company))
-            ->deleteJson('/api/company/users/'.$owner->uuid)
-            ->assertUnprocessable()
-            ->assertJsonPath('message', 'É preciso manter um proprietário');
-    }
-
-    public function test_admin_nao_mexe_no_proprietario_e_remove_membro(): void
-    {
-        [$company, $owner, $admin] = $this->company();
-        $member = User::factory()->create(['email' => 'membro@melo.test']);
-        $member->companies()->attach($company->id, ['role' => 'member', 'status' => 'active']);
-
-        $this->actingToken($this->token($admin, $company))
-            ->patchJson('/api/company/users/'.$owner->uuid, ['role' => 'admin'])
-            ->assertForbidden();
-
-        $this->actingToken($this->token($admin, $company))
-            ->deleteJson('/api/company/users/'.$member->uuid)
-            ->assertOk();
-
-        $this->assertSame('suspended', CompanyUser::query()->where('user_id', $member->id)->value('status'));
-        $this->assertFalse($member->fresh()->companies()->whereKey($company->id)->exists());
-        $this->assertDatabaseHas('audit_logs', ['action' => 'membership.suspended']);
-    }
-
-    public function test_membro_nao_lista_usuarios(): void
-    {
-        [$company, $owner, $admin] = $this->company();
-        CompanyUser::query()->where('user_id', $admin->id)->update(['role' => 'member']);
-
-        $this->actingToken($this->token($admin, $company))
-            ->getJson('/api/company/users')
-            ->assertForbidden();
-
-        $this->actingToken($this->token($owner, $company))
-            ->getJson('/api/company/users')
+        $this->getJson('/api/organization/members')
             ->assertOk()
-            ->assertJsonCount(2, 'data');
+            ->assertJsonCount(2, 'data')
+            ->assertJsonFragment(['email' => $colega->email]);
     }
 
-    public function test_empresa_inativa_e_membro_suspenso_somem_do_login(): void
+    public function test_suspender_tira_o_acesso_e_reativar_devolve(): void
     {
-        [$company, $owner] = $this->company();
-        $company->update(['status' => 'inactive']);
+        $this->actingAsMemberOf();
+        $colega = $this->addMember();
 
-        $login = $this->postJson('/api/auth/login', [
-            'email' => $owner->email,
-            'password' => 'senha1234',
-        ])->assertOk();
+        $this->postJson("/api/organization/members/{$colega->uuid}/suspend")
+            ->assertOk()
+            ->assertJsonPath('message', 'Acesso suspenso');
 
-        $this->assertSame([], $login->json('companies'));
-        $this->assertFalse($login->json('user.has_company'));
+        $this->assertSame(Membership::SUSPENDED, $this->statusOf($colega));
 
-        $company->update(['status' => 'active']);
-        CompanyUser::query()->where('user_id', $owner->id)->update(['status' => 'suspended']);
-
-        auth()->logout();
-        $this->app['auth']->forgetGuards();
-
-        $this->postJson('/api/auth/login', [
-            'email' => $owner->email,
-            'password' => 'senha1234',
-        ])->assertOk()
-            ->assertJsonPath('user.has_company', false);
-    }
-
-    public function test_perda_de_acesso_devolve_codigo_fixo(): void
-    {
-        [$company, $owner] = $this->company();
-        $token = $this->token($owner, $company);
-        CompanyUser::query()->where('user_id', $owner->id)->update(['status' => 'suspended']);
-
-        $this->actingToken($token)
-            ->getJson('/api/registry/fuel-stations')
+        // Com o vínculo suspenso, o token dele não abre mais a área.
+        $this->enter($colega, $this->organization);
+        $this->getJson('/api/registry/entities')
             ->assertForbidden()
-            ->assertJsonPath('code', 'context_access_lost');
+            ->assertJsonPath('code', 'organization_access_lost');
+
+        $this->enter($this->member, $this->organization);
+        $this->postJson("/api/organization/members/{$colega->uuid}/reactivate")->assertOk();
+
+        $this->assertSame(Membership::ACTIVE, $this->statusOf($colega));
+
+        $this->enter($colega, $this->organization);
+        $this->getJson('/api/registry/entities')->assertOk();
     }
 
-    public function test_posto_replica_as_mesmas_regras_de_papel(): void
+    public function test_remover_desfaz_o_vinculo(): void
     {
-        $station = FuelStation::query()->create([
-            'cnpj' => '19131243000197',
-            'corporate_name' => 'Posto LTDA',
-            'status' => 'active',
-        ]);
-        $owner = User::factory()->create(['email' => 'dono@posto.test', 'password' => 'senha1234']);
-        $member = User::factory()->create(['email' => 'equipe@posto.test', 'password' => 'senha1234']);
-        FuelStationUser::query()->create([
-            'fuel_station_id' => $station->id,
-            'user_id' => $owner->id,
-            'role' => 'owner',
-            'status' => 'active',
-        ]);
-        FuelStationUser::query()->create([
-            'fuel_station_id' => $station->id,
-            'user_id' => $member->id,
-            'role' => 'member',
-            'status' => 'active',
-        ]);
+        $this->actingAsMemberOf();
+        $colega = $this->addMember();
 
-        $token = $owner->createToken('web');
-        $token->accessToken->forceFill(['fuel_station_id' => $station->id])->save();
+        $this->deleteJson("/api/organization/members/{$colega->uuid}")
+            ->assertOk()
+            ->assertJsonPath('message', 'Membro removido da organização');
 
-        $this->actingToken($token->plainTextToken)
-            ->patchJson('/api/station/users/'.$member->uuid, ['role' => 'admin'])
-            ->assertOk();
+        $this->getJson('/api/organization/members')
+            ->assertOk()
+            ->assertJsonCount(1, 'data');
 
-        $this->assertSame('admin', FuelStationUser::query()->where('user_id', $member->id)->value('role'));
+        $this->enter($colega, $this->organization);
+        $this->getJson('/api/registry/entities')->assertForbidden();
+    }
+
+    public function test_ninguem_mexe_no_proprio_acesso(): void
+    {
+        $this->actingAsMemberOf();
+        $this->addMember();
+
+        $uuid = $this->member->uuid;
+
+        $this->postJson("/api/organization/members/{$uuid}/suspend")
+            ->assertStatus(409)
+            ->assertJsonPath('message', 'Você não pode alterar o próprio acesso');
+
+        $this->deleteJson("/api/organization/members/{$uuid}")->assertStatus(409);
     }
 
     /**
-     * @return array{0: Company, 1: User, 2: User}
+     * Sem esta trava a organização pode ficar sem ninguém dentro, e só o
+     * admin do sistema conseguiria resgatá-la.
      */
-    private function company(): array
+    public function test_a_ultima_pessoa_com_acesso_nao_e_removida(): void
     {
-        $company = Company::query()->create([
-            'legal_name' => 'Melo LTDA',
-            'trade_name' => 'Melo',
-            'cnpj' => '00000000000191',
+        $this->actingAsMemberOf();
+        $colega = $this->addMember();
+
+        // Suspende o colega: resta um ativo.
+        $this->postJson("/api/organization/members/{$colega->uuid}/suspend")->assertOk();
+
+        // Agora o único ativo é quem está agindo — e ele não mexe em si.
+        $this->enter($colega, $this->organization);
+        $this->getJson('/api/organization/members')->assertForbidden();
+
+        $this->enter($this->member, $this->organization);
+        $this->postJson("/api/organization/members/{$colega->uuid}/reactivate")->assertOk();
+
+        // Com dois ativos, remover um passa; o outro vira o último.
+        $this->deleteJson("/api/organization/members/{$colega->uuid}")->assertOk();
+
+        $this->assertSame(1, Membership::query()
+            ->where('organization_id', $this->organization->getKey())
+            ->where('status', Membership::ACTIVE)
+            ->count());
+    }
+
+    public function test_membro_de_outra_organizacao_nao_e_alcancado(): void
+    {
+        $this->actingAsMemberOf();
+        $dono = $this->member;
+        $minha = $this->organization;
+
+        $this->actingAsMemberOf($this->otherCompany());
+        $alheio = $this->member;
+
+        $this->enter($dono, $minha);
+
+        $this->postJson("/api/organization/members/{$alheio->uuid}/suspend")
+            ->assertNotFound()
+            ->assertJsonPath('message', 'Membro não encontrado nesta organização');
+    }
+
+    /** As mesmas regras valem no posto: são as mesmas rotas. */
+    public function test_o_posto_segue_as_mesmas_regras(): void
+    {
+        $this->actingAsStationMemberOf();
+        $colega = $this->addMember();
+
+        $this->postJson("/api/organization/members/{$colega->uuid}/suspend")->assertOk();
+        $this->assertSame(Membership::SUSPENDED, $this->statusOf($colega));
+
+        $this->postJson('/api/organization/members/'.$this->member->uuid.'/suspend')
+            ->assertStatus(409);
+    }
+
+    // ================================ HELPERS ================================
+
+    private function addMember(): User
+    {
+        $user = User::factory()->create();
+
+        Membership::query()->create([
+            'organization_id' => $this->organization->getKey(),
+            'user_id' => $user->getKey(),
+            'status' => Membership::ACTIVE,
         ]);
-        $owner = User::factory()->create(['email' => 'owner@melo.test', 'password' => 'senha1234']);
-        $admin = User::factory()->create(['email' => 'admin@melo.test', 'password' => 'senha1234']);
-        $owner->companies()->attach($company->id, ['role' => 'owner', 'status' => 'active']);
-        $admin->companies()->attach($company->id, ['role' => 'admin', 'status' => 'active']);
 
-        return [$company, $owner, $admin];
+        return $user;
     }
 
-    private function actingToken(string $token)
+    private function statusOf(User $user): ?string
     {
-        $this->app['auth']->forgetGuards();
-
-        return $this->withToken($token);
-    }
-
-    private function token(User $user, Company $company): string
-    {
-        $token = $user->createToken('web');
-        $token->accessToken->forceFill([
-            'company_id' => $company->id,
-            'fuel_station_id' => null,
-        ])->save();
-
-        return $token->plainTextToken;
+        return Membership::query()
+            ->where('organization_id', $this->organization->getKey())
+            ->where('user_id', $user->getKey())
+            ->value('status');
     }
 }

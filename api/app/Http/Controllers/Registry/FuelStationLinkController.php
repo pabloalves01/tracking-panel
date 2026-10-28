@@ -33,9 +33,13 @@ class FuelStationLinkController extends Controller
     /** Procura um posto pelo CNPJ antes de pedir o convênio. */
     public function byDocument(Request $request): JsonResponse
     {
-        $station = $this->links->findStationByDocument(
-            Text::digits((string) $request->query('document'))
-        );
+        // Sem validar, `?document[]=x` chega como array e o cast para string
+        // derruba a requisição com 500 em vez de dizer o que está errado.
+        $validated = $request->validate([
+            'document' => ['required', 'string', 'max:20'],
+        ]);
+
+        $station = $this->links->findStationByDocument(Text::digits($validated['document']));
 
         return response()->json([
             'data' => $station ? OrganizationResource::make($station) : null,

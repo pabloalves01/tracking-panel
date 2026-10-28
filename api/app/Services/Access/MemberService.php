@@ -111,10 +111,14 @@ class MemberService
             return;
         }
 
+        // As linhas são travadas e contadas em PHP de propósito: o Postgres
+        // recusa `FOR UPDATE` junto de agregação, e `lockForUpdate()->count()`
+        // derrubava com 500 toda suspensão e remoção de membro.
         $actives = Membership::query()
             ->where('organization_id', $organization->getKey())
             ->where('status', Membership::ACTIVE)
             ->lockForUpdate()
+            ->get(['id'])
             ->count();
 
         if ($actives <= 1) {

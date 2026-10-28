@@ -12,6 +12,7 @@ use App\Services\Registry\EntityService;
 use App\Support\Text;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 /**
@@ -29,11 +30,19 @@ class EntityController extends Controller
      */
     public function all(Request $request): AnonymousResourceCollection
     {
+        // `role` entra num `EntityRole::from`, que levanta ValueError num
+        // papel inexistente — 500 por um filtro digitado errado na URL.
+        $validated = $request->validate([
+            'search' => ['nullable', 'string', 'max:255'],
+            'role' => ['nullable', Rule::enum(EntityRole::class)],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+
         return EntityResource::collection(
             $this->entities->listAll([
-                'search' => $request->query('search'),
-                'role' => $request->query('role'),
-                'per_page' => $request->query('per_page'),
+                'search' => $validated['search'] ?? null,
+                'role' => $validated['role'] ?? null,
+                'per_page' => $validated['per_page'] ?? null,
             ])
         );
     }
