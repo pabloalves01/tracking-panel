@@ -1,6 +1,6 @@
 import { createBrowserRouter, Navigate } from 'react-router'
 
-import Home from '@/pages/Home'
+import AppHome from '@/pages/AppHome'
 import NotFound from '@/pages/NotFound'
 import Perimeter from '@/pages/Perimeter'
 import ProfilePage from '@/pages/ProfilePage'
@@ -21,7 +21,7 @@ export const router = createBrowserRouter([
         path: '/app',
         element: <RequireOrganization type="company" />,
         children: [
-            { index: true, element: <Home /> },
+            { index: true, element: <AppHome /> },
             { path: 'perfil', element: <ProfilePage /> },
             { path: 'operacoes/rastreamento', element: <Perimeter /> },
             ...accessRoutes,
