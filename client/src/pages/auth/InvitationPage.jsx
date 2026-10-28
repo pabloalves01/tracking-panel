@@ -6,7 +6,18 @@ import { InputPassword } from '@/components/common/inputs/InputPassword'
 import { LoadingWrapper } from '@/components/common/LoadingWrapper'
 import { ThemeToggle } from '@/components/layout/ThemeToggle'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { invitationStatusLabel } from '@/helpers/labels/linkStatusLabel'
@@ -15,6 +26,17 @@ import { acceptInvitation, declineInvitation, previewInvitation, registerInvitat
 import { sendVerificationCode, verificationError } from '@/lib/auth/verification'
 import { notifyError, notifySuccess } from '@/lib/notify'
 
+/**
+ * A tela que o convidado abre pelo link do e-mail.
+ *
+ * Ela atende quatro situações diferentes com uma ação principal cada, e é
+ * aí que estava o problema: o botão dizia "entrar" mesmo quando o e-mail do
+ * convite ainda não tinha conta, e levava a um cadastro. O rótulo agora sai
+ * de `account_exists`, que a API já devolve no preview.
+ *
+ * Recusar é definitivo — o token morre junto — então sai do meio das ações
+ * e pede confirmação.
+ */
 export default function InvitationPage() {
     const { token } = useParams()
     const navigate = useNavigate()
@@ -27,6 +49,7 @@ export default function InvitationPage() {
     const [passwordConfirmation, setPasswordConfirmation] = useState('')
     const [retryAfter, setRetryAfter] = useState(60)
     const [error, setError] = useState('')
+    const [confirmingDecline, setConfirmingDecline] = useState(false)
 
     useEffect(() => {
         let active = true
@@ -40,7 +63,7 @@ export default function InvitationPage() {
                 if (localStorage.getItem('token')) {
                     try {
                         const current = await me()
-                        if (active) setUser(current)
+                        if (active) setUser(current.user ?? current)
                     } catch {
                         localStorage.removeItem('token')
                     }
@@ -58,6 +81,11 @@ export default function InvitationPage() {
             active = false
         }
     }, [token])
+
+    const pending = invite?.status === 'pending'
+    const accountExists = Boolean(invite?.account_exists)
+    const sameEmail = user?.email && invite?.email && user.email.toLowerCase() === invite.email.toLowerCase()
+    const loginRedirect = `/auth/login?redirect=${encodeURIComponent(`/auth/convite/${token}`)}&email=${encodeURIComponent(invite?.email ?? '')}&email_locked=1`
 
     /**
      * A API devolve `redirect_to` com o caminho da organização que acabou de
@@ -82,10 +110,7 @@ export default function InvitationPage() {
         return response
     }
 
-    function openInviteLogin() {
-        navigate(loginRedirect)
-    }
-
+    /** Sai da conta atual e segue para onde o e-mail do convite de fato leva. */
     async function switchToInviteEmail() {
         setLoading(true)
 
@@ -98,7 +123,7 @@ export default function InvitationPage() {
         setUser(null)
         setStep('account')
 
-        if (invite?.account_exists) {
+        if (accountExists) {
             navigate(loginRedirect)
             return
         }
@@ -126,7 +151,7 @@ export default function InvitationPage() {
             const response = await sendCode()
 
             if (response.account_exists) {
-                openInviteLogin()
+                navigate(loginRedirect)
                 return
             }
 
@@ -176,6 +201,7 @@ export default function InvitationPage() {
     }
 
     async function handleDecline() {
+        setConfirmingDecline(false)
         setLoading(true)
 
         try {
@@ -189,10 +215,6 @@ export default function InvitationPage() {
         }
     }
 
-    const pending = invite?.status === 'pending'
-    const sameEmail = user?.email && invite?.email && user.email.toLowerCase() === invite.email.toLowerCase()
-    const loginRedirect = `/auth/login?redirect=${encodeURIComponent(`/auth/convite/${token}`)}&email=${encodeURIComponent(invite?.email ?? '')}&email_locked=1`
-
     return (
         <LoadingWrapper loading={loading && step !== 'code'}>
             <div className="flex min-h-svh flex-col gap-4 p-6 md:p-10">
@@ -203,18 +225,78 @@ export default function InvitationPage() {
                     </Link>
                     <ThemeToggle />
                 </div>
+
                 <div className="flex flex-1 items-center justify-center">
                     <div className="w-full max-w-md">
                         {!invite ? (
-                            <p className="text-center text-sm text-muted-foreground">Convite não encontrado.</p>
+                            <Alert>
+                                <AlertTitle>Convite não encontrado</AlertTitle>
+                                <AlertDescription>
+                                    O link pode ter expirado ou já ter sido usado. Peça um convite novo a
+                                    quem administra a organização.
+                                </AlertDescription>
+                            </Alert>
                         ) : (
                             <div className="flex flex-col gap-6">
-                                <div className="flex flex-col items-center gap-1 text-center">
-                                    <h1 className="text-2xl font-bold">Convite</h1>
-                                    <p className="text-sm text-muted-foreground">
-                                        {invite.invited_by ? `${invite.invited_by} convidou` : 'Você foi convidado'} {invite.email} para {invite.organization}.
-                                    </p>
-                                </div>
+                                {/* Quem convidou, para onde e para qual e-mail: é o que
+                                    decide se a pessoa reconhece o convite como legítimo. */}
+                                <Card>
+                                    <CardContent className="flex flex-col gap-1 py-5 text-center">
+                                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                            {invite.organization_type === 'fuel_station' ? 'Posto' : 'Empresa'}
+                                        </p>
+                                        <h1 className="text-xl font-semibold">{invite.organization}</h1>
+                                        <p className="text-sm text-muted-foreground">
+                                            {invite.invited_by
+                                                ? `${invite.invited_by} convidou você`
+                                                : 'Você foi convidado'}{' '}
+                                            como <span className="text-foreground">{invite.email}</span>
+                                        </p>
+                                    </CardContent>
+                                </Card>
+
+                                {!pending ? (
+                                    <>
+                                        <Alert>
+                                            <AlertTitle>
+                                                {invitationStatusLabel[invite.status] ?? 'Convite encerrado'}
+                                            </AlertTitle>
+                                            <AlertDescription>
+                                                Este convite não está mais pendente. Peça um novo a quem
+                                                administra a organização.
+                                            </AlertDescription>
+                                        </Alert>
+                                        <Button variant="outline" render={<Link to="/auth/login" />}>
+                                            Ir para o login
+                                        </Button>
+                                    </>
+                                ) : null}
+
+                                {pending && user && sameEmail ? (
+                                    <div className="flex flex-col gap-3">
+                                        <Button type="button" onClick={handleAccept} disabled={loading}>
+                                            Aceitar convite
+                                        </Button>
+                                    </div>
+                                ) : null}
+
+                                {pending && user && !sameEmail ? (
+                                    <div className="flex flex-col gap-3">
+                                        <Alert>
+                                            <AlertTitle>Você está em outra conta</AlertTitle>
+                                            <AlertDescription>
+                                                Entrou como {user.email}, e este convite é para {invite.email}.
+                                            </AlertDescription>
+                                        </Alert>
+                                        {/* O rótulo segue o que de fato acontece: sem conta
+                                            para o e-mail do convite, o próximo passo é criá-la. */}
+                                        <Button type="button" onClick={switchToInviteEmail}>
+                                            {accountExists
+                                                ? `Sair e entrar como ${invite.email}`
+                                                : `Sair e criar a conta de ${invite.email}`}
+                                        </Button>
+                                    </div>
+                                ) : null}
 
                                 {pending && !user && step === 'account' ? (
                                     <form className="flex flex-col gap-6" onSubmit={handleRegisterDetails}>
@@ -226,6 +308,7 @@ export default function InvitationPage() {
                                                     type="email"
                                                     value={invite.email}
                                                     readOnly
+                                                    disabled
                                                     autoComplete="email"
                                                 />
                                             </Field>
@@ -236,6 +319,7 @@ export default function InvitationPage() {
                                                     value={name}
                                                     autoComplete="name"
                                                     required
+                                                    autoFocus
                                                     onChange={(event) => setName(event.target.value)}
                                                 />
                                             </Field>
@@ -250,7 +334,9 @@ export default function InvitationPage() {
                                                 />
                                             </Field>
                                             <Field>
-                                                <FieldLabel htmlFor="invite-password-confirmation">Confirmação da senha</FieldLabel>
+                                                <FieldLabel htmlFor="invite-password-confirmation">
+                                                    Confirmação da senha
+                                                </FieldLabel>
                                                 <InputPassword
                                                     id="invite-password-confirmation"
                                                     value={passwordConfirmation}
@@ -259,10 +345,11 @@ export default function InvitationPage() {
                                                     placeholder="Repita a senha"
                                                 />
                                             </Field>
-                                            {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
-                                            <Button type="submit" disabled={loading}>Continuar</Button>
-                                            <Button variant="outline" render={<Link to={loginRedirect} />}>
-                                                Já tenho conta
+                                            {error ? (
+                                                <p className="text-sm text-destructive" role="alert">{error}</p>
+                                            ) : null}
+                                            <Button type="submit" disabled={loading}>
+                                                Criar conta e continuar
                                             </Button>
                                         </FieldGroup>
                                     </form>
@@ -281,7 +368,7 @@ export default function InvitationPage() {
                                                 const response = await sendCode()
 
                                                 if (response.account_exists) {
-                                                    openInviteLogin()
+                                                    navigate(loginRedirect)
                                                     return 0
                                                 }
 
@@ -302,43 +389,45 @@ export default function InvitationPage() {
                                     />
                                 ) : null}
 
-                                {pending && user && sameEmail ? (
-                                    <Button type="button" onClick={handleAccept}>Aceitar convite</Button>
-                                ) : null}
-
-                                {pending && user && !sameEmail ? (
-                                    <Alert>
-                                        <AlertTitle>Conta diferente</AlertTitle>
-                                        <AlertDescription>
-                                            Você entrou como {user.email}. Este convite é para {invite.email}. Saia e entre com o e-mail do convite.
-                                        </AlertDescription>
-                                        <Button className="mt-3" type="button" onClick={switchToInviteEmail}>
-                                            Entrar com o e-mail do convite
-                                        </Button>
-                                    </Alert>
-                                ) : null}
-
+                                {/* Ações secundárias, longe do botão principal. Recusar é
+                                    definitivo: o token morre junto e não há como desfazer. */}
                                 {pending ? (
-                                    <Button type="button" variant="outline" onClick={handleDecline}>
-                                        Recusar convite
-                                    </Button>
-                                ) : (
-                                    <Alert>
-                                        <AlertTitle>{invitationStatusLabel[invite.status] ?? 'Convite encerrado'}</AlertTitle>
-                                        <AlertDescription>
-                                            Este convite não está mais pendente.
-                                        </AlertDescription>
-                                    </Alert>
-                                )}
-
-                                <Button type="button" variant="ghost" onClick={() => navigate('/auth/login')}>
-                                    Ir para o login
-                                </Button>
+                                    <div className="flex flex-col items-center gap-2 border-t pt-4 text-sm">
+                                        {!user && step === 'account' ? (
+                                            <Link to={loginRedirect} className="text-muted-foreground underline-offset-4 hover:underline">
+                                                Já tenho conta com este e-mail
+                                            </Link>
+                                        ) : null}
+                                        <button
+                                            type="button"
+                                            className="text-muted-foreground underline-offset-4 hover:underline"
+                                            onClick={() => setConfirmingDecline(true)}
+                                        >
+                                            Recusar convite
+                                        </button>
+                                    </div>
+                                ) : null}
                             </div>
                         )}
                     </div>
                 </div>
             </div>
+
+            <AlertDialog open={confirmingDecline} onOpenChange={setConfirmingDecline}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Recusar o convite?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            O link para de valer. Para entrar em {invite?.organization} depois, será
+                            preciso pedir um convite novo.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Voltar</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDecline}>Recusar convite</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </LoadingWrapper>
     )
 }
