@@ -9,6 +9,8 @@ use App\Models\User;
 use App\Models\VerificationCode;
 use App\Services\Auth\VerificationCodeService;
 use App\Support\Text;
+use DomainException;
+use Illuminate\Support\Facades\DB;
 
 class PasswordResetController extends Controller
 {
@@ -33,20 +35,27 @@ class PasswordResetController extends Controller
     public function reset(ResetPasswordRequest $request)
     {
         $email = Text::email($request->validated('email'));
-        $this->codes->consume($email, VerificationCode::PASSWORD_RESET, $request->validated('code'));
 
-        $user = User::query()->where('email', $email)->first();
+        // O código é consumido dentro da transação que troca a senha: se
+        // algo falhar depois, ele não foi gasto.
+        DB::transaction(function () use ($request, $email) {
+            $this->codes->consume($email, VerificationCode::PASSWORD_RESET, $request->validated('code'));
 
-        if (! $user) {
-            abort(422, 'Código inválido');
-        }
+            $user = User::query()->where('email', $email)->lockForUpdate()->first();
 
-        $user->forceFill([
-            'password' => $request->validated('password'),
-            'email_verified_at' => $user->email_verified_at ?? now(),
-        ])->save();
+            if (! $user) {
+                throw new DomainException(VerificationCodeService::PUBLIC_REJECTION);
+            }
 
-        $user->tokens()->delete();
+            $user->forceFill([
+                'password' => $request->validated('password'),
+                'email_verified_at' => $user->email_verified_at ?? now(),
+            ])->save();
+
+            // Trocar a senha encerra as outras sessões: se alguém entrou com
+            // a senha antiga, o acesso dele cai aqui.
+            $user->tokens()->delete();
+        });
 
         return response()->json([
             'message' => 'Senha atualizada. Entre com a nova senha.',

@@ -3,7 +3,6 @@ import { useSearchParams } from 'react-router'
 import {
     BanIcon,
     CircleCheckIcon,
-    CopyIcon,
     MailIcon,
     PlusIcon,
     SendIcon,
@@ -25,7 +24,6 @@ import {
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -46,7 +44,7 @@ import {
     suspendMember,
 } from '@/lib/access/members'
 import { useSession } from '@/lib/auth/session'
-import { copyText, notifyError, notifySuccess } from '@/lib/notify'
+import { notifyError, notifySuccess } from '@/lib/notify'
 
 const statusLabel = {
     active: 'Ativo',
@@ -107,7 +105,7 @@ export default function MembersPage() {
         setSearchParams(params)
     }
 
-    async function run(action, successPrefix) {
+    async function run(action) {
         try {
             notifySuccess(await action())
             load()

@@ -2,37 +2,62 @@
 
 namespace App\Services\Auth;
 
-use App\Jobs\DeliverVerificationCode;
 use App\Mail\StationSignupExistingAccountMail;
 use App\Mail\VerificationCodeMail;
 use App\Models\Invitation;
 use App\Models\User;
 use App\Models\VerificationCode;
 use App\Support\Text;
-use Illuminate\Contracts\Cache\LockTimeoutException;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Cache;
+use DomainException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\RateLimiter;
 
+/**
+ * Os códigos de seis dígitos do cadastro por convite, do cadastro de posto
+ * e da recuperação de senha.
+ *
+ * Três coisas mudaram em relação à versão anterior, e todas derivam de um
+ * problema real que ela teve:
+ *
+ * 1. **Um caminho de emissão.** Antes havia dois — um síncrono para o
+ *    convite e um "opaco" que gravava linha sem hash, despachava um job
+ *    `afterResponse` e decidia a entrega depois. O resultado é que o código
+ *    do convite simplesmente não chegava. Agora a decisão de entregar é
+ *    tomada uma vez, antes de responder.
+ *
+ * 2. **Duas camadas de limite, não três.** Saiu o teto de palpites por
+ *    e-mail. Ele permitia que um terceiro esgotasse os palpites da vítima e
+ *    a impedisse de usar um código que ela já tinha recebido — um bloqueio
+ *    dirigido, de até uma hora. Ficam o limite por código (cinco erros
+ *    invalidam) e o limite de envios por e-mail, mais o throttle por IP na
+ *    rota. São 5 códigos/hora × 5 palpites = 25 tentativas por hora contra
+ *    um espaço de um milhão: continua seguro, e limitar envio incomoda sem
+ *    trancar quem é alvo.
+ *
+ * 3. **O código não viaja em claro na fila.** `VerificationCodeMail` é
+ *    `ShouldBeEncrypted`, então o payload é cifrado no storage da fila.
+ *    Enfileirar mantém a resposta rápida e com tempo constante, o que
+ *    importa porque o tempo de resposta não pode dizer se a conta existe.
+ */
 class VerificationCodeService
 {
     public const TTL_MINUTES = 10;
 
+    /** Erros tolerados por código antes de invalidá-lo. */
     public const MAX_ATTEMPTS = 5;
 
     public const COOLDOWN_SECONDS = 60;
 
+    /** Envios por hora, por e-mail e finalidade. */
     public const HOURLY_CAP = 5;
-
-    public const HOURLY_ATTEMPTS = 10;
 
     public const PUBLIC_REJECTION = 'Código inválido';
 
     /**
-     * Cadastro por convite com token válido envia o código nesta requisição.
-     * Os outros fluxos respondem antes da entrega, para o tempo não dizer se a conta existe.
+     * Pede um código.
+     *
+     * A resposta é a mesma exista ou não a conta: quem pergunta pela rota
+     * pública não descobre quem está cadastrado.
      *
      * @return array{sent: bool, retry_after: int, account_exists: bool}
      */
@@ -40,121 +65,141 @@ class VerificationCodeService
     {
         $email = Text::email($email);
 
-        if ($purpose === VerificationCode::INVITATION_REGISTER && $this->inviteCanReceiveCode($email, $token)) {
-            return $this->issueInvitation($email);
+        // O convite é o único caso em que dizer "você já tem conta" é certo:
+        // quem tem o link já sabe que o e-mail foi convidado, e a tela
+        // precisa mandar essa pessoa para o login em vez do cadastro.
+        $isInvite = $purpose === VerificationCode::INVITATION_REGISTER
+            && $this->inviteMatches($email, $token);
+
+        if ($isInvite && $this->accountExists($email)) {
+            return ['sent' => false, 'retry_after' => 0, 'account_exists' => true];
         }
 
-        return $this->issueOpaque($email, $purpose, $token);
+        $retryAfter = $this->blockedFor($email, $purpose);
+
+        if ($retryAfter !== null) {
+            return ['sent' => false, 'retry_after' => $retryAfter, 'account_exists' => false];
+        }
+
+        $this->issueAndDeliver($email, $purpose, $token);
+
+        return [
+            'sent' => true,
+            'retry_after' => self::COOLDOWN_SECONDS,
+            'account_exists' => false,
+        ];
+    }
+
+    /**
+     * Confere e gasta o código.
+     *
+     * Chame de dentro da transação que faz o trabalho: se o passo seguinte
+     * falhar, o código não foi gasto. Antes o consumo ficava fora, e um erro
+     * depois obrigava a pedir outro código.
+     */
+    public function consume(string $email, string $purpose, mixed $plain): void
+    {
+        $email = Text::email($email);
+        $digits = is_scalar($plain) ? (preg_replace('/\D/', '', (string) $plain) ?? '') : '';
+
+        if ($digits === '') {
+            throw new DomainException('O código é obrigatório');
+        }
+
+        $code = VerificationCode::query()
+            ->where('email', $email)
+            ->where('purpose', $purpose)
+            ->whereNotNull('code_hash')
+            ->latest('id')
+            ->lockForUpdate()
+            ->first();
+
+        if (! $this->isUsable($code)) {
+            throw new DomainException(self::PUBLIC_REJECTION);
+        }
+
+        if (! hash_equals($code->code_hash, hash('sha256', $digits))) {
+            $code->attempts++;
+
+            if ($code->attempts >= self::MAX_ATTEMPTS) {
+                $code->invalidated_at = now();
+            }
+
+            $code->save();
+
+            throw new DomainException(self::PUBLIC_REJECTION);
+        }
+
+        $code->forceFill(['consumed_at' => now()])->save();
     }
 
     public function waitMessage(int $seconds): string
     {
         if ($seconds >= 120) {
-            $minutes = max(1, (int) ceil($seconds / 60));
-
-            return "Aguarde {$minutes} min para reenviar o código.";
+            return 'Aguarde '.max(1, (int) ceil($seconds / 60)).' minutos para pedir outro código.';
         }
 
-        return 'Aguarde '.max(1, $seconds).' segundos para reenviar o código.';
+        return 'Aguarde '.max(1, $seconds).' segundos para pedir outro código.';
     }
 
+    // ================================ INTERNALS ================================
+
     /**
-     * Token do convite confere. Conta existente não finge envio.
-     * Cooldown e teto contam só códigos desta finalidade que foram enviados.
+     * Grava e entrega, quando for o caso.
      *
-     * @return array{sent: bool, retry_after: int, account_exists: bool}
+     * A linha é criada mesmo quando nada é enviado: é ela que faz o cooldown
+     * contar igual para e-mail cadastrado e não cadastrado.
      */
-    private function issueInvitation(string $email): array
+    private function issueAndDeliver(string $email, string $purpose, ?string $token): void
     {
-        if (User::query()->where('email', $email)->exists()) {
-            return [
-                'sent' => false,
-                'retry_after' => 0,
-                'account_exists' => true,
-            ];
+        $deliver = $this->shouldDeliver($email, $purpose, $token);
+        $plain = $deliver ? $this->plainCode() : null;
+
+        DB::transaction(function () use ($email, $purpose, $plain) {
+            VerificationCode::query()->create([
+                'email' => $email,
+                'purpose' => $purpose,
+                'code_hash' => $plain ? hash('sha256', $plain) : null,
+                'expires_at' => $plain ? now()->addMinutes(self::TTL_MINUTES) : null,
+            ]);
+        });
+
+        if ($plain) {
+            Mail::to($email)->queue(new VerificationCodeMail($plain, self::TTL_MINUTES));
+
+            return;
         }
 
-        $retryAfter = $this->blockedFor($email, VerificationCode::INVITATION_REGISTER, true);
-
-        if ($retryAfter !== null) {
-            return [
-                'sent' => false,
-                'retry_after' => $retryAfter,
-                'account_exists' => false,
-            ];
+        // Quem tenta cadastrar um posto com um e-mail que já tem conta recebe
+        // um aviso para entrar, em vez de silêncio.
+        if ($purpose === VerificationCode::STATION_SIGNUP && $this->accountExists($email)) {
+            Mail::to($email)->queue(new StationSignupExistingAccountMail);
         }
+    }
 
-        $plain = $this->plainCode();
+    private function shouldDeliver(string $email, string $purpose, ?string $token): bool
+    {
+        $account = $this->accountExists($email);
 
-        VerificationCode::query()->create([
-            'email' => $email,
-            'purpose' => VerificationCode::INVITATION_REGISTER,
-            'code_hash' => hash('sha256', $plain),
-            'expires_at' => now()->addMinutes(self::TTL_MINUTES),
-        ]);
-
-        Mail::to($email)->queue(new VerificationCodeMail($plain, self::TTL_MINUTES));
-
-        return [
-            'sent' => true,
-            'retry_after' => self::COOLDOWN_SECONDS,
-            'account_exists' => false,
-        ];
+        return match ($purpose) {
+            VerificationCode::STATION_SIGNUP => ! $account,
+            VerificationCode::PASSWORD_RESET => $account,
+            VerificationCode::INVITATION_REGISTER => ! $account && $this->inviteMatches($email, $token),
+            default => false,
+        };
     }
 
     /**
-     * A linha entra no cooldown mesmo quando a entrega depois não manda código,
-     * para conta existente e e-mail desconhecido terem a mesma resposta.
+     * Segundos até o próximo envio, ou null se pode pedir agora.
      *
-     * @return array{sent: bool, retry_after: int, account_exists: bool}
+     * Conta qualquer linha desta finalidade, entregue ou não: é o que faz a
+     * resposta ser igual para e-mail cadastrado e não cadastrado.
      */
-    private function issueOpaque(string $email, string $purpose, ?string $token): array
-    {
-        $retryAfter = $this->blockedFor($email, $purpose, false);
-
-        if ($retryAfter !== null) {
-            return [
-                'sent' => false,
-                'retry_after' => $retryAfter,
-                'account_exists' => false,
-            ];
-        }
-
-        $plain = $this->plainCode();
-        $record = VerificationCode::query()->create([
-            'email' => $email,
-            'purpose' => $purpose,
-            'code_hash' => null,
-            'expires_at' => null,
-        ]);
-
-        DeliverVerificationCode::dispatch($record->id, $plain, $token)->afterResponse();
-
-        return [
-            'sent' => true,
-            'retry_after' => self::COOLDOWN_SECONDS,
-            'account_exists' => false,
-        ];
-    }
-
-    private function plainCode(): string
-    {
-        return str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-    }
-
-    /**
-     * Segundos até o próximo envio desta finalidade, ou null se pode enviar agora.
-     * No convite, só código entregue conta: outra finalidade e tentativa sem e-mail não bloqueiam.
-     */
-    private function blockedFor(string $email, string $purpose, bool $deliveredOnly): ?int
+    private function blockedFor(string $email, string $purpose): ?int
     {
         $query = VerificationCode::query()
             ->where('email', $email)
             ->where('purpose', $purpose);
-
-        if ($deliveredOnly) {
-            $query->whereNotNull('code_hash');
-        }
 
         $latest = (clone $query)->latest('id')->first();
 
@@ -180,159 +225,17 @@ class VerificationCodeService
         return null;
     }
 
-    /**
-     * Decide o e-mail depois da resposta. Conta existente no cadastro de posto
-     * recebe o aviso para entrar, sem código.
-     */
-    public function deliver(int $codeId, string $plain, ?string $token): void
+    private function isUsable(?VerificationCode $code): bool
     {
-        $code = VerificationCode::query()->find($codeId);
-
-        if (! $code || $code->code_hash) {
-            return;
-        }
-
-        if (! $this->shouldDeliver($code->email, $code->purpose, $token)) {
-            if ($code->purpose === VerificationCode::STATION_SIGNUP && User::query()->where('email', $code->email)->exists()) {
-                Mail::to($code->email)->queue(new StationSignupExistingAccountMail);
-            }
-
-            return;
-        }
-
-        $code->forceFill([
-            'code_hash' => hash('sha256', $plain),
-            'expires_at' => now()->addMinutes(self::TTL_MINUTES),
-        ])->save();
-
-        Mail::to($code->email)->queue(new VerificationCodeMail($plain, self::TTL_MINUTES));
+        return $code
+            && ! $code->invalidated_at
+            && ! $code->consumed_at
+            && $code->attempts < self::MAX_ATTEMPTS
+            && $code->expires_at
+            && $code->expires_at->isFuture();
     }
 
-    public function consume(string $email, string $purpose, mixed $plain): void
-    {
-        $email = Text::email($email);
-        $digits = is_scalar($plain) ? preg_replace('/\D/', '', (string) $plain) ?? '' : '';
-
-        if ($digits === '') {
-            abort(422, 'O código é obrigatório');
-        }
-
-        $this->spendGuessTime($digits);
-
-        $key = $this->attemptKey($email, $purpose);
-        $lock = Cache::lock('lock:'.$key, 20);
-        $acquired = false;
-        $denied = null;
-        $rejected = null;
-
-        try {
-            $lock->block(15);
-            $acquired = true;
-
-            if (RateLimiter::tooManyAttempts($key, self::HOURLY_ATTEMPTS)) {
-                $denied = $this->budgetResponse($key);
-            } else {
-                DB::transaction(function () use ($email, $purpose, $digits, &$rejected) {
-                    $code = VerificationCode::query()
-                        ->where('email', $email)
-                        ->where('purpose', $purpose)
-                        ->whereNotNull('code_hash')
-                        ->latest('id')
-                        ->lockForUpdate()
-                        ->first();
-
-                    if (! $code || $code->invalidated_at || $code->attempts >= self::MAX_ATTEMPTS || $code->consumed_at || ! $code->expires_at || $code->expires_at->isPast()) {
-                        $this->spendGuessTime($digits);
-                        $rejected = self::PUBLIC_REJECTION;
-
-                        return;
-                    }
-
-                    if (! hash_equals($code->code_hash, hash('sha256', $digits))) {
-                        $code->attempts++;
-
-                        if ($code->attempts >= self::MAX_ATTEMPTS) {
-                            $code->invalidated_at = now();
-                        }
-
-                        $code->save();
-                        $rejected = self::PUBLIC_REJECTION;
-
-                        return;
-                    }
-
-                    $code->forceFill([
-                        'consumed_at' => now(),
-                    ])->save();
-                });
-
-                if ($rejected) {
-                    $hits = RateLimiter::hit($key, 3600);
-
-                    if ($hits > self::HOURLY_ATTEMPTS) {
-                        $denied = $this->budgetResponse($key);
-                        $rejected = null;
-                    }
-                }
-            }
-        } catch (LockTimeoutException) {
-            $denied = $this->budgetResponse($key);
-        } finally {
-            if ($acquired) {
-                $lock->release();
-            }
-        }
-
-        if ($denied) {
-            abort($denied);
-        }
-
-        if ($rejected) {
-            abort(422, $rejected);
-        }
-    }
-
-    /**
-     * Dez palpites errados por e-mail e finalidade, na mesma hora.
-     * O acerto não entra na conta. A trava é consultada antes de avaliar o código,
-     * e o incremento fica fora da transação do banco.
-     */
-    private function attemptKey(string $email, string $purpose): string
-    {
-        return 'verification-attempts:'.hash('sha256', $email.'|'.$purpose);
-    }
-
-    private function budgetResponse(string $key): JsonResponse
-    {
-        $seconds = max(1, RateLimiter::availableIn($key));
-        $minutes = max(1, (int) ceil($seconds / 60));
-
-        return response()->json([
-            'message' => "Muitas tentativas. Tente novamente em {$minutes} min.",
-            'retry_after' => $seconds,
-        ], 429, [
-            'Retry-After' => $seconds,
-        ]);
-    }
-
-    private function spendGuessTime(string $digits): void
-    {
-        hash_equals(hash('sha256', '000000'), hash('sha256', $digits));
-    }
-
-    private function shouldDeliver(string $email, string $purpose, ?string $token): bool
-    {
-        $account = User::query()->where('email', $email)->exists();
-
-        return match ($purpose) {
-            VerificationCode::STATION_SIGNUP => ! $account,
-            VerificationCode::PASSWORD_RESET => $account,
-            VerificationCode::INVITATION_REGISTER => $this->inviteCanReceiveCode($email, $token) && ! $account,
-            default => false,
-        };
-    }
-
-    private function inviteCanReceiveCode(string $email, ?string $token): bool
+    private function inviteMatches(string $email, ?string $token): bool
     {
         if (! is_string($token) || $token === '') {
             return false;
@@ -344,7 +247,17 @@ class VerificationCodeService
 
         return $invitation
             && $invitation->status === Invitation::PENDING
-            && $invitation->expires_at->isFuture()
-            && strtolower($invitation->email) === $email;
+            && $invitation->expires_at?->isFuture()
+            && mb_strtolower($invitation->email) === $email;
+    }
+
+    private function accountExists(string $email): bool
+    {
+        return User::query()->where('email', $email)->exists();
+    }
+
+    private function plainCode(): string
+    {
+        return str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
     }
 }

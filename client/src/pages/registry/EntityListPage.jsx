@@ -12,7 +12,6 @@ import {
 
 import { ActionButton } from '@/components/common/button/ActionButton'
 import { LayoutToolbar } from '@/components/common/LayoutToolbar'
-import { LoadingWrapper } from '@/components/common/LoadingWrapper'
 import {
     AlertDialog,
     AlertDialogAction,
@@ -43,7 +42,7 @@ import {
     getEntities,
     removeEntityRole,
 } from '@/lib/registry/entities'
-import { ENTITY_ROLES, inflect, rolePath, roleFromSlug } from '@/lib/registry/roles'
+import { ENTITY_ROLES, rolePath, roleFromSlug } from '@/lib/registry/roles'
 import { notifyError, notifySuccess } from '@/lib/notify'
 
 const kindLabel = {

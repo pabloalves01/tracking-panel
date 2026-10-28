@@ -3,13 +3,17 @@
 namespace App\Mail;
 
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class InvitationMail extends Mailable implements ShouldQueue
+/**
+ * O payload carrega o token do convite na url, então vai cifrado no storage da fila.
+ */
+class InvitationMail extends Mailable implements ShouldQueue, ShouldBeEncrypted
 {
     use Queueable, SerializesModels;
 

@@ -1,9 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
-import { CopyIcon } from 'lucide-react'
 
 import { LayoutToolbar } from '@/components/common/LayoutToolbar'
-import { Button } from '@/components/ui/button'
 import {
     Field,
     FieldDescription,

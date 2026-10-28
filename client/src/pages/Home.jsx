@@ -10,7 +10,6 @@ import {
     YAxis,
 } from 'recharts'
 
-import { LayoutToolbar } from '@/components/common/LayoutToolbar'
 import { AttentionList } from '@/components/dashboard/AttentionList'
 import { FleetStatusCard } from '@/components/dashboard/FleetStatusCard'
 import { IndicatorCard } from '@/components/dashboard/IndicatorCard'
