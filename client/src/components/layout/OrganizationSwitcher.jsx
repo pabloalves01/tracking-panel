@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Building2, ChevronsUpDown, Fuel, Plus } from 'lucide-react'
+import { Building2, ChevronsUpDown, Fuel } from 'lucide-react'
 import { useNavigate } from 'react-router'
 
 import {
@@ -36,9 +36,11 @@ export function OrganizationSwitcher() {
     }
 
     const Icon = typeIcon[current.type] ?? Building2
-    const others = organizations.filter((item) => item.uuid !== current.uuid)
+    const pending = invitations.length
 
     async function switchTo(uuid) {
+        if (uuid === current.uuid) return
+
         setSwitching(true)
 
         try {
@@ -65,21 +67,26 @@ export function OrganizationSwitcher() {
                         <span className="text-muted-foreground tabular-nums">
                             {formatCpfCnpj(current.document)}
                         </span>
+                        <CurrentDot />
                         <ChevronsUpDown className="text-muted-foreground size-4 shrink-0" />
                     </button>
                 }
             />
             <DropdownMenuContent align="end" className="w-72">
-                {others.map((organization) => {
-                    const OtherIcon = typeIcon[organization.type] ?? Building2
+                {/* Todas, inclusive a atual: a lista é o mapa de onde a pessoa
+                    pode estar, e a bolinha diz onde ela está. */}
+                {organizations.map((organization) => {
+                    const ItemIcon = typeIcon[organization.type] ?? Building2
+                    const isCurrent = organization.uuid === current.uuid
 
                     return (
                         <DropdownMenuItem
                             key={organization.uuid}
+                            aria-current={isCurrent ? 'true' : undefined}
                             onClick={() => switchTo(organization.uuid)}
                         >
-                            <span className="flex min-w-0 items-start gap-2">
-                                <OtherIcon className="text-muted-foreground mt-0.5 size-4 shrink-0" />
+                            <span className="flex min-w-0 flex-1 items-start gap-2">
+                                <ItemIcon className="text-muted-foreground mt-0.5 size-4 shrink-0" />
                                 <span className="flex min-w-0 flex-col">
                                     <span className="truncate font-medium">
                                         {organization.display_name}
@@ -90,24 +97,32 @@ export function OrganizationSwitcher() {
                                     </span>
                                 </span>
                             </span>
+                            {isCurrent ? <CurrentDot /> : null}
                         </DropdownMenuItem>
                     )
                 })}
 
-                {others.length > 0 ? <DropdownMenuSeparator /> : null}
+                <DropdownMenuSeparator />
 
-                <DropdownMenuItem onClick={() => navigate('/auth/organizacoes')}>
-                    Ver organizações
-                    {invitations.length > 0 ? ` e ${invitations.length} convite${invitations.length > 1 ? 's' : ''}` : ''}
-                </DropdownMenuItem>
-                {/* Quem já está logado cadastra um posto na mesma conta, sem
-                    sair. Sem esta porta, a única entrada era o login, e a
-                    pessoa deslogava para chegar lá. */}
-                <DropdownMenuItem onClick={() => navigate('/auth/register/posto')}>
-                    <Plus className="text-muted-foreground size-4" />
-                    Cadastrar um posto
+                {/* Cadastrar um posto saiu daqui: este menu é para trocar, o
+                    que se faz várias vezes por dia. A tela de organizações,
+                    a um clique, mantém essa porta. */}
+                <DropdownMenuItem className="justify-center" onClick={() => navigate('/auth/organizacoes')}>
+                    Ver todas
+                    {pending > 0 ? ` · ${pending} convite${pending > 1 ? 's' : ''}` : ''}
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
+    )
+}
+
+/** A organização em que a sessão está agora. */
+function CurrentDot() {
+    return (
+        <span className="relative flex size-2 shrink-0" title="Organização atual">
+            <span className="absolute inline-flex size-full rounded-full bg-emerald-500 opacity-75 motion-safe:animate-ping" />
+            <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+            <span className="sr-only">Organização atual</span>
+        </span>
     )
 }
