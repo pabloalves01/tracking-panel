@@ -2,387 +2,303 @@
 
 namespace Tests\Feature\Access;
 
-use App\Models\Company;
-use App\Models\CompanyUser;
-use App\Models\FuelStation;
-use App\Models\FuelStationUser;
+use App\Mail\InvitationMail;
 use App\Models\Invitation;
+use App\Models\Membership;
 use App\Models\User;
 use App\Models\VerificationCode;
-use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Mail;
+use Tests\Support\ActsAsMember;
 use Tests\TestCase;
 
+/**
+ * O ciclo de vida de um convite.
+ *
+ * Sem papéis, convidar é só dizer o e-mail: quem aceita vira membro com o
+ * mesmo acesso de todos. O que sobrou de regra é sobre estado — pendente,
+ * aceito, recusado, revogado, expirado — e sobre não deixar um token velho
+ * servir depois que o convite mudou de estado.
+ */
 class InvitationTest extends TestCase
 {
+    use ActsAsMember;
     use RefreshDatabase;
 
-    public function test_convite_cria_conta_e_entra_na_empresa(): void
+    protected function setUp(): void
     {
-        [$token] = $this->companyInvite('dona@melo.test');
-        $this->plantCode('dona@melo.test', VerificationCode::INVITATION_REGISTER);
+        parent::setUp();
 
-        $this->postJson('/api/auth/invitations/'.$token.'/register', [
-            'name' => 'Dona',
-            'password' => 'senha1234',
-            'password_confirmation' => 'senha1234',
-            'code' => '123456',
-            'is_system_admin' => true,
-        ])->assertCreated()
-            ->assertJsonPath('user.email', 'dona@melo.test')
-            ->assertJsonPath('user.is_system_admin', false)
-            ->assertJsonPath('user.current_role', 'owner')
-            ->assertJsonPath('user.has_company', true);
-
-        $this->assertNotNull(User::query()->where('email', 'dona@melo.test')->first()->email_verified_at);
-        $this->assertSame(1, CompanyUser::query()->where('role', 'owner')->where('status', 'active')->count());
-        $this->assertDatabaseHas('audit_logs', ['action' => 'invitation.accepted']);
+        Mail::fake();
+        $this->actingAsMemberOf();
     }
 
-    public function test_sair_revoga_o_token_e_o_email_do_convite_aceita(): void
+    // ================================ CONVIDAR ================================
+
+    public function test_convidar_envia_o_email_e_lista_como_pendente(): void
     {
-        [$token, $company] = $this->companyInvite('dona@melo.test');
-        $other = User::factory()->create([
-            'email' => 'postosim@gmail.com',
-            'password' => 'senha1234',
-        ]);
-        $plain = $other->createToken('web')->plainTextToken;
+        $this->invite('novo@exemplo.com.br')->assertCreated();
 
-        $this->actingToken($plain)
-            ->postJson('/api/auth/logout')
+        Mail::assertQueued(InvitationMail::class);
+
+        $this->getJson('/api/organization/invitations')
             ->assertOk()
-            ->assertJsonPath('message', 'Sessão encerrada.');
-
-        $this->app['auth']->forgetGuards();
-        $this->flushHeaders();
-
-        $this->withToken($plain)->getJson('/api/auth/me')->assertUnauthorized();
-        $this->assertSame(0, $other->tokens()->count());
-
-        $this->flushHeaders();
-        $this->app['auth']->forgetGuards();
-
-        $owner = User::factory()->create([
-            'email' => 'dona@melo.test',
-            'password' => 'senha1234',
-        ]);
-
-        $this->actingToken($owner->createToken('web')->plainTextToken)
-            ->postJson('/api/auth/invitations/'.$token.'/accept')
-            ->assertOk()
-            ->assertJsonPath('message', 'Convite aceito');
-
-        $this->assertTrue($owner->companies()->whereKey($company->id)->exists());
+            ->assertJsonPath('data.0.email', 'novo@exemplo.com.br')
+            ->assertJsonPath('data.0.status', Invitation::PENDING);
     }
 
-    public function test_conta_existente_aceita_e_outro_email_nao(): void
+    public function test_dois_convites_pendentes_para_o_mesmo_email_nao_coexistem(): void
     {
-        [$token, $company] = $this->companyInvite('dona@melo.test');
-        $owner = User::factory()->create([
-            'email' => 'dona@melo.test',
-            'password' => 'senha1234',
-        ]);
-        $other = User::factory()->create([
-            'email' => 'outro@melo.test',
-            'password' => 'senha1234',
-        ]);
+        $this->invite('novo@exemplo.com.br')->assertCreated();
 
-        $this->actingToken($other->createToken('web')->plainTextToken)
-            ->postJson('/api/auth/invitations/'.$token.'/accept')
-            ->assertUnprocessable()
-            ->assertJsonPath('message', 'Este convite é para outro e-mail');
+        $this->invite('novo@exemplo.com.br')->assertStatus(409);
 
-        $this->actingToken($owner->createToken('web')->plainTextToken)
-            ->postJson('/api/auth/invitations/'.$token.'/accept')
-            ->assertOk()
-            ->assertJsonPath('message', 'Convite aceito');
-
-        $this->assertTrue($owner->companies()->whereKey($company->id)->exists());
-
-        $this->actingToken($owner->createToken('web')->plainTextToken)
-            ->postJson('/api/auth/invitations/'.$token.'/accept')
-            ->assertUnprocessable()
-            ->assertJsonPath('message', 'Este convite já foi aceito');
+        $this->assertSame(1, Invitation::query()->count());
     }
 
-    public function test_recusa_reenvio_e_token_antigo(): void
+    public function test_nao_se_convida_quem_ja_e_membro(): void
     {
-        [$token, $company] = $this->companyInvite('dona@melo.test');
+        $this->invite($this->member->email)->assertStatus(409);
+    }
 
-        $this->postJson('/api/auth/invitations/'.$token.'/decline')
+    /**
+     * Recusado e revogado não bloqueiam um convite novo — é por isso que o
+     * índice único é parcial, só sobre os pendentes.
+     */
+    public function test_depois_de_recusado_cabe_um_convite_novo(): void
+    {
+        $token = $this->inviteAndToken('novo@exemplo.com.br');
+
+        $this->withToken('')->postJson("/api/auth/invitations/{$token}/decline")->assertOk();
+
+        $this->actingAsMemberOf($this->organization, $this->member);
+        $this->invite('novo@exemplo.com.br')->assertCreated();
+
+        $this->assertSame(2, Invitation::query()->count());
+        $this->assertSame(1, Invitation::query()->where('status', Invitation::PENDING)->count());
+    }
+
+    public function test_revogar_encerra_o_convite_e_fica_no_historico(): void
+    {
+        $created = $this->invite('novo@exemplo.com.br');
+        $token = $this->tokenFromMail();
+        $uuid = $created->json('data.uuid');
+
+        $this->deleteJson("/api/organization/invitations/{$uuid}")->assertOk();
+
+        // O link continua abrindo, agora dizendo que o convite foi encerrado:
+        // um 404 aqui faria a tela parecer quebrada para quem clicou.
+        $this->withToken('')
+            ->getJson("/api/auth/invitations/{$token}")
             ->assertOk()
-            ->assertJsonPath('message', 'Convite recusado');
+            ->assertJsonPath('data.status', Invitation::REVOKED);
 
-        $this->getJson('/api/auth/invitations/'.$token)
+        // A listagem é o histórico: o convite continua lá, com a situação
+        // trocada, e é isso que a coluna "Situação" da tela mostra.
+        $this->getJson('/api/organization/invitations')
             ->assertOk()
-            ->assertJsonPath('status', 'declined');
+            ->assertJsonPath('data.0.status', Invitation::REVOKED);
+    }
 
-        $admin = User::query()->where('is_system_admin', true)->first();
-        $invitation = Invitation::query()->first();
-        $resent = $this->actingToken($this->systemToken($admin))
-            ->postJson('/api/system/companies/'.$company->uuid.'/invitations/'.$invitation->uuid.'/resend')
-            ->assertOk();
+    public function test_reenviar_troca_o_token_e_o_antigo_para_de_valer(): void
+    {
+        $created = $this->invite('novo@exemplo.com.br');
+        $antigo = $this->tokenFromMail();
+        $uuid = $created->json('data.uuid');
 
-        $newToken = basename((string) $resent->json('data.invite_url'));
-        $this->assertNotSame($token, $newToken);
+        Mail::fake();
+        $this->postJson("/api/organization/invitations/{$uuid}/resend")->assertOk();
+        $novo = $this->tokenFromMail();
 
-        $this->getJson('/api/auth/invitations/'.$token)->assertNotFound();
-        $this->getJson('/api/auth/invitations/'.$newToken)
+        $this->assertNotSame($antigo, $novo);
+
+        $this->withToken('')->getJson("/api/auth/invitations/{$antigo}")->assertNotFound();
+        $this->withToken('')->getJson("/api/auth/invitations/{$novo}")->assertOk();
+    }
+
+    // ================================ ACEITAR ================================
+
+    public function test_quem_ja_tem_conta_aceita_e_cai_na_organizacao(): void
+    {
+        $convidado = User::factory()->create(['email' => 'tem@conta.com.br']);
+        $token = $this->inviteAndToken('tem@conta.com.br');
+
+        $this->enter($convidado, null);
+
+        $this->postJson("/api/auth/invitations/{$token}/accept")
             ->assertOk()
-            ->assertJsonPath('status', 'pending');
+            ->assertJsonPath('redirect_to', '/app');
+
+        $this->assertDatabaseHas('memberships', [
+            'organization_id' => $this->organization->getKey(),
+            'user_id' => $convidado->getKey(),
+            'status' => Membership::ACTIVE,
+        ]);
+
+        $this->getJson('/api/registry/entities')->assertOk();
+    }
+
+    public function test_conta_de_outro_email_nao_aceita_o_convite(): void
+    {
+        $outro = User::factory()->create(['email' => 'outro@exemplo.com.br']);
+        $token = $this->inviteAndToken('tem@conta.com.br');
+
+        $this->enter($outro, null);
+
+        $this->postJson("/api/auth/invitations/{$token}/accept")->assertStatus(409);
+
+        $this->assertDatabaseMissing('memberships', [
+            'organization_id' => $this->organization->getKey(),
+            'user_id' => $outro->getKey(),
+        ]);
     }
 
     public function test_convite_expirado_nao_e_aceito(): void
     {
-        [$token] = $this->companyInvite('dona@melo.test');
-        Invitation::query()->update(['expires_at' => now()->subMinute()]);
+        $convidado = User::factory()->create(['email' => 'tem@conta.com.br']);
+        $token = $this->inviteAndToken('tem@conta.com.br');
 
-        $this->postJson('/api/auth/invitations/'.$token.'/register', [
-            'name' => 'Dona',
-            'password' => 'senha1234',
-            'password_confirmation' => 'senha1234',
-        ])->assertUnprocessable()
-            ->assertJsonPath('message', 'Este convite expirou');
+        Invitation::query()->update(['expires_at' => now()->subDay()]);
 
-        $this->assertSame('expired', Invitation::query()->first()->status);
-        $this->assertSame(1, User::query()->count());
+        $this->enter($convidado, null);
+
+        $this->postJson("/api/auth/invitations/{$token}/accept")->assertStatus(409);
     }
 
-    public function test_convite_repetido_e_papel_invalido(): void
+    public function test_o_mesmo_token_nao_serve_duas_vezes(): void
     {
-        [, $company] = $this->companyInvite('dona@melo.test');
-        $admin = User::query()->where('is_system_admin', true)->first();
+        $convidado = User::factory()->create(['email' => 'tem@conta.com.br']);
+        $token = $this->inviteAndToken('tem@conta.com.br');
 
-        $this->actingToken($this->systemToken($admin))
-            ->postJson('/api/system/companies/'.$company->uuid.'/invitations', [
-                'email' => 'dona@melo.test',
-                'role' => 'owner',
-            ])->assertUnprocessable()
-            ->assertJsonPath('message', 'Já existe um convite pendente para este e-mail');
+        $this->enter($convidado, null);
+        $this->postJson("/api/auth/invitations/{$token}/accept")->assertOk();
 
-        $this->actingToken($this->systemToken($admin))
-            ->postJson('/api/system/companies/'.$company->uuid.'/invitations', [
-                'email' => 'nova@melo.test',
-                'role' => 'member',
-            ])->assertUnprocessable()
-            ->assertJsonPath('errors.role.0', 'A Logiv convida proprietário ou administrador');
-    }
-
-    public function test_admin_convida_membro_e_membro_nao_convida(): void
-    {
-        $company = $this->companyWith('owner@melo.test', 'owner');
-        $admin = User::factory()->create(['email' => 'admin@melo.test', 'password' => 'senha1234']);
-        $admin->companies()->attach($company->id, ['role' => 'admin', 'status' => 'active']);
-        $member = User::factory()->create(['email' => 'membro@melo.test', 'password' => 'senha1234']);
-        $member->companies()->attach($company->id, ['role' => 'member', 'status' => 'active']);
-
-        $this->actingToken($this->companyToken($member, $company))
-            ->postJson('/api/company/invitations', [
-                'email' => 'alguem@melo.test',
-                'role' => 'member',
-            ])->assertForbidden();
-
-        $this->actingToken($this->companyToken($admin, $company))
-            ->postJson('/api/company/invitations', [
-                'email' => 'Alguem@melo.test',
-                'role' => 'owner',
-            ])->assertUnprocessable();
-
-        $created = $this->actingToken($this->companyToken($admin, $company))
-            ->postJson('/api/company/invitations', [
-                'email' => ' Alguem@melo.test ',
-                'role' => 'member',
-            ])->assertCreated()
-            ->assertJsonPath('data.email', 'alguem@melo.test');
-
-        $this->assertNotEmpty($created->json('data.invite_url'));
-
-        $this->actingToken($this->companyToken($admin, $company))
-            ->deleteJson('/api/company/invitations/'.$created->json('data.uuid'))
-            ->assertOk();
-
-        $this->assertSame('revoked', Invitation::query()->first()->status);
-    }
-
-    public function test_posto_nao_ve_convite_de_outro_posto(): void
-    {
-        $station = $this->stationWith('dono@posto.test');
-        $other = $this->stationWith('outro@posto.test', '34028316000103');
-        $owner = User::query()->where('email', 'dono@posto.test')->first();
-
-        $created = $this->actingToken($this->stationToken($owner, $station))
-            ->postJson('/api/station/invitations', [
-                'email' => 'equipe@posto.test',
-                'role' => 'member',
-            ])->assertCreated();
-
-        $otherOwner = User::query()->where('email', 'outro@posto.test')->first();
-        $this->actingToken($this->stationToken($otherOwner, $other))
-            ->getJson('/api/station/invitations')
-            ->assertOk()
-            ->assertJsonCount(0, 'data');
-
-        $this->actingToken($this->stationToken($otherOwner, $other))
-            ->deleteJson('/api/station/invitations/'.$created->json('data.uuid'))
-            ->assertNotFound();
-    }
-
-    public function test_aceite_nao_reativa_membro_suspenso(): void
-    {
-        $company = $this->companyWith('owner@melo.test', 'owner');
-        $user = User::factory()->create(['email' => 'volta@melo.test', 'password' => 'senha1234']);
-        CompanyUser::query()->create([
-            'company_id' => $company->id,
-            'user_id' => $user->id,
-            'role' => 'admin',
-            'status' => 'suspended',
-        ]);
-        $owner = User::query()->where('email', 'owner@melo.test')->first();
-
-        $this->actingToken($this->companyToken($owner, $company))
-            ->postJson('/api/company/invitations', [
-                'email' => 'volta@melo.test',
-                'role' => 'member',
-            ])->assertUnprocessable()
-            ->assertJsonPath('message', 'Esta pessoa já faz parte');
-
-        $this->assertSame('admin', CompanyUser::query()->where('user_id', $user->id)->value('role'));
-        $this->assertSame('suspended', CompanyUser::query()->where('user_id', $user->id)->value('status'));
-    }
-
-    public function test_banco_exige_empresa_ou_posto_no_convite(): void
-    {
-        $this->expectException(QueryException::class);
-
-        Invitation::query()->create([
-            'email' => 'sem-contexto@logiv.test',
-            'role' => 'member',
-            'status' => 'pending',
-            'token_hash' => hash('sha256', 'sem-contexto'),
-            'expires_at' => now()->addDay(),
-        ]);
-    }
-
-    public function test_quem_ja_e_membro_nao_recebe_outro_convite(): void
-    {
-        $company = $this->companyWith('owner@melo.test', 'owner');
-        $owner = User::query()->where('email', 'owner@melo.test')->first();
-
-        $this->actingToken($this->companyToken($owner, $company))
-            ->postJson('/api/company/invitations', [
-                'email' => 'owner@melo.test',
-                'role' => 'admin',
-            ])->assertUnprocessable()
-            ->assertJsonPath('message', 'Esta pessoa já faz parte');
+        $this->app['auth']->forgetGuards();
+        $this->postJson("/api/auth/invitations/{$token}/accept")->assertStatus(409);
     }
 
     /**
-     * @return array{0: string, 1: Company}
+     * Aceitar não é um jeito de voltar: quem foi suspenso continua suspenso,
+     * senão o convite viraria uma porta dos fundos para reativar o acesso.
      */
-    private function companyInvite(string $email): array
+    public function test_aceitar_nao_reativa_quem_esta_suspenso(): void
     {
-        $admin = User::factory()->create([
-            'email' => 'logiv-'.Str::uuid().'@logiv.test',
-            'is_system_admin' => true,
+        $suspenso = User::factory()->create(['email' => 'suspenso@exemplo.com.br']);
+
+        Membership::query()->create([
+            'organization_id' => $this->organization->getKey(),
+            'user_id' => $suspenso->getKey(),
+            'status' => Membership::SUSPENDED,
         ]);
 
-        $response = $this->actingToken($this->systemToken($admin))
-            ->postJson('/api/system/companies', [
-                'legal_name' => 'Melo LTDA',
-                'trade_name' => 'Melo',
-                'cnpj' => '00000000000191',
-                'admin_email' => $email,
-            ])->assertCreated();
+        // Já é membro, ainda que suspenso: não cabe convite.
+        $this->invite('suspenso@exemplo.com.br')->assertStatus(409);
 
-        $this->app['auth']->forgetGuards();
-        $this->flushHeaders();
-
-        return [
-            basename((string) $response->json('invitation.invite_url')),
-            Company::query()->first(),
-        ];
+        $this->assertSame(
+            Membership::SUSPENDED,
+            Membership::query()
+                ->where('user_id', $suspenso->getKey())
+                ->value('status'),
+        );
     }
 
-    private function companyWith(string $email, string $role): Company
+    public function test_sem_conta_o_registro_pelo_convite_cria_e_entra(): void
     {
-        $company = Company::query()->create([
-            'legal_name' => 'Melo LTDA',
-            'trade_name' => 'Melo',
-            'cnpj' => '00000000000191',
-        ]);
-        $user = User::factory()->create([
-            'email' => $email,
-            'password' => 'senha1234',
-        ]);
-        $user->companies()->attach($company->id, ['role' => $role, 'status' => 'active']);
+        $token = $this->inviteAndToken('novo@exemplo.com.br');
 
-        return $company;
-    }
-
-    private function stationWith(string $email, string $cnpj = '19131243000197'): FuelStation
-    {
-        $station = FuelStation::query()->create([
-            'cnpj' => $cnpj,
-            'corporate_name' => 'Posto LTDA',
-            'trade_name' => 'Posto',
-            'status' => 'active',
-        ]);
-        $user = User::factory()->create([
-            'email' => $email,
-            'password' => 'senha1234',
-        ]);
-        FuelStationUser::query()->create([
-            'fuel_station_id' => $station->id,
-            'user_id' => $user->id,
-            'role' => 'owner',
-            'status' => 'active',
-        ]);
-
-        return $station;
-    }
-
-    private function plantCode(string $email, string $purpose, string $code = '123456'): void
-    {
         VerificationCode::query()->create([
-            'email' => $email,
-            'purpose' => $purpose,
-            'code_hash' => hash('sha256', $code),
+            'email' => 'novo@exemplo.com.br',
+            'purpose' => VerificationCode::INVITATION_REGISTER,
+            'code_hash' => hash('sha256', '123456'),
             'expires_at' => now()->addMinutes(10),
         ]);
+
+        $this->withToken('')
+            ->postJson("/api/auth/invitations/{$token}/register", [
+                'name' => 'Pessoa Nova',
+                'password' => 'senha-bem-grande',
+                'password_confirmation' => 'senha-bem-grande',
+                'code' => '123456',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('redirect_to', '/app');
+
+        $novo = User::query()->where('email', 'novo@exemplo.com.br')->sole();
+
+        $this->assertDatabaseHas('memberships', [
+            'organization_id' => $this->organization->getKey(),
+            'user_id' => $novo->getKey(),
+            'status' => Membership::ACTIVE,
+        ]);
     }
 
-    private function actingToken(string $token)
+    public function test_registro_com_codigo_errado_nao_cria_conta(): void
     {
-        $this->app['auth']->forgetGuards();
+        $token = $this->inviteAndToken('novo@exemplo.com.br');
 
-        return $this->withToken($token);
+        VerificationCode::query()->create([
+            'email' => 'novo@exemplo.com.br',
+            'purpose' => VerificationCode::INVITATION_REGISTER,
+            'code_hash' => hash('sha256', '123456'),
+            'expires_at' => now()->addMinutes(10),
+        ]);
+
+        $this->withToken('')
+            ->postJson("/api/auth/invitations/{$token}/register", [
+                'name' => 'Pessoa Nova',
+                'password' => 'senha-bem-grande',
+                'password_confirmation' => 'senha-bem-grande',
+                'code' => '999999',
+            ])
+            ->assertUnprocessable();
+
+        $this->assertDatabaseMissing('users', ['email' => 'novo@exemplo.com.br']);
     }
 
-    private function systemToken(User $user): string
+    // ============================= ISOLAMENTO =============================
+
+    public function test_uma_organizacao_nao_ve_nem_revoga_convite_de_outra(): void
     {
-        return $user->createToken('web')->plainTextToken;
+        $created = $this->invite('novo@exemplo.com.br');
+        $uuid = $created->json('data.uuid');
+
+        $this->actingAsMemberOf($this->otherCompany());
+
+        $this->getJson('/api/organization/invitations')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+
+        $this->deleteJson("/api/organization/invitations/{$uuid}")->assertNotFound();
     }
 
-    private function companyToken(User $user, Company $company): string
-    {
-        $token = $user->createToken('web');
-        $token->accessToken->forceFill([
-            'company_id' => $company->id,
-            'fuel_station_id' => null,
-        ])->save();
+    // ================================ HELPERS ================================
 
-        return $token->plainTextToken;
+    private function invite(string $email)
+    {
+        return $this->postJson('/api/organization/invitations', ['email' => $email]);
     }
 
-    private function stationToken(User $user, FuelStation $station): string
+    private function inviteAndToken(string $email): string
     {
-        $token = $user->createToken('web');
-        $token->accessToken->forceFill([
-            'company_id' => null,
-            'fuel_station_id' => $station->id,
-        ])->save();
+        $this->invite($email)->assertCreated();
 
-        return $token->plainTextToken;
+        return $this->tokenFromMail();
+    }
+
+    /** O token em claro só existe no e-mail — no banco fica o sha256. */
+    private function tokenFromMail(): string
+    {
+        $token = null;
+
+        Mail::assertQueued(InvitationMail::class, function (InvitationMail $mail) use (&$token) {
+            preg_match('#/auth/convite/([^\s"\'<]+)#', $mail->url, $matches);
+            $token = $matches[1] ?? null;
+
+            return true;
+        });
+
+        $this->assertNotNull($token);
+
+        return $token;
     }
 }

@@ -4,6 +4,8 @@ namespace App\Services\Organization;
 
 use App\Enums\OrganizationType;
 use App\Exceptions\RejectedInput;
+use App\Models\Location\City;
+use App\Models\Location\State;
 use App\Models\Membership;
 use App\Models\Organization;
 use App\Models\User;
@@ -177,6 +179,8 @@ class FuelStationSignupService
             'street_number' => $data['street_number'],
             'complement' => $data['complement'],
             'neighborhood' => $data['neighborhood'],
+            'state_id' => $data['state_id'],
+            'city_id' => $data['city_id'],
         ]);
     }
 
@@ -193,6 +197,8 @@ class FuelStationSignupService
     {
         $blank = fn (mixed $value) => filled($value) ? trim((string) $value) : null;
 
+        [$state, $city] = $this->resolvePlace($payload);
+
         return [
             'document' => $cnpj,
             'legal_name' => $blank($payload['razao_social'] ?? null) ?? 'Posto '.$cnpj,
@@ -202,8 +208,34 @@ class FuelStationSignupService
             'street_number' => $blank($payload['numero'] ?? null),
             'complement' => $blank($payload['complemento'] ?? null),
             'neighborhood' => $blank($payload['bairro'] ?? null),
-            'city' => $blank($payload['municipio'] ?? null),
-            'state' => $blank($payload['uf'] ?? null),
+            'state_id' => $state?->getKey(),
+            'city_id' => $city?->getKey(),
+            // O nome da nossa tabela quando existe; o da Receita é um
+            // fallback, e vem em caixa alta e sem acento ("SAO PAULO").
+            'city' => $city?->name ?? $blank($payload['municipio'] ?? null),
+            'state' => $state?->uf ?? $blank($payload['uf'] ?? null),
         ];
+    }
+
+    /**
+     * Liga o endereço da Receita às nossas tabelas de estado e cidade.
+     *
+     * O código do IBGE é o que identifica o município sem ambiguidade —
+     * casar por nome erraria nos homônimos e em qualquer diferença de
+     * acento. Quando a cidade não está carregada, segue sem o vínculo: o
+     * cadastro não pode travar por causa de uma tabela incompleta.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array{0: ?State, 1: ?City}
+     */
+    private function resolvePlace(array $payload): array
+    {
+        $uf = filled($payload['uf'] ?? null) ? mb_strtoupper(trim((string) $payload['uf'])) : null;
+        $ibge = $payload['codigo_municipio_ibge'] ?? null;
+
+        $city = $ibge ? City::query()->where('ibge_code', $ibge)->first() : null;
+        $state = $city?->state ?? ($uf ? State::query()->where('uf', $uf)->first() : null);
+
+        return [$state, $city];
     }
 }

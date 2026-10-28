@@ -2,6 +2,7 @@
 
 namespace App\Services\Access;
 
+use App\Exceptions\NotFound;
 use App\Models\Membership;
 use App\Models\Organization;
 use App\Models\User;
@@ -87,7 +88,7 @@ class MemberService
             ->first();
 
         if ($membership === null) {
-            throw new DomainException('Membro não encontrado nesta organização');
+            throw new NotFound('Membro não encontrado nesta organização');
         }
 
         return $membership;

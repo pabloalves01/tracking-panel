@@ -2,6 +2,7 @@
 
 namespace App\Services\Organization;
 
+use App\Exceptions\NotFound;
 use App\Enums\OrganizationType;
 use App\Models\FuelSupplyLink;
 use App\Models\Organization;
@@ -210,7 +211,7 @@ class FuelSupplyLinkService
         return FuelSupplyLink::query()
             ->where('company_id', $company->getKey())
             ->where('uuid', $uuid)
-            ->firstOr(fn () => throw new DomainException('Convênio não encontrado'));
+            ->firstOr(fn () => throw new NotFound('Convênio não encontrado'));
     }
 
     private function findForStation(Organization $station, string $uuid): FuelSupplyLink
@@ -218,6 +219,6 @@ class FuelSupplyLinkService
         return FuelSupplyLink::query()
             ->where('station_id', $station->getKey())
             ->where('uuid', $uuid)
-            ->firstOr(fn () => throw new DomainException('Convênio não encontrado'));
+            ->firstOr(fn () => throw new NotFound('Convênio não encontrado'));
     }
 }

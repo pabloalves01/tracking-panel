@@ -1,5 +1,7 @@
 <?php
 
+use App\Exceptions\NotFound;
+use App\Exceptions\RejectedInput;
 use App\Http\Middleware\EnsureOrganization;
 use App\Http\Middleware\EnsureSystemAdmin;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -51,14 +53,20 @@ return Application::configure(basePath: dirname(__DIR__))
         });
 
         // Erro de regra de negócio: a mensagem é escrita para ser lida pelo
-        // usuário, então vai inteira.
-        $exceptions->render(function (DomainException $exception, Request $request) {
+        // usuário, então vai inteira. O status separa os três casos, e as
+        // subclasses são registradas antes porque o Laravel usa o primeiro
+        // render que casar com o tipo.
+        $domain = function (DomainException $exception, Request $request, int $status) {
             if (! ($request->is('api/*') || $request->expectsJson())) {
                 return null;
             }
 
-            return response()->json(['message' => $exception->getMessage()], 409);
-        });
+            return response()->json(['message' => $exception->getMessage()], $status);
+        };
+
+        $exceptions->render(fn (NotFound $e, Request $r) => $domain($e, $r, 404));
+        $exceptions->render(fn (RejectedInput $e, Request $r) => $domain($e, $r, 422));
+        $exceptions->render(fn (DomainException $e, Request $r) => $domain($e, $r, 409));
 
         // Qualquer outra falha: o detalhe fica no log, não na tela. Antes cada
         // controller devolvia `$e->getMessage()` com status 500, o que
