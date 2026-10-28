@@ -176,29 +176,32 @@ export default function SelectOrganizationPage() {
                             const Icon = typeIcon[organization.type] ?? Building2
 
                             return (
-                                <Card
+                                // `Card` é uma div do shadcn, não um primitivo
+                                // do Base UI: ela não entende `render`, e o
+                                // `onClick` passado por ali nunca era ligado —
+                                // clicar numa organização não fazia nada. O
+                                // botão precisa ser o elemento de verdade.
+                                <button
                                     key={organization.uuid}
-                                    render={
-                                        <button
-                                            type="button"
-                                            onClick={() => enter(organization.uuid)}
-                                            className="hover:bg-muted/50 focus-visible:ring-ring w-full cursor-pointer text-left transition-colors focus-visible:ring-2 focus-visible:outline-none"
-                                        />
-                                    }
+                                    type="button"
+                                    onClick={() => enter(organization.uuid)}
+                                    className="focus-visible:ring-ring w-full cursor-pointer rounded-xl text-left focus-visible:ring-2 focus-visible:outline-none"
                                 >
-                                    <CardContent className="flex items-center gap-3">
-                                        <Icon className="text-muted-foreground size-4 shrink-0" />
-                                        <div className="min-w-0 flex-1">
-                                            <p className="truncate text-sm font-medium">
-                                                {organization.display_name}
-                                            </p>
-                                            <p className="text-muted-foreground truncate text-xs tabular-nums">
-                                                {formatCpfCnpj(organization.document)}
-                                            </p>
-                                        </div>
-                                        <Badge variant="outline">{organization.type_label}</Badge>
-                                    </CardContent>
-                                </Card>
+                                    <Card className="hover:bg-muted/50 transition-colors">
+                                        <CardContent className="flex items-center gap-3">
+                                            <Icon className="text-muted-foreground size-4 shrink-0" />
+                                            <div className="min-w-0 flex-1">
+                                                <p className="truncate text-sm font-medium">
+                                                    {organization.display_name}
+                                                </p>
+                                                <p className="text-muted-foreground truncate text-xs tabular-nums">
+                                                    {formatCpfCnpj(organization.document)}
+                                                </p>
+                                            </div>
+                                            <Badge variant="outline">{organization.type_label}</Badge>
+                                        </CardContent>
+                                    </Card>
+                                </button>
                             )
                         })}
                     </section>

@@ -266,7 +266,7 @@ export default function InvitationPage() {
                                                 administra a organização.
                                             </AlertDescription>
                                         </Alert>
-                                        <Button variant="outline" render={<Link to="/auth/login" />}>
+                                        <Button variant="outline" nativeButton={false} render={<Link to="/auth/login" />}>
                                             Ir para o login
                                         </Button>
                                     </>
