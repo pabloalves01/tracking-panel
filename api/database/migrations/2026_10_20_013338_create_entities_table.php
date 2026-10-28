@@ -23,11 +23,6 @@ return new class extends Migration
             $table->string('kind', 20); // individual | organization
             $table->string('document', 14); // somente dígitos: CPF (11) ou CNPJ (14)
 
-            // Quando preenchida, este registro local é a mesma parte do mundo
-            // real que uma organização com conta e painel próprios — hoje o
-            // posto, amanhã o fornecedor e a transportadora. Nula é o caso
-            // comum: um registro que só esta empresa conhece.
-            $table->foreignId('organization_id')->nullable()->constrained('organizations');
             $table->string('name');
             $table->string('trade_name')->nullable();
 
