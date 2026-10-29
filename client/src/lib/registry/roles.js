@@ -4,7 +4,8 @@
  * É o espelho do enum `App\Enums\EntityRole` no backend. Cada papel tem a
  * própria rota na API (`endpoint`); as telas de lista e formulário são as
  * mesmas para todos, e o que for só de um papel entra por aqui — como a aba
- * de CNH do motorista (`hasDetails`).
+ * de CNH do motorista (`hasDetails`) e a de ANTT do transportador
+ * (`hasAntt`).
  *
  * `article` e `past` existem para a concordância das mensagens: "Cliente
  * desativado" e "Transportadora desativada" saem da mesma linha de código.
@@ -74,6 +75,7 @@ export const ENTITY_ROLES = {
         article: 'a',
         indefinite: 'uma',
         feminine: true,
+        hasAntt: true,
     },
 }
 

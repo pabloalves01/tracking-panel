@@ -22,6 +22,7 @@ export function DatePicker({
     placeholder = 'dd/mm/aaaa',
     fromYear = 1920,
     toYear = new Date().getFullYear() + 20,
+    ...props
 }) {
     const [open, setOpen] = useState(false)
     const selected = parseIsoDate(value)
@@ -42,9 +43,10 @@ export function DatePicker({
                         variant="outline"
                         disabled={disabled}
                         className={cn(
-                            'w-full justify-start rounded-2xl px-3 font-normal',
+                            'w-full justify-start rounded-lg px-2.5 font-normal',
                             !selected && 'text-muted-foreground',
                         )}
+                        {...props}
                     />
                 }
             >

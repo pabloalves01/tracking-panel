@@ -11,6 +11,7 @@ import { InputEmergencyNumber } from '@/components/common/inputs/InputEmergencyN
 import { InputPhone } from '@/components/common/inputs/InputPhone'
 import { InputPostalCode } from '@/components/common/inputs/InputPostalCode'
 import { SelectState } from '@/components/common/inputs/SelectState'
+import { SelectUf } from '@/components/common/inputs/SelectUf'
 import { DatePicker } from '@/components/datepicker/DatePicker'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -40,6 +41,7 @@ import {
     getEntityByDocument,
     updateEntity,
 } from '@/lib/registry/entities'
+import { ANTT_CATEGORIES } from '@/lib/fleet/options'
 import { ENTITY_ROLES, rolePath, roleFromSlug } from '@/lib/registry/roles'
 import { notifyError, notifySuccess } from '@/lib/notify'
 
@@ -67,15 +69,10 @@ const pixPlaceholder = {
 
 const licenseCategories = ['A', 'B', 'C', 'D', 'E', 'AB', 'AC', 'AD', 'AE', 'ACC']
 
-// A UF de emissão é texto de duas letras, não um estado da tabela: a CNH
-// vale com o que está impresso nela, e a tabela de estados pode não estar
-// carregada.
-const ufs = ['AC', 'AL', 'AM', 'AP', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MG', 'MS', 'MT', 'PA', 'PB',
-    'PE', 'PI', 'PR', 'RJ', 'RN', 'RO', 'RR', 'RS', 'SC', 'SE', 'SP', 'TO']
-
 /** Em que aba mora cada campo — é para lá que a tela vai quando ele dá erro. */
 function tabOf(field) {
     if (field.startsWith('license_')) return 'cnh'
+    if (field.startsWith('rntrc') || field === 'antt_category') return 'antt'
     if (field.startsWith('pix_')) return 'pagamento'
 
     return 'geral'
@@ -105,6 +102,9 @@ const emptyForm = {
     license_category: '',
     license_expires_on: null,
     license_issued_state: '',
+    rntrc: '',
+    antt_category: '',
+    rntrc_expires_on: null,
 }
 
 /**
@@ -161,6 +161,7 @@ export default function EntityFormPage() {
     const tabs = [
         { key: 'geral', label: 'Dados gerais' },
         ...(config.hasDetails ? [{ key: 'cnh', label: 'CNH' }] : []),
+        ...(config.hasAntt ? [{ key: 'antt', label: 'ANTT' }] : []),
         { key: 'pagamento', label: 'Pagamento' },
     ]
     const requested = searchParams.get('aba')
@@ -247,6 +248,15 @@ export default function EntityFormPage() {
             delete payload.license_category
             delete payload.license_expires_on
             delete payload.license_issued_state
+        }
+
+        if (config.hasAntt) {
+            payload.rntrc = form.rntrc || null
+            payload.antt_category = form.antt_category || null
+        } else {
+            delete payload.rntrc
+            delete payload.antt_category
+            delete payload.rntrc_expires_on
         }
 
         try {
@@ -644,24 +654,65 @@ export default function EntityFormPage() {
 
                                 <Field className="col-span-12 md:col-span-3 xl:col-span-2">
                                     <FieldLabel htmlFor="license-state">UF de emissão</FieldLabel>
-                                    <Select
-                                        items={ufs.map((value) => ({ value, label: value }))}
+                                    <SelectUf
+                                        id="license-state"
                                         value={form.license_issued_state}
-                                        onValueChange={(value) => set('license_issued_state', value)}
+                                        onChange={(value) => set('license_issued_state', value)}
+                                    />
+                                </Field>
+                            </FieldGroup>
+                        </FieldSet>
+                    ) : null}
+
+                    {tab === 'antt' && config.hasAntt ? (
+                        <FieldSet>
+                            <FieldLegend variant="label">ANTT</FieldLegend>
+                            <FieldDescription>
+                                O registro do transportador no RNTRC. Os veículos que rodam no RNTRC dele apontam para este
+                                cadastro.
+                            </FieldDescription>
+                            <FieldGroup className="md:grid md:grid-cols-12 md:gap-4">
+                                <Field className="col-span-12 md:col-span-4 xl:col-span-3">
+                                    <FieldLabel htmlFor="rntrc">RNTRC</FieldLabel>
+                                    <Input
+                                        id="rntrc"
+                                        inputMode="numeric"
+                                        placeholder="Número do registro"
+                                        maxLength={12}
+                                        value={form.rntrc}
+                                        onChange={(event) => set('rntrc', event.target.value.replace(/\D/g, ''))}
+                                    />
+                                </Field>
+
+                                <Field className="col-span-12 md:col-span-4 xl:col-span-3">
+                                    <FieldLabel htmlFor="antt-category">Categoria</FieldLabel>
+                                    <Select
+                                        items={ANTT_CATEGORIES}
+                                        value={form.antt_category || null}
+                                        onValueChange={(value) => set('antt_category', value ?? '')}
                                     >
-                                        <SelectTrigger id="license-state" className="w-full">
+                                        <SelectTrigger id="antt-category" className="w-full">
                                             <SelectValue placeholder="Selecione" />
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectGroup>
-                                                {ufs.map((value) => (
-                                                    <SelectItem key={value} value={value}>
-                                                        {value}
+                                                {ANTT_CATEGORIES.map((option) => (
+                                                    <SelectItem key={option.value} value={option.value}>
+                                                        {option.label}
                                                     </SelectItem>
                                                 ))}
                                             </SelectGroup>
                                         </SelectContent>
                                     </Select>
+                                </Field>
+
+                                <Field className="col-span-12 md:col-span-4 xl:col-span-2">
+                                    <FieldLabel htmlFor="rntrc-expires">Validade</FieldLabel>
+                                    <DatePicker
+                                        id="rntrc-expires"
+                                        value={form.rntrc_expires_on}
+                                        onChange={(value) => set('rntrc_expires_on', value || null)}
+                                    />
                                 </Field>
                             </FieldGroup>
                         </FieldSet>

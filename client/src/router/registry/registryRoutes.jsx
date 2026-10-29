@@ -1,10 +1,9 @@
 import EntityPage from '@/pages/registry/EntityPage'
-import FleetPage from '@/pages/registry/FleetPage'
 import RegistryPage from '@/pages/registry/RegistryPage'
+import fleetRoutes from '@/router/fleet/fleetRoutes'
 
 import entityRoutes from './entityRoutes'
 import fuelStationRoutes from './fuelStationRoutes'
-import vehicleRoutes from './vehicleRoutes'
 
 export default [
     {
@@ -21,13 +20,7 @@ export default [
                     ...entityRoutes,
                 ],
             },
-            {
-                path: 'frota',
-                children: [
-                    { index: true, element: <FleetPage /> },
-                    ...vehicleRoutes,
-                ],
-            },
+            ...fleetRoutes,
         ],
     },
 ]

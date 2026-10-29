@@ -3,6 +3,7 @@
 namespace Tests\Feature\Registry;
 
 use App\Enums\EntityRole;
+use App\Models\Registry\Carrier;
 use App\Models\Registry\Customer;
 use App\Models\Registry\Driver;
 use App\Models\Registry\Employee;
@@ -362,6 +363,34 @@ class EntityTest extends TestCase
             ...$this->payload(EntityRole::Driver),
             'license_category' => 'e',
         ])->assertOk()->assertJsonPath('data.license_category', 'E');
+    }
+
+    // ============================= TRANSPORTADOR =============================
+
+    public function test_o_rntrc_fica_na_tabela_do_transportador(): void
+    {
+        $this->postJson($this->url(EntityRole::Carrier), [
+            ...$this->payload(EntityRole::Carrier),
+            'rntrc' => '123.456.78',
+            'antt_category' => 'tac',
+            'rntrc_expires_on' => '2029-06-30',
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.rntrc', '12345678')
+            ->assertJsonPath('data.antt_category', 'tac')
+            ->assertJsonPath('data.rntrc_expires_on', '2029-06-30');
+
+        $this->assertSame('12345678', Carrier::query()->sole()->rntrc);
+    }
+
+    public function test_rntrc_pede_a_categoria_antt(): void
+    {
+        $this->postJson($this->url(EntityRole::Carrier), [
+            ...$this->payload(EntityRole::Carrier),
+            'rntrc' => '12345678',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['antt_category' => 'Informe a categoria na ANTT']);
     }
 
     // =============================== VALIDAÇÃO ===============================

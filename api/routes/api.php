@@ -8,6 +8,10 @@ use App\Http\Controllers\Auth\FuelStationSignupController;
 use App\Http\Controllers\Auth\InvitationAcceptController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\VerificationCodeController;
+use App\Http\Controllers\Fleet\CatalogController;
+use App\Http\Controllers\Fleet\DeviceController;
+use App\Http\Controllers\Fleet\VehicleBrandController;
+use App\Http\Controllers\Fleet\VehicleController;
 use App\Http\Controllers\FuelStation\FuelStationCompanyController;
 use App\Http\Controllers\Location\LocationController;
 use App\Http\Controllers\Registry\CarrierController;
@@ -208,6 +212,47 @@ Route::middleware(['auth:sanctum', 'organization:company'])->group(function () {
             Route::delete('/{uuid}', [FuelStationAgreementController::class, 'destroy']);
             Route::post('/{uuid}/disconnect', [FuelStationAgreementController::class, 'disconnect']);
         });
+    });
+
+    Route::prefix('fleet')->group(function () {
+        // Veículos: automotor e implemento.
+        Route::prefix('vehicles')->group(function () {
+            Route::get('/', [VehicleController::class, 'index']);
+            Route::post('/', [VehicleController::class, 'store']);
+            Route::get('/{uuid}', [VehicleController::class, 'show']);
+            Route::put('/{uuid}', [VehicleController::class, 'update']);
+            Route::delete('/{uuid}', [VehicleController::class, 'destroy']);
+            Route::get('/{uuid}/couplings', [VehicleController::class, 'couplings']);
+            Route::post('/{uuid}/activate', [VehicleController::class, 'activate']);
+            Route::post('/{uuid}/deactivate', [VehicleController::class, 'deactivate']);
+        });
+
+        // Rastreadores.
+        Route::prefix('devices')->group(function () {
+            Route::get('/', [DeviceController::class, 'index']);
+            Route::post('/', [DeviceController::class, 'store']);
+            Route::get('/{uuid}', [DeviceController::class, 'show']);
+            Route::put('/{uuid}', [DeviceController::class, 'update']);
+            Route::delete('/{uuid}', [DeviceController::class, 'destroy']);
+            Route::get('/{uuid}/installations', [DeviceController::class, 'installations']);
+            Route::post('/{uuid}/activate', [DeviceController::class, 'activate']);
+            Route::post('/{uuid}/deactivate', [DeviceController::class, 'deactivate']);
+            Route::post('/{uuid}/install', [DeviceController::class, 'install']);
+            Route::post('/{uuid}/uninstall', [DeviceController::class, 'uninstall']);
+        });
+
+        // Marcas e modelos: os da LogIV e os que a empresa acrescentou.
+        Route::prefix('vehicle-brands')->group(function () {
+            Route::get('/', [VehicleBrandController::class, 'index']);
+            Route::post('/', [VehicleBrandController::class, 'store']);
+            Route::get('/{brand}/models', [VehicleBrandController::class, 'models'])->whereNumber('brand');
+            Route::post('/{brand}/models', [VehicleBrandController::class, 'storeModel'])->whereNumber('brand');
+        });
+
+        // Catálogos globais.
+        Route::get('vehicle-types', [CatalogController::class, 'vehicleTypes']);
+        Route::get('body-types', [CatalogController::class, 'bodyTypes']);
+        Route::get('device-models', [CatalogController::class, 'deviceModels']);
     });
 });
 
