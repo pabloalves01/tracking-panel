@@ -68,7 +68,8 @@ class VehicleResource extends JsonResource
 
     /**
      * Proprietário, transportador ou responsável: o `uuid` do papel e a
-     * pessoa.
+     * pessoa. A chave PIX vem do cadastro da pessoa — é para a do
+     * responsável que vão os pagamentos do veículo —, não é repetida aqui.
      *
      * @return array<string, mixed>|null
      */
@@ -82,6 +83,8 @@ class VehicleResource extends JsonResource
             'uuid' => $role->uuid,
             'name' => $role->entity?->name,
             'document' => $role->entity?->document,
+            'pix_key_type' => $role->entity?->pix_key_type,
+            'pix_key' => $role->entity?->pix_key,
         ];
     }
 

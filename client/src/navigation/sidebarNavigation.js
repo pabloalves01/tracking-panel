@@ -13,6 +13,7 @@ import {
     MapIcon,
     MapPinIcon,
     PackageIcon,
+    RadioTowerIcon,
     ReceiptIcon,
     ShipIcon,
     ShoppingCartIcon,
@@ -148,6 +149,7 @@ export const navigation = [
                         icon: TruckIcon,
                         children: [
                             { title: 'Veículos', path: 'veiculos', icon: TruckIcon },
+                            { title: 'Rastreadores', path: 'rastreadores', icon: RadioTowerIcon },
                         ],
                     },
                 ],

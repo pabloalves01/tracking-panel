@@ -140,7 +140,7 @@ class VehicleRequest extends FormRequest
             'fleet_type.enum' => 'A frota é inválida',
             'plate.required' => 'A placa é obrigatória',
             'plate.regex' => 'Informe uma placa válida, como ABC1D23 ou ABC1234',
-            'plate_state.required' => 'Informe a UF da placa',
+            'plate_state.required' => 'Informe a UF',
             'plate_state.in' => 'A UF da placa é inválida',
             'renavam.required' => 'O RENAVAM é obrigatório',
             'chassis.required' => 'O chassi é obrigatório',
