@@ -1,8 +1,19 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
-import { ContactIcon, SearchIcon } from 'lucide-react'
+import { ContactIcon, SearchIcon, Trash2Icon } from 'lucide-react'
 
+import { ActionButton } from '@/components/common/button/ActionButton'
 import { LayoutToolbar } from '@/components/common/LayoutToolbar'
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
@@ -25,9 +36,9 @@ import {
     TableRow,
 } from '@/components/ui/table'
 import { formatCpfCnpj, formatPhone } from '@/helpers/formatters'
-import { getAllEntities } from '@/lib/registry/entities'
+import { getAllEntities, removeEntity } from '@/lib/registry/entities'
 import { ROLE_LIST } from '@/lib/registry/roles'
-import { notifyError } from '@/lib/notify'
+import { notifyError, notifySuccess } from '@/lib/notify'
 
 const kindLabel = {
     individual: 'Pessoa física',
@@ -42,14 +53,16 @@ const roleFilterOptions = [
 /**
  * Todas as entidades da empresa, de qualquer papel.
  *
- * É onde se procura alguém sem saber em qual cadastro ele está — a pergunta
- * que o desenho anterior, com uma tabela por papel, não conseguia responder.
+ * É onde se procura alguém sem saber em qual cadastro ele está, e onde se
+ * exclui a pessoa de todos os cadastros de uma vez. Cadastrar e editar são
+ * sempre por um papel — os selos levam ao cadastro de cada um.
  */
 export default function EntityPage() {
     const [searchParams, setSearchParams] = useSearchParams()
     const [entities, setEntities] = useState([])
     const [meta, setMeta] = useState(null)
     const [loading, setLoading] = useState(true)
+    const [toRemove, setToRemove] = useState(null)
 
     const search = searchParams.get('busca') ?? ''
     const role = searchParams.get('papel') ?? 'todos'
@@ -76,6 +89,17 @@ export default function EntityPage() {
     useEffect(() => {
         load()
     }, [load])
+
+    async function handleRemove() {
+        try {
+            notifySuccess(await removeEntity(toRemove.uuid))
+            load()
+        } catch (error) {
+            notifyError(error)
+        } finally {
+            setToRemove(null)
+        }
+    }
 
     function update(changes) {
         const next = new URLSearchParams(searchParams)
@@ -171,6 +195,7 @@ export default function EntityPage() {
                                 <TableHead>Tipo</TableHead>
                                 <TableHead>Contato</TableHead>
                                 <TableHead>Papéis</TableHead>
+                                <TableHead className="w-0">Ações</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -214,7 +239,7 @@ export default function EntityPage() {
                                                     }
                                                     render={
                                                         <Link
-                                                            to={`/app/cadastros/entidades/${item.slug}/${entity.uuid}/editar`}
+                                                            to={`/app/cadastros/entidades/${item.slug}/${item.uuid}/editar`}
                                                         />
                                                     }
                                                 >
@@ -222,6 +247,14 @@ export default function EntityPage() {
                                                 </Badge>
                                             ))}
                                         </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <ActionButton
+                                            icon={Trash2Icon}
+                                            tooltip="Excluir de todos os cadastros"
+                                            variant="destructive"
+                                            onClick={() => setToRemove(entity)}
+                                        />
                                     </TableCell>
                                 </TableRow>
                             ))}
@@ -263,6 +296,25 @@ export default function EntityPage() {
                     ) : null}
                 </>
             )}
+
+            <AlertDialog open={!!toRemove} onOpenChange={(open) => !open && setToRemove(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Excluir {toRemove?.name}</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Sai de todos os cadastros:{' '}
+                            {(toRemove?.roles ?? []).map((item) => item.label.toLowerCase()).join(', ')}.
+                            Se for cadastrado de novo, volta com o mesmo registro.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction variant="destructive" onClick={handleRemove}>
+                            Excluir
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </>
     )
 }

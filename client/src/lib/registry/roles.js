@@ -1,8 +1,10 @@
 /**
  * Os papéis que uma entidade pode exercer.
  *
- * É o espelho do enum `App\Enums\EntityRole` no backend. Um papel novo é uma
- * entrada aqui e um `case` lá — nenhuma tela, rota ou serviço precisa nascer.
+ * É o espelho do enum `App\Enums\EntityRole` no backend. Cada papel tem a
+ * própria rota na API (`endpoint`); as telas de lista e formulário são as
+ * mesmas para todos, e o que for só de um papel entra por aqui — como a aba
+ * de CNH do motorista (`hasDetails`).
  *
  * `article` e `past` existem para a concordância das mensagens: "Cliente
  * desativado" e "Transportadora desativada" saem da mesma linha de código.
@@ -10,6 +12,7 @@
 export const ENTITY_ROLES = {
     driver: {
         role: 'driver',
+        endpoint: '/registry/drivers',
         slug: 'motoristas',
         label: 'Motorista',
         plural: 'Motoristas',
@@ -19,6 +22,7 @@ export const ENTITY_ROLES = {
     },
     vehicle_owner: {
         role: 'vehicle_owner',
+        endpoint: '/registry/vehicle-owners',
         slug: 'proprietarios',
         label: 'Proprietário',
         plural: 'Proprietários',
@@ -27,6 +31,7 @@ export const ENTITY_ROLES = {
     },
     vehicle_responsible: {
         role: 'vehicle_responsible',
+        endpoint: '/registry/vehicle-responsibles',
         slug: 'responsaveis',
         label: 'Responsável',
         plural: 'Responsáveis',
@@ -35,6 +40,7 @@ export const ENTITY_ROLES = {
     },
     employee: {
         role: 'employee',
+        endpoint: '/registry/employees',
         slug: 'funcionarios',
         label: 'Funcionário',
         plural: 'Funcionários',
@@ -43,6 +49,7 @@ export const ENTITY_ROLES = {
     },
     supplier: {
         role: 'supplier',
+        endpoint: '/registry/suppliers',
         slug: 'fornecedores',
         label: 'Fornecedor',
         plural: 'Fornecedores',
@@ -51,6 +58,7 @@ export const ENTITY_ROLES = {
     },
     customer: {
         role: 'customer',
+        endpoint: '/registry/customers',
         slug: 'clientes',
         label: 'Cliente',
         plural: 'Clientes',
@@ -59,6 +67,7 @@ export const ENTITY_ROLES = {
     },
     carrier: {
         role: 'carrier',
+        endpoint: '/registry/carriers',
         slug: 'transportadoras',
         label: 'Transportadora',
         plural: 'Transportadoras',

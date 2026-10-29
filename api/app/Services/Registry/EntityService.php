@@ -4,64 +4,39 @@ namespace App\Services\Registry;
 
 use App\Enums\EntityRole;
 use App\Models\Registry\Entity;
-use App\Models\Registry\EntityRoleAssignment;
 use DomainException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 
 /**
- * O cadastro de entidades inteiro. Antes eram oito services quase idênticos,
- * um por papel, e nenhum deles gravava os dados da pessoa na edição.
+ * A pessoa por trás dos papéis: procurar pelo documento, criar ou restaurar,
+ * atualizar e excluir. Não sabe nada de papel em particular — isso é de
+ * `EntityRoleService` e dos models de cada papel.
  */
 class EntityService
 {
-    /**
-     * As entidades que exercem um papel, paginadas.
-     *
-     * @param  array{search?: string|null, status?: string|null, per_page?: int|null}  $filters
-     */
-    public function list(EntityRole $role, array $filters = []): LengthAwarePaginator
-    {
-        $perPage = (int) ($filters['per_page'] ?? 25);
-        $perPage = max(1, min($perPage, 100));
-
-        return Entity::query()
-            ->withRole($role, $filters['status'] ?? null)
-            ->search($filters['search'] ?? null)
-            ->with(['roles', 'driverDetails'])
-            ->orderBy('name')
-            ->paginate($perPage)
-            ->withQueryString();
-    }
-
     /**
      * Todas as entidades da empresa, de qualquer papel. É a tela onde se
      * procura alguém sem saber em qual cadastro ele está.
      *
      * @param  array{search?: string|null, role?: string|null, per_page?: int|null}  $filters
      */
-    public function listAll(array $filters = []): LengthAwarePaginator
+    public function list(array $filters = []): LengthAwarePaginator
     {
-        $perPage = (int) ($filters['per_page'] ?? 25);
-        $perPage = max(1, min($perPage, 100));
-
-        $role = $filters['role'] ?? null;
+        $role = isset($filters['role']) ? EntityRole::from($filters['role']) : null;
 
         return Entity::query()
-            ->when($role, fn ($query) => $query->withRole(EntityRole::from($role)))
+            ->when($role, fn ($query) => $query->withRole($role))
             ->search($filters['search'] ?? null)
-            ->with(['roles', 'driverDetails'])
+            ->withAllRoles()
             ->orderBy('name')
-            ->paginate($perPage)
+            ->paginate($filters['per_page'] ?? 25)
             ->withQueryString();
     }
 
     public function get(string $uuid): Entity
     {
-        return Entity::query()
-            ->where('uuid', $uuid)
-            ->with(['roles', 'driverDetails'])
-            ->firstOrFail();
+        return Entity::query()->where('uuid', $uuid)->withAllRoles()->firstOrFail();
     }
 
     /**
@@ -70,136 +45,87 @@ class EntityService
      */
     public function findByDocument(string $document): ?Entity
     {
-        return Entity::query()
+        return Entity::query()->where('document', $document)->withAllRoles()->first();
+    }
+
+    /**
+     * Quem tem este documento, no cadastro ou excluído — o do cadastro
+     * primeiro. É por aqui que um papel novo acha a pessoa.
+     */
+    public function findForRegistration(string $document): ?Entity
+    {
+        return Entity::withTrashed()
             ->where('document', $document)
-            ->with(['roles', 'driverDetails'])
+            ->orderByRaw('deleted_at is null desc')
+            ->latest('deleted_at')
             ->first();
     }
 
     /**
-     * Cadastra a entidade no papel pedido.
+     * Grava os dados do formulário na pessoa achada por
+     * `findForRegistration()`, ou cria uma.
      *
-     * Se a pessoa já existe — porque exerce outro papel — os dados enviados
-     * atualizam o cadastro dela em vez de serem descartados, e o papel novo é
-     * acrescentado. Era aqui que o endereço corrigido se perdia em silêncio.
+     * Quem foi excluído volta — o mesmo registro, com o mesmo uuid —, em vez
+     * de nascer uma segunda entidade com o mesmo documento. Chamar dentro de
+     * uma transação.
+     *
+     * @param  array<string, mixed>  $data
      */
-    public function store(EntityRole $role, array $data): Entity
+    public function register(?Entity $entity, array $data): Entity
     {
-        return DB::transaction(function () use ($role, $data) {
-            $entity = $this->findByDocument($data['document']);
+        if ($entity === null) {
+            return Entity::query()->create($data);
+        }
 
-            if ($entity === null) {
-                $entity = Entity::create($data);
-            } else {
-                $this->assertRoleIsNew($entity, $role);
-                $entity->update($data);
-            }
+        if ($entity->trashed()) {
+            $entity->restore();
+        }
 
-            $entity->roles()->create([
-                'role' => $role,
-                'status' => EntityRoleAssignment::ACTIVE,
-            ]);
+        $entity->update($data);
 
-            $this->syncRoleDetails($entity, $role, $data);
-
-            return $entity->fresh(['roles', 'driverDetails']);
-        });
+        return $entity;
     }
 
     /**
-     * Atualiza os dados da pessoa e os dados do papel na mesma operação. Na
-     * versão anterior a edição gravava só as colunas do papel, e em cliente,
-     * transportadora e funcionário não gravava nada.
+     * Grava os dados da pessoa. Vale para todos os papéis dela: o nome
+     * corrigido no cadastro de cliente aparece no de fornecedor.
+     *
+     * @param  array<string, mixed>  $data
      */
-    public function update(string $uuid, EntityRole $role, array $data): Entity
+    public function update(Entity $entity, array $data): void
     {
-        return DB::transaction(function () use ($uuid, $role, $data) {
-            $entity = $this->get($uuid);
-
+        if (isset($data['document'])) {
             $this->assertDocumentIsFree($entity, $data['document']);
+        }
 
-            $entity->update($data);
-            $this->syncRoleDetails($entity, $role, $data);
-
-            return $entity->fresh(['roles', 'driverDetails']);
-        });
+        $entity->update($data);
     }
 
-    public function setRoleStatus(string $uuid, EntityRole $role, string $status): void
+    /**
+     * Exclui a pessoa de todos os cadastros de uma vez.
+     */
+    public function delete(string $uuid): void
     {
-        DB::transaction(function () use ($uuid, $role, $status) {
-            $this->roleOf($this->get($uuid), $role)->update(['status' => $status]);
+        DB::transaction(function () use ($uuid) {
+            $entity = $this->get($uuid);
+
+            $entity->roleRecords()->each->delete();
+            $entity->delete();
         });
     }
 
     /**
-     * Remove um papel. A entidade continua existindo enquanto exercer algum
-     * outro; sem nenhum papel, ela sai do cadastro.
+     * Sem papel nenhum, a pessoa sai do cadastro. Volta sozinha se for
+     * cadastrada de novo — ver `register()`.
      */
-    public function removeRole(string $uuid, EntityRole $role): void
+    public function deleteIfOrphan(Entity $entity): void
     {
-        DB::transaction(function () use ($uuid, $role) {
-            $entity = $this->get($uuid);
+        $hasRole = collect(EntityRole::cases())
+            ->contains(fn (EntityRole $role) => $entity->{$role->relation()}()->exists());
 
-            $this->roleOf($entity, $role)->delete();
-
-            if ($role === EntityRole::Driver) {
-                $entity->driverDetails()->delete();
-            }
-
-            if ($entity->roles()->count() === 0) {
-                $entity->delete();
-            }
-        });
-    }
-
-    // ================================ INTERNALS ================================
-
-    private function syncRoleDetails(Entity $entity, EntityRole $role, array $data): void
-    {
-        if ($role !== EntityRole::Driver) {
-            return;
+        if (! $hasRole) {
+            $entity->delete();
         }
-
-        $details = array_intersect_key($data, array_flip([
-            'license_number',
-            'license_category',
-            'license_expires_on',
-            'license_issued_state',
-            'residence_proof_path',
-        ]));
-
-        if ($details === []) {
-            return;
-        }
-
-        $entity->driverDetails()->updateOrCreate([], $details);
-    }
-
-    private function roleOf(Entity $entity, EntityRole $role): EntityRoleAssignment
-    {
-        $assignment = $entity->roles->firstWhere('role', $role);
-
-        if ($assignment === null) {
-            throw new DomainException(
-                sprintf('Esta entidade não está cadastrada como %s', mb_strtolower($role->label()))
-            );
-        }
-
-        return $assignment;
-    }
-
-    private function assertRoleIsNew(Entity $entity, EntityRole $role): void
-    {
-        if (! $entity->hasRole($role)) {
-            return;
-        }
-
-        throw new DomainException(sprintf(
-            '%s já está cadastrado como %s',
-            $entity->name,
-            mb_strtolower($role->label())
-        ));
     }
 
     private function assertDocumentIsFree(Entity $entity, string $document): void

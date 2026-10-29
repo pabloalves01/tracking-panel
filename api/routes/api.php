@@ -10,8 +10,15 @@ use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\VerificationCodeController;
 use App\Http\Controllers\FuelStation\FuelStationCompanyController;
 use App\Http\Controllers\Location\LocationController;
+use App\Http\Controllers\Registry\CarrierController;
+use App\Http\Controllers\Registry\CustomerController;
+use App\Http\Controllers\Registry\DriverController;
+use App\Http\Controllers\Registry\EmployeeController;
 use App\Http\Controllers\Registry\EntityController;
 use App\Http\Controllers\Registry\FuelStationAgreementController;
+use App\Http\Controllers\Registry\SupplierController;
+use App\Http\Controllers\Registry\VehicleOwnerController;
+use App\Http\Controllers\Registry\VehicleResponsibleController;
 use App\Http\Controllers\System\OrganizationController;
 use Illuminate\Support\Facades\Route;
 
@@ -107,22 +114,35 @@ Route::middleware(['auth:sanctum', 'organization'])->prefix('organization')->gro
 
 Route::middleware(['auth:sanctum', 'organization:company'])->group(function () {
     Route::prefix('registry')->group(function () {
-        // O cadastro de entidades inteiro. O papel é um parâmetro de rota
-        // resolvido no enum `EntityRole`: um papel novo não cria rota nova.
-        Route::prefix('entities')->group(function () {
-            Route::get('/', [EntityController::class, 'all']);
-            Route::get('by-document/{document}', [EntityController::class, 'byDocument']);
-
-            Route::prefix('{role}')->group(function () {
-                Route::get('/', [EntityController::class, 'index']);
-                Route::post('/', [EntityController::class, 'store']);
-                Route::get('/{uuid}', [EntityController::class, 'show']);
-                Route::put('/{uuid}', [EntityController::class, 'update']);
-                Route::post('/{uuid}/activate', [EntityController::class, 'activate']);
-                Route::post('/{uuid}/deactivate', [EntityController::class, 'deactivate']);
-                Route::delete('/{uuid}', [EntityController::class, 'destroy']);
-            });
+        // A pessoa, acima dos papéis.
+        Route::prefix('entities')->controller(EntityController::class)->group(function () {
+            Route::get('/', 'index');
+            Route::get('by-document/{document}', 'byDocument');
+            Route::delete('{uuid}', 'destroy');
         });
+
+        // Um recurso por papel, cada um com o próprio controller.
+        $roles = [
+            'drivers' => DriverController::class,
+            'vehicle-owners' => VehicleOwnerController::class,
+            'vehicle-responsibles' => VehicleResponsibleController::class,
+            'employees' => EmployeeController::class,
+            'suppliers' => SupplierController::class,
+            'customers' => CustomerController::class,
+            'carriers' => CarrierController::class,
+        ];
+
+        foreach ($roles as $path => $controller) {
+            Route::prefix($path)->controller($controller)->group(function () {
+                Route::get('/', 'index');
+                Route::post('/', 'store');
+                Route::get('{uuid}', 'show');
+                Route::put('{uuid}', 'update');
+                Route::delete('{uuid}', 'destroy');
+                Route::post('{uuid}/activate', 'activate');
+                Route::post('{uuid}/deactivate', 'deactivate');
+            });
+        }
 
         // Postos conveniados.
         Route::prefix('fuel-stations')->group(function () {

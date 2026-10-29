@@ -93,7 +93,7 @@ class SafetyNetTest extends TestCase
         $this->postJson('/api/registry/fuel-stations', ['document' => ['19131243000197']])
             ->assertUnprocessable();
 
-        $this->postJson('/api/registry/entities/driver', [
+        $this->postJson('/api/registry/drivers', [
             'kind' => 'individual',
             'name' => 'Motorista',
             'document' => ['52998224725'],

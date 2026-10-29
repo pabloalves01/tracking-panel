@@ -50,7 +50,7 @@ class ResponseShapeTest extends TestCase
 
         // Pela própria API: o model tem escopo por organização e não pode
         // ser criado fora do contexto de uma requisição.
-        $this->postJson('/api/registry/entities/customer', [
+        $this->postJson('/api/registry/customers', [
             'kind' => Entity::INDIVIDUAL,
             'document' => '52998224725',
             'name' => 'Fulano de Tal',
@@ -60,7 +60,7 @@ class ResponseShapeTest extends TestCase
             '/api/organization/members',
             '/api/organization/invitations',
             '/api/registry/entities',
-            '/api/registry/entities/customer',
+            '/api/registry/customers',
             '/api/registry/fuel-stations',
             '/api/locations/states',
         ];

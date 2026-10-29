@@ -107,15 +107,20 @@ const emptyForm = {
     license_issued_state: '',
 }
 
-function formFrom(entity) {
+/**
+ * O formulário a partir da pessoa e, na edição, do registro do papel — que
+ * traz as colunas próprias (a CNH do motorista) no mesmo nível.
+ */
+function formFrom(entity, record = {}) {
+    const source = { ...entity, ...record }
+
     return {
         ...emptyForm,
         ...Object.fromEntries(
             Object.keys(emptyForm)
-                .filter((key) => entity[key] !== undefined && entity[key] !== null)
-                .map((key) => [key, entity[key]])
+                .filter((key) => source[key] !== undefined && source[key] !== null)
+                .map((key) => [key, source[key]])
         ),
-        ...(entity.driver ?? {}),
     }
 }
 
@@ -175,9 +180,9 @@ export default function EntityFormPage() {
         if (!isEditing) return
 
         getEntity(config.role, uuid)
-            .then((entity) => {
-                setForm(formFrom(entity))
-                setRoles(entity.roles ?? [])
+            .then((record) => {
+                setForm(formFrom(record.entity, record))
+                setRoles(record.entity.roles ?? [])
             })
             .catch(notifyError)
             .finally(() => setLoading(false))
@@ -209,11 +214,11 @@ export default function EntityFormPage() {
                 return
             }
 
-            const already = (entity.roles ?? []).some((item) => item.role === config.role)
+            const current = (entity.roles ?? []).find((item) => item.role === config.role)
 
             setForm({ ...formFrom(entity), document })
             setRoles(entity.roles ?? [])
-            setMatch(already ? { kind: 'taken', entity } : { kind: 'free', entity })
+            setMatch(current ? { kind: 'taken', entity, uuid: current.uuid } : { kind: 'free', entity })
         } catch (error) {
             notifyError(error)
         } finally {
@@ -336,7 +341,7 @@ export default function EntityFormPage() {
                                     size="sm"
                                     variant="outline"
                                     nativeButton={false}
-                                    render={<Link to={`${basePath}/${match.entity.uuid}/editar`} />}
+                                    render={<Link to={`${basePath}/${match.uuid}/editar`} />}
                                 >
                                     Abrir cadastro
                                 </Button>
@@ -353,7 +358,7 @@ export default function EntityFormPage() {
                                     variant="secondary"
                                     render={
                                         <Link
-                                            to={`/app/cadastros/entidades/${item.slug}/${uuid}/editar`}
+                                            to={`/app/cadastros/entidades/${item.slug}/${item.uuid}/editar`}
                                         />
                                     }
                                 >

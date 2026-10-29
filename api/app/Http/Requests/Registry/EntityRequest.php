@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests\Registry;
 
-use App\Enums\EntityRole;
 use App\Models\Registry\Entity;
 use App\Rules\CpfCnpjForKind;
 use App\Rules\PixKeyForType;
@@ -11,8 +10,13 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 /**
- * A validação do cadastro de entidades, uma vez só. Antes o mesmo
- * `prepareForValidation` estava copiado em catorze FormRequests.
+ * A validação de um cadastro de papel: os dados da pessoa, que são iguais
+ * em todo papel, mais os do papel, que cada request filha declara em
+ * `roleRules()`.
+ *
+ * O corpo chega num formato só — o formulário não sabe onde cada campo é
+ * gravado —, e `entityData()` e `roleData()` separam o que vai para
+ * `entities` e o que vai para a tabela do papel.
  */
 abstract class EntityRequest extends FormRequest
 {
@@ -22,12 +26,19 @@ abstract class EntityRequest extends FormRequest
     }
 
     /**
-     * O papel vem da rota, não do corpo: a tela de motoristas cadastra
-     * motorista.
+     * @return array<string, mixed>
      */
-    protected function role(): EntityRole
+    public function entityData(): array
     {
-        return $this->route('role');
+        return array_intersect_key($this->validated(), $this->entityRules());
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function roleData(): array
+    {
+        return array_intersect_key($this->validated(), $this->roleRules());
     }
 
     protected function prepareForValidation(): void
@@ -102,23 +113,23 @@ abstract class EntityRequest extends FormRequest
     }
 
     /**
-     * Os campos que só um papel tem. Hoje, só o motorista.
+     * Os campos do papel. O papel sem colunas próprias não declara nada.
      *
      * @return array<string, mixed>
      */
     protected function roleRules(): array
     {
-        if ($this->role() !== EntityRole::Driver) {
-            return [];
-        }
+        return [];
+    }
 
-        return [
-            'license_number' => ['required', 'string', 'max:30'],
-            'license_category' => ['required', 'string', 'max:10'],
-            'license_expires_on' => ['nullable', 'date'],
-            'license_issued_state' => ['nullable', 'string', 'size:2'],
-            'residence_proof_path' => ['nullable', 'string', 'max:255'],
-        ];
+    /**
+     * As mensagens dos campos do papel.
+     *
+     * @return array<string, string>
+     */
+    protected function roleMessages(): array
+    {
+        return [];
     }
 
     public function messages(): array
@@ -140,10 +151,7 @@ abstract class EntityRequest extends FormRequest
             'postal_code.size' => 'O CEP deve ter 8 dígitos',
             'state_id.exists' => 'Selecione um estado válido',
             'city_id.exists' => 'Selecione uma cidade válida',
-            'license_number.required' => 'O número da CNH é obrigatório',
-            'license_category.required' => 'A categoria da CNH é obrigatória',
-            'license_expires_on.date' => 'A validade da CNH é inválida',
-            'license_issued_state.size' => 'A UF de emissão deve ter 2 letras',
+            ...$this->roleMessages(),
         ];
     }
 }

@@ -42,7 +42,7 @@ import {
     getEntities,
     removeEntityRole,
 } from '@/lib/registry/entities'
-import { ENTITY_ROLES, rolePath, roleFromSlug } from '@/lib/registry/roles'
+import { ENTITY_ROLES, inflect, rolePath, roleFromSlug } from '@/lib/registry/roles'
 import { notifyError, notifySuccess } from '@/lib/notify'
 
 const kindLabel = {
@@ -51,8 +51,8 @@ const kindLabel = {
 }
 
 /**
- * A lista de um papel. Antes eram sete arquivos de 176 linhas que diferiam
- * entre si no nome do papel.
+ * A lista de um papel. Cada linha é o registro do papel — com o `uuid` e a
+ * situação dele — e a pessoa em `entity`.
  *
  * A busca e a paginação são novas: a versão anterior carregava a tabela
  * inteira a cada abertura e não tinha como procurar ninguém.
@@ -65,7 +65,7 @@ export default function EntityListPage() {
     const config = roleFromSlug(slug) ?? ENTITY_ROLES.customer
     const basePath = rolePath(config)
 
-    const [entities, setEntities] = useState([])
+    const [records, setRecords] = useState([])
     const [meta, setMeta] = useState(null)
     const [loading, setLoading] = useState(true)
     const [toToggle, setToToggle] = useState(null)
@@ -81,7 +81,7 @@ export default function EntityListPage() {
         setLoading(true)
         getEntities(config.role, { search: search || undefined, page })
             .then((response) => {
-                setEntities(response.data ?? [])
+                setRecords(response.data ?? [])
                 setMeta(response.meta ?? null)
             })
             .catch(notifyError)
@@ -109,14 +109,9 @@ export default function EntityListPage() {
         setSearchParams(next)
     }
 
-    /** O papel ativo é o deste cadastro, não o status da pessoa. */
-    function roleOf(entity) {
-        return entity.roles?.find((item) => item.role === config.role) ?? null
-    }
-
     async function handleToggle() {
         if (!toToggle) return
-        const active = roleOf(toToggle)?.status !== 'inactive'
+        const active = toToggle.status !== 'inactive'
 
         try {
             const response = active
@@ -144,8 +139,8 @@ export default function EntityListPage() {
         }
     }
 
-    const toggleIsActive = toToggle ? roleOf(toToggle)?.status !== 'inactive' : true
-    const removeIsLastRole = toRemove ? (toRemove.roles?.length ?? 0) <= 1 : false
+    const toggleIsActive = toToggle ? toToggle.status !== 'inactive' : true
+    const removeIsLastRole = toRemove ? (toRemove.entity.roles?.length ?? 0) <= 1 : false
 
     return (
         <>
@@ -179,7 +174,7 @@ export default function EntityListPage() {
 
             {loading ? (
                 <TableSkeleton />
-            ) : entities.length === 0 ? (
+            ) : records.length === 0 ? (
                 <Empty>
                     <EmptyHeader>
                         <EmptyMedia variant="icon">
@@ -212,15 +207,15 @@ export default function EntityListPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {entities.map((entity) => {
-                                const assignment = roleOf(entity)
-                                const isActive = assignment?.status !== 'inactive'
+                            {records.map((record) => {
+                                const { entity } = record
+                                const isActive = record.status !== 'inactive'
                                 const others = (entity.roles ?? []).filter(
                                     (item) => item.role !== config.role
                                 )
 
                                 return (
-                                    <TableRow key={entity.uuid}>
+                                    <TableRow key={record.uuid}>
                                         <TableCell>
                                             <span className="font-medium">{entity.name}</span>
                                             {entity.trade_name ? (
@@ -258,7 +253,7 @@ export default function EntityListPage() {
                                                             variant="secondary"
                                                             render={
                                                                 <Link
-                                                                    to={`/app/cadastros/entidades/${item.slug}/${entity.uuid}/editar`}
+                                                                    to={`/app/cadastros/entidades/${item.slug}/${item.uuid}/editar`}
                                                                 />
                                                             }
                                                         >
@@ -279,20 +274,20 @@ export default function EntityListPage() {
                                                     icon={PencilIcon}
                                                     tooltip="Editar"
                                                     onClick={() =>
-                                                        navigate(`${basePath}/${entity.uuid}/editar`)
+                                                        navigate(`${basePath}/${record.uuid}/editar`)
                                                     }
                                                 />
                                                 <ActionButton
                                                     icon={isActive ? BanIcon : CircleCheckIcon}
                                                     tooltip={isActive ? 'Desativar' : 'Ativar'}
                                                     variant="outline"
-                                                    onClick={() => setToToggle(entity)}
+                                                    onClick={() => setToToggle(record)}
                                                 />
                                                 <ActionButton
                                                     icon={Trash2Icon}
-                                                    tooltip="Remover deste cadastro"
+                                                    tooltip="Excluir"
                                                     variant="destructive"
-                                                    onClick={() => setToRemove(entity)}
+                                                    onClick={() => setToRemove(record)}
                                                 />
                                             </div>
                                         </TableCell>
@@ -338,8 +333,8 @@ export default function EntityListPage() {
                         </AlertDialogTitle>
                         <AlertDialogDescription>
                             {toggleIsActive
-                                ? `${toToggle?.name} sai da lista de ${config.plural.toLowerCase()}. Os outros cadastros dessa pessoa continuam como estão, e ela pode ser ativada de novo a qualquer momento.`
-                                : `${toToggle?.name} volta para a lista de ${config.plural.toLowerCase()}.`}
+                                ? `${toToggle?.entity.name} continua na lista, ${inflect(config, 'marcad')} como ${inflect(config, 'inativ')}, e pode ser ${inflect(config, 'ativad')} de novo a qualquer momento. Os outros cadastros dessa pessoa não mudam.`
+                                : `${toToggle?.entity.name} volta a ficar ${inflect(config, 'ativ')} em ${config.plural.toLowerCase()}.`}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -355,18 +350,19 @@ export default function EntityListPage() {
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>
-                            Remover de {config.plural.toLowerCase()}
+                            Excluir {config.label.toLowerCase()}
                         </AlertDialogTitle>
                         <AlertDialogDescription>
                             {removeIsLastRole
-                                ? `${config.plural} é o único cadastro de ${toRemove?.name}. Removendo, o cadastro dessa pessoa sai do sistema por completo.`
-                                : `${toRemove?.name} deixa de ser ${config.indefinite} ${config.label.toLowerCase()}, mas continua ${config.article === 'a' ? 'cadastrada' : 'cadastrado'} nos outros papéis.`}
+                                ? `${config.plural} é o único cadastro de ${toRemove?.entity.name}. Excluindo, a pessoa sai da lista de entidades.`
+                                : `${toRemove?.entity.name} deixa de ser ${config.indefinite} ${config.label.toLowerCase()}, mas continua nos outros cadastros.`}{' '}
+                            Se for cadastrad{config.article} de novo, volta com o mesmo registro.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancelar</AlertDialogCancel>
                         <AlertDialogAction variant="destructive" onClick={handleRemove}>
-                            Remover
+                            Excluir
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

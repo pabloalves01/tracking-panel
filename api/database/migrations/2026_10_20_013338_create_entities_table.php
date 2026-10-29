@@ -6,10 +6,13 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * A entidade é a pessoa física ou jurídica que a empresa cadastra uma vez.
- * Os papéis que ela exerce — motorista, cliente, fornecedor — vivem em
- * `entity_roles`, e os dados próprios de um papel, quando existem, em uma
- * tabela de detalhe own (hoje só `driver_details`).
+ * A entidade é a pessoa física ou jurídica que a empresa cadastra uma vez:
+ * documento, nome, contato, endereço e PIX — o que vale em qualquer relação.
+ *
+ * Cada papel que ela exerce tem tabela própria apontando para cá
+ * (`drivers`, `customers`, `suppliers`…), com o que é só daquele papel.
+ * É o desenho de parceiro de negócio dos ERPs: uma ficha central e as
+ * funções ligadas a ela.
  */
 return new class extends Migration
 {

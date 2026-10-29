@@ -12,12 +12,14 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Collection;
 use Override;
 
 /**
- * Uma pessoa física ou jurídica cadastrada pela empresa. Os papéis que ela
- * exerce ficam em `entity_roles`.
+ * Uma pessoa física ou jurídica cadastrada pela empresa. Cada papel que ela
+ * exerce é uma linha na tabela do papel (`drivers`, `customers`…).
  */
 class Entity extends Model
 {
@@ -92,31 +94,53 @@ class Entity extends Model
         return $this->belongsTo(State::class);
     }
 
-    public function roles()
+    // Um papel por relação. Os nomes saem de `EntityRole::relation()`.
+
+    public function driver(): HasOne
     {
-        return $this->hasMany(EntityRoleAssignment::class);
+        return $this->hasOne(Driver::class);
     }
 
-    public function driverDetails()
+    public function vehicleOwner(): HasOne
     {
-        return $this->hasOne(DriverDetails::class);
+        return $this->hasOne(VehicleOwner::class);
+    }
+
+    public function vehicleResponsible(): HasOne
+    {
+        return $this->hasOne(VehicleResponsible::class);
+    }
+
+    public function employee(): HasOne
+    {
+        return $this->hasOne(Employee::class);
+    }
+
+    public function supplier(): HasOne
+    {
+        return $this->hasOne(Supplier::class);
+    }
+
+    public function customer(): HasOne
+    {
+        return $this->hasOne(Customer::class);
+    }
+
+    public function carrier(): HasOne
+    {
+        return $this->hasOne(Carrier::class);
     }
 
     // ================================ SCOPES ================================
 
-    /**
-     * Entidades que exercem um papel, com a situação do papel opcionalmente
-     * filtrada.
-     */
-    public function scopeWithRole(Builder $query, EntityRole $role, ?string $status = null): Builder
+    public function scopeWithRole(Builder $query, EntityRole $role): Builder
     {
-        return $query->whereHas('roles', function (Builder $roles) use ($role, $status) {
-            $roles->where('role', $role->value);
+        return $query->whereHas($role->relation());
+    }
 
-            if ($status !== null) {
-                $roles->where('status', $status);
-            }
-        });
+    public function scopeWithAllRoles(Builder $query): Builder
+    {
+        return $query->with(EntityRole::relations());
     }
 
     /**
@@ -134,20 +158,30 @@ class Entity extends Model
         $digits = Text::digits($term);
 
         return $query->where(function (Builder $scoped) use ($term, $digits) {
-            $scoped->where('name', 'like', "%{$term}%")
-                ->orWhere('trade_name', 'like', "%{$term}%");
+            $scoped->whereLike('name', "%{$term}%")
+                ->orWhereLike('trade_name', "%{$term}%");
 
             if ($digits !== '') {
-                $scoped->orWhere('document', 'like', "%{$digits}%");
+                $scoped->orWhereLike('document', "%{$digits}%");
             }
         });
     }
 
     // ================================ HELPERS ================================
 
-    public function hasRole(EntityRole $role): bool
+    /**
+     * Os papéis que a pessoa exerce, já carregados — os excluídos não vêm.
+     *
+     * @return Collection<int, Model>
+     */
+    public function roleRecords(): Collection
     {
-        return $this->roles->contains(fn (EntityRoleAssignment $assignment) => $assignment->role === $role);
+        $this->loadMissing(EntityRole::relations());
+
+        return collect(EntityRole::cases())
+            ->map(fn (EntityRole $role) => $this->getRelation($role->relation()))
+            ->filter()
+            ->values();
     }
 
     public function isOrganization(): bool

@@ -2,18 +2,19 @@
 
 namespace App\Models\Registry;
 
+use App\Enums\EntityRole;
+use App\Models\Registry\Concerns\IsEntityRole;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Os dados que só o motorista tem.
+ * Motorista. Os dados da pessoa ficam em `Entity`; aqui, a CNH.
  */
-class DriverDetails extends Model
+class Driver extends Model
 {
-    protected $table = 'driver_details';
+    use IsEntityRole;
 
     protected $fillable = [
-        'entity_id',
         'license_number',
         'license_category',
         'license_expires_on',
@@ -26,6 +27,11 @@ class DriverDetails extends Model
         return [
             'license_expires_on' => 'date',
         ];
+    }
+
+    public function role(): EntityRole
+    {
+        return EntityRole::Driver;
     }
 
     /**
@@ -42,10 +48,5 @@ class DriverDetails extends Model
     protected function licenseCategory(): Attribute
     {
         return Attribute::set(fn (?string $value) => $value === null ? null : mb_strtoupper(trim($value)));
-    }
-
-    public function entity()
-    {
-        return $this->belongsTo(Entity::class);
     }
 }

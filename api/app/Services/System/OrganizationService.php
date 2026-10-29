@@ -35,11 +35,11 @@ class OrganizationService
                 $digits = Text::digits($search);
 
                 $query->where(function ($scoped) use ($search, $digits) {
-                    $scoped->where('legal_name', 'like', "%{$search}%")
-                        ->orWhere('trade_name', 'like', "%{$search}%");
+                    $scoped->whereLike('legal_name', "%{$search}%")
+                        ->orWhereLike('trade_name', "%{$search}%");
 
                     if ($digits !== '') {
-                        $scoped->orWhere('document', 'like', "%{$digits}%");
+                        $scoped->orWhereLike('document', "%{$digits}%");
                     }
                 });
             })

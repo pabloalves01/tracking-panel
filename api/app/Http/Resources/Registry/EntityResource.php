@@ -2,8 +2,9 @@
 
 namespace App\Http\Resources\Registry;
 
+use App\Enums\EntityRole;
 use App\Models\Registry\Entity;
-use App\Models\Registry\EntityRoleAssignment;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -43,23 +44,18 @@ class EntityResource extends JsonResource
             'state_id' => $this->state_id,
             'city_id' => $this->city_id,
 
-            // Os papéis que a pessoa exerce. É o que permite a tela avisar
-            // "este motorista também é proprietário" — informação que já
-            // existia no banco e não aparecia em lugar nenhum.
-            'roles' => $this->whenLoaded('roles', fn () => $this->roles->map(fn (EntityRoleAssignment $assignment) => [
-                'role' => $assignment->role->value,
-                'label' => $assignment->role->label(),
-                'slug' => $assignment->role->slug(),
-                'status' => $assignment->status,
-            ])->values()),
-
-            'driver' => $this->whenLoaded('driverDetails', fn () => $this->driverDetails ? [
-                'license_number' => $this->driverDetails->license_number,
-                'license_category' => $this->driverDetails->license_category,
-                'license_expires_on' => $this->driverDetails->license_expires_on?->toDateString(),
-                'license_issued_state' => $this->driverDetails->license_issued_state,
-                'residence_proof_path' => $this->driverDetails->residence_proof_path,
-            ] : null),
+            // Os papéis que a pessoa exerce, cada um com o próprio uuid — é
+            // por ele que a tela abre o cadastro daquele papel.
+            'roles' => $this->when(
+                $this->relationLoaded(EntityRole::Driver->relation()),
+                fn () => $this->roleRecords()->map(fn (Model $record) => [
+                    'role' => $record->role()->value,
+                    'label' => $record->role()->label(),
+                    'slug' => $record->role()->slug(),
+                    'uuid' => $record->uuid,
+                    'status' => $record->status,
+                ])
+            ),
         ];
     }
 }

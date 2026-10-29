@@ -4,58 +4,32 @@ namespace App\Http\Controllers\Registry;
 
 use App\Enums\EntityRole;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Registry\StoreEntityRequest;
-use App\Http\Requests\Registry\UpdateEntityRequest;
 use App\Http\Resources\Registry\EntityResource;
-use App\Models\Registry\EntityRoleAssignment;
 use App\Services\Registry\EntityService;
 use App\Support\Text;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Validation\Rule;
 
 /**
- * Um controller para os sete cadastros. O papel vem da rota.
- *
- * O `try/catch` saiu daqui: `DomainException` e os demais erros são
- * traduzidos uma vez em `bootstrap/app.php`.
+ * A pessoa, acima dos papéis: a lista geral, a consulta por documento do
+ * formulário e a exclusão de todos os cadastros de uma vez. Cadastrar e
+ * editar acontecem sempre por um papel — ver `EntityRoleController`.
  */
 class EntityController extends Controller
 {
     public function __construct(private readonly EntityService $entities) {}
 
-    /**
-     * Todas as entidades, de qualquer papel.
-     */
-    public function all(Request $request): AnonymousResourceCollection
+    public function index(Request $request): AnonymousResourceCollection
     {
-        // `role` entra num `EntityRole::from`, que levanta ValueError num
-        // papel inexistente — 500 por um filtro digitado errado na URL.
-        $validated = $request->validate([
+        $filters = $request->validate([
             'search' => ['nullable', 'string', 'max:255'],
             'role' => ['nullable', Rule::enum(EntityRole::class)],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
 
-        return EntityResource::collection(
-            $this->entities->listAll([
-                'search' => $validated['search'] ?? null,
-                'role' => $validated['role'] ?? null,
-                'per_page' => $validated['per_page'] ?? null,
-            ])
-        );
-    }
-
-    public function index(Request $request, EntityRole $role): AnonymousResourceCollection
-    {
-        return EntityResource::collection(
-            $this->entities->list($role, [
-                'search' => $request->query('search'),
-                'status' => $request->query('status'),
-                'per_page' => $request->query('per_page'),
-            ])
-        );
+        return EntityResource::collection($this->entities->list($filters));
     }
 
     /**
@@ -71,58 +45,13 @@ class EntityController extends Controller
         ]);
     }
 
-    public function store(StoreEntityRequest $request, EntityRole $role): JsonResponse
-    {
-        $entity = $this->entities->store($role, $request->validated());
-
-        return response()->json([
-            'message' => sprintf('%s %s com sucesso', $role->label(), $role->isFeminine() ? 'cadastrada' : 'cadastrado'),
-            'data' => new EntityResource($entity),
-        ], 201);
-    }
-
-    public function show(EntityRole $role, string $uuid): EntityResource
-    {
-        return new EntityResource($this->entities->get($uuid));
-    }
-
-    public function update(UpdateEntityRequest $request, EntityRole $role, string $uuid): JsonResponse
-    {
-        $entity = $this->entities->update($uuid, $role, $request->validated());
-
-        return response()->json([
-            'message' => sprintf('%s %s com sucesso', $role->label(), $role->isFeminine() ? 'atualizada' : 'atualizado'),
-            'data' => new EntityResource($entity),
-        ]);
-    }
-
-    public function activate(EntityRole $role, string $uuid): JsonResponse
-    {
-        $this->entities->setRoleStatus($uuid, $role, EntityRoleAssignment::ACTIVE);
-
-        return response()->json([
-            'message' => sprintf('%s %s com sucesso', $role->label(), $role->isFeminine() ? 'ativada' : 'ativado'),
-        ]);
-    }
-
-    public function deactivate(EntityRole $role, string $uuid): JsonResponse
-    {
-        $this->entities->setRoleStatus($uuid, $role, EntityRoleAssignment::INACTIVE);
-
-        return response()->json([
-            'message' => sprintf('%s %s com sucesso', $role->label(), $role->isFeminine() ? 'desativada' : 'desativado'),
-        ]);
-    }
-
     /**
-     * Tira o papel. A pessoa continua cadastrada enquanto exercer outro.
+     * Exclui a pessoa de todos os cadastros.
      */
-    public function destroy(EntityRole $role, string $uuid): JsonResponse
+    public function destroy(string $uuid): JsonResponse
     {
-        $this->entities->removeRole($uuid, $role);
+        $this->entities->delete($uuid);
 
-        return response()->json([
-            'message' => sprintf('%s %s do cadastro', $role->label(), $role->isFeminine() ? 'removida' : 'removido'),
-        ]);
+        return response()->json(['message' => 'Cadastro excluído com sucesso']);
     }
 }

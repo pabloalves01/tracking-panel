@@ -2,11 +2,25 @@
 
 namespace App\Enums;
 
+use App\Models\Registry\Carrier;
+use App\Models\Registry\Customer;
+use App\Models\Registry\Driver;
+use App\Models\Registry\Employee;
+use App\Models\Registry\Supplier;
+use App\Models\Registry\VehicleOwner;
+use App\Models\Registry\VehicleResponsible;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
+
 /**
  * O catálogo de papéis de uma entidade.
  *
- * Adicionar um papel é adicionar um caso aqui. Só precisa de tabela de
- * detalhe o papel que tiver dados próprios — hoje, apenas o motorista.
+ * Cada papel tem tabela, model, controller e rotas próprios. O enum é o que
+ * os liga: é por ele que a entidade sabe quais papéis procurar e que a
+ * tela geral filtra por papel.
+ *
+ * Papel novo: um caso aqui, a migration, o model (`use IsEntityRole`), a
+ * request, o resource, o controller e a linha em `routes/api.php`.
  */
 enum EntityRole: string
 {
@@ -57,6 +71,42 @@ enum EntityRole: string
             self::Customer => 'clientes',
             self::Carrier => 'transportadoras',
         };
+    }
+
+    /**
+     * O model da tabela do papel.
+     *
+     * @return class-string<Model>
+     */
+    public function model(): string
+    {
+        return match ($this) {
+            self::Driver => Driver::class,
+            self::VehicleOwner => VehicleOwner::class,
+            self::VehicleResponsible => VehicleResponsible::class,
+            self::Employee => Employee::class,
+            self::Supplier => Supplier::class,
+            self::Customer => Customer::class,
+            self::Carrier => Carrier::class,
+        };
+    }
+
+    /**
+     * O nome da relação em `Entity` — `$entity->vehicleOwner`.
+     */
+    public function relation(): string
+    {
+        return Str::camel($this->value);
+    }
+
+    /**
+     * As relações de todos os papéis, para carregar de uma vez.
+     *
+     * @return array<int, string>
+     */
+    public static function relations(): array
+    {
+        return array_map(fn (self $role) => $role->relation(), self::cases());
     }
 
     /**
