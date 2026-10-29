@@ -532,87 +532,87 @@ export default function VehicleFormPage() {
 
                     {tab === 'vinculos' ? (
                         <>
-                        <FieldSet>
-                            <FieldLegend variant="label">Proprietário e responsável</FieldLegend>
-                            <FieldDescription>
-                                As receitas e as despesas do veículo — fretes, adiantamentos, descontos — vão para o responsável.
-                                A chave PIX é a do cadastro dele.
-                            </FieldDescription>
-                            <FieldGroup className="md:grid md:grid-cols-12 md:gap-4">
-                                <Field className="col-span-12 md:col-span-6" data-invalid={invalid('owner')}>
-                                    <FieldLabel htmlFor="owner">Proprietário</FieldLabel>
-                                    <InputEntityRole
-                                        id="owner"
-                                        role="vehicle_owner"
-                                        value={form.owner}
-                                        onChange={(value) => set('owner', value)}
-                                        aria-invalid={invalid('owner')}
-                                    />
-                                    <FieldDescription>
-                                        Quem consta no CRLV. Não está na lista?{' '}
-                                        <Link className="underline" to="/app/cadastros/entidades/proprietarios/novo" target="_blank">
-                                            Cadastre o proprietário
-                                        </Link>
-                                        .
-                                    </FieldDescription>
-                                    <FieldError>{error('owner')}</FieldError>
-                                </Field>
+                            <FieldSet>
+                                <FieldLegend variant="label">Proprietário e responsável</FieldLegend>
+                                <FieldDescription>
+                                    As receitas e as despesas do veículo — fretes, adiantamentos, descontos — vão para o responsável.
+                                    A chave PIX é a do cadastro dele.
+                                </FieldDescription>
+                                <FieldGroup className="md:grid md:grid-cols-12 md:gap-4">
+                                    <Field className="col-span-12 md:col-span-6" data-invalid={invalid('owner')}>
+                                        <FieldLabel htmlFor="owner">Proprietário</FieldLabel>
+                                        <InputEntityRole
+                                            id="owner"
+                                            role="vehicle_owner"
+                                            value={form.owner}
+                                            onChange={(value) => set('owner', value)}
+                                            aria-invalid={invalid('owner')}
+                                        />
+                                        <FieldDescription>
+                                            Quem consta no CRLV. Não está na lista?{' '}
+                                            <Link className="underline" to="/app/cadastros/entidades/proprietarios/novo" target="_blank">
+                                                Cadastre o proprietário
+                                            </Link>
+                                            .
+                                        </FieldDescription>
+                                        <FieldError>{error('owner')}</FieldError>
+                                    </Field>
 
-                                <Field className="col-span-12 md:col-span-6" data-invalid={invalid('responsible')}>
-                                    <FieldLabel htmlFor="responsible">Responsável</FieldLabel>
-                                    <InputEntityRole
-                                        id="responsible"
-                                        role="vehicle_responsible"
-                                        value={form.responsible}
-                                        onChange={(value) => set('responsible', value)}
-                                        aria-invalid={invalid('responsible')}
-                                    />
-                                    {form.owner && !sameAsOwner ? (
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            className="w-fit"
-                                            disabled={linking}
-                                            onClick={assignOwnerAsResponsible}
-                                        >
-                                            <UserCheckIcon data-icon="inline-start" />
-                                            {linking ? 'Vinculando…' : 'O responsável é o proprietário'}
-                                        </Button>
+                                    <Field className="col-span-12 md:col-span-6" data-invalid={invalid('responsible')}>
+                                        <FieldLabel htmlFor="responsible">Responsável</FieldLabel>
+                                        <InputEntityRole
+                                            id="responsible"
+                                            role="vehicle_responsible"
+                                            value={form.responsible}
+                                            onChange={(value) => set('responsible', value)}
+                                            aria-invalid={invalid('responsible')}
+                                        />
+                                        {form.owner && !sameAsOwner ? (
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                className="w-fit"
+                                                disabled={linking}
+                                                onClick={assignOwnerAsResponsible}
+                                            >
+                                                <UserCheckIcon data-icon="inline-start" />
+                                                {linking ? 'Vinculando…' : 'O responsável é o proprietário'}
+                                            </Button>
+                                        ) : null}
+                                        <FieldError>{error('responsible')}</FieldError>
+                                    </Field>
+
+                                    {form.responsible ? (
+                                        <div className="col-span-12">
+                                            <PixSummary person={form.responsible} />
+                                        </div>
                                     ) : null}
-                                    <FieldError>{error('responsible')}</FieldError>
-                                </Field>
+                                </FieldGroup>
+                            </FieldSet>
 
-                                {form.responsible ? (
-                                    <div className="col-span-12">
-                                        <PixSummary person={form.responsible} />
-                                    </div>
-                                ) : null}
-                            </FieldGroup>
-                        </FieldSet>
+                            <Separator className="my-6" />
 
-                        <Separator className="my-6" />
-
-                        <FieldSet>
-                            <FieldLegend variant="label">ANTT</FieldLegend>
-                            <FieldDescription>
-                                O transportador em cujo RNTRC o veículo está — o proprietário autônomo (TAC) ou quem arrendou o
-                                veículo. Deixe em branco quando o veículo roda no RNTRC da própria empresa.
-                            </FieldDescription>
-                            <FieldGroup className="md:grid md:grid-cols-12 md:gap-4">
-                                <Field className="col-span-12 md:col-span-6" data-invalid={invalid('carrier')}>
-                                    <FieldLabel htmlFor="carrier">Transportador</FieldLabel>
-                                    <InputEntityRole
-                                        id="carrier"
-                                        role="carrier"
-                                        value={form.carrier}
-                                        onChange={(value) => set('carrier', value)}
-                                        aria-invalid={invalid('carrier')}
-                                    />
-                                    <FieldError>{error('carrier')}</FieldError>
-                                </Field>
-                            </FieldGroup>
-                        </FieldSet>
+                            <FieldSet>
+                                <FieldLegend variant="label">ANTT</FieldLegend>
+                                <FieldDescription>
+                                    O transportador em cujo RNTRC o veículo está — o proprietário autônomo (TAC) ou quem arrendou o
+                                    veículo. Deixe em branco quando o veículo roda no RNTRC da própria empresa.
+                                </FieldDescription>
+                                <FieldGroup className="md:grid md:grid-cols-12 md:gap-4">
+                                    <Field className="col-span-12 md:col-span-6" data-invalid={invalid('carrier')}>
+                                        <FieldLabel htmlFor="carrier">Transportador</FieldLabel>
+                                        <InputEntityRole
+                                            id="carrier"
+                                            role="carrier"
+                                            value={form.carrier}
+                                            onChange={(value) => set('carrier', value)}
+                                            aria-invalid={invalid('carrier')}
+                                        />
+                                        <FieldError>{error('carrier')}</FieldError>
+                                    </Field>
+                                </FieldGroup>
+                            </FieldSet>
                         </>
                     ) : null}
 
@@ -843,7 +843,16 @@ function PixSummary({ person }) {
             : person.pix_key
 
     return (
-        <p className="text-muted-foreground text-sm">
+        <p className="inline-flex items-center gap-x-1 text-muted-foreground text-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                className="size-3.5 shrink-0"
+                fill="none" stroke="currentColor" strokeWidth="1.5"
+                strokeLinecap="round" strokeLinejoin="round">
+                <path d="M7 6.5 10.6 2.9a2 2 0 0 1 2.8 0L17 6.5h-2l-3 3-3-3Z" />
+                <path d="m17.5 7 3.6 3.6a2 2 0 0 1 0 2.8L17.5 17v-2l-3-3 3-3Z" />
+                <path d="m17 17.5-3.6 3.6a2 2 0 0 1-2.8 0L7 17.5h2l3-3 3 3Z" />
+                <path d="m6.5 17-3.6-3.6a2 2 0 0 1 0-2.8L6.5 7v2l3 3-3 3Z" />
+            </svg>
             Pagamentos via PIX para <span className="text-foreground font-medium tabular-nums">{key}</span>
         </p>
     )
