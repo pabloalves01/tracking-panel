@@ -28,8 +28,8 @@ return new class extends Migration
             $table->string('chassis', 17);
             $table->date('registration_expires_on'); // validade do CRLV
 
-            $table->string('brand', 60);
-            $table->string('model', 80);
+            $table->foreignId('vehicle_brand_id')->constrained('vehicle_brands');
+            $table->foreignId('vehicle_model_id')->constrained('vehicle_models');
             $table->string('color', 40)->nullable();
             $table->unsignedSmallInteger('manufacture_year');
             $table->unsignedSmallInteger('model_year');
@@ -44,9 +44,9 @@ return new class extends Migration
             $table->decimal('volume_capacity_m3', 8, 2)->nullable();
 
             // Proprietário legal (CRLV); responsável, a quem vão as receitas
-            // e as despesas do veículo (fretes, adiantamentos, descontos); e
-            // o transportador no RNTRC quando não é a própria empresa — o
-            // proprietário que é TAC, ou o arrendatário.
+            // e as despesas do veículo (fretes, adiantamentos, descontos); e,
+            // para agregado e terceiro, o transportador em cujo RNTRC o
+            // veículo está — o proprietário autônomo (TAC) ou o arrendatário.
             $table->foreignId('owner_id')->constrained('vehicle_owners');
             $table->foreignId('responsible_id')->constrained('vehicle_responsibles');
             $table->foreignId('carrier_id')->nullable()->constrained('carriers');

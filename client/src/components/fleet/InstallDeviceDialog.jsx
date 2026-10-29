@@ -46,7 +46,7 @@ export function InstallDeviceDialog({ device, onClose, onDone }) {
                 .map((item) => ({
                     value: item.uuid,
                     label: item.plate,
-                    description: [item.type.name, `${item.brand} ${item.model}`].join(' · '),
+                    description: [item.type.name, `${item.brand?.name ?? ''} ${item.model?.name ?? ''}`.trim()].join(' · '),
                     hint: item.devices.length > 0 ? `${item.devices.length} rastreador${item.devices.length > 1 ? 'es' : ''}` : undefined,
                 }))
         )

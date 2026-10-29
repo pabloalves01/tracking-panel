@@ -41,8 +41,8 @@ class Vehicle extends Model
         'renavam',
         'chassis',
         'registration_expires_on',
-        'brand',
-        'model',
+        'vehicle_brand_id',
+        'vehicle_model_id',
         'color',
         'manufacture_year',
         'model_year',
@@ -63,6 +63,8 @@ class Vehicle extends Model
         return [
             'vehicle_type_id' => 'integer',
             'body_type_id' => 'integer',
+            'vehicle_brand_id' => 'integer',
+            'vehicle_model_id' => 'integer',
             'fleet_type' => FleetType::class,
             'registration_expires_on' => 'date',
             'manufacture_year' => 'integer',
@@ -113,6 +115,16 @@ class Vehicle extends Model
     public function bodyType(): BelongsTo
     {
         return $this->belongsTo(BodyType::class);
+    }
+
+    public function vehicleBrand(): BelongsTo
+    {
+        return $this->belongsTo(VehicleBrand::class);
+    }
+
+    public function vehicleModel(): BelongsTo
+    {
+        return $this->belongsTo(VehicleModel::class);
     }
 
     public function owner(): BelongsTo
@@ -169,8 +181,8 @@ class Vehicle extends Model
         $mixed = preg_match('/\d/', $term) === 1 && preg_match('/\pL/u', $term) === 1;
 
         return $query->where(function (Builder $scoped) use ($term, $code, $mixed) {
-            $scoped->whereLike('brand', "%{$term}%")
-                ->orWhereLike('model', "%{$term}%");
+            $scoped->whereHas('vehicleBrand', fn (Builder $brand) => $brand->whereLike('name', "%{$term}%"))
+                ->orWhereHas('vehicleModel', fn (Builder $model) => $model->whereLike('name', "%{$term}%"));
 
             if ($code !== '') {
                 $scoped->orWhereLike('plate', "%{$code}%")
@@ -199,6 +211,11 @@ class Vehicle extends Model
     public function kind(): VehicleKind
     {
         return $this->vehicleType->kind;
+    }
+
+    public function canTow(): bool
+    {
+        return $this->vehicleType->can_tow;
     }
 
     public function isActive(): bool

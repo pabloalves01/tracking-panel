@@ -18,6 +18,8 @@ class VehicleType extends Model
         'kind',
         'category',
         'mdfe_code',
+        'has_body',
+        'can_tow',
     ];
 
     protected function casts(): array
@@ -25,6 +27,8 @@ class VehicleType extends Model
         return [
             'kind' => VehicleKind::class,
             'category' => VehicleCategory::class,
+            'has_body' => 'boolean',
+            'can_tow' => 'boolean',
         ];
     }
 }

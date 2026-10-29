@@ -24,3 +24,21 @@ function cached(path) {
 export const getVehicleTypes = () => cached('/fleet/vehicle-types')
 export const getBodyTypes = () => cached('/fleet/body-types')
 export const getDeviceModels = () => cached('/fleet/device-models')
+
+/** Marcas do grupo: as da LogIV e as que a empresa acrescentou. */
+export function getVehicleBrands(kind) {
+    return api.get('/fleet/vehicle-brands', { params: { kind } }).then((response) => response.data.data)
+}
+
+/** Acrescenta a marca, ou devolve a que já existe com o mesmo nome. */
+export function createVehicleBrand(kind, name) {
+    return api.post('/fleet/vehicle-brands', { kind, name }).then((response) => response.data.data)
+}
+
+export function getVehicleModels(brandId) {
+    return api.get(`/fleet/vehicle-brands/${brandId}/models`).then((response) => response.data.data)
+}
+
+export function createVehicleModel(brandId, name) {
+    return api.post(`/fleet/vehicle-brands/${brandId}/models`, { name }).then((response) => response.data.data)
+}

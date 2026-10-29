@@ -5,6 +5,7 @@ import {
     BuildingIcon,
     ClipboardListIcon,
     ContactIcon,
+    ContainerIcon,
     FileTextIcon,
     Fuel,
     IdCardIcon,
@@ -149,6 +150,7 @@ export const navigation = [
                         icon: TruckIcon,
                         children: [
                             { title: 'Veículos', path: 'veiculos', icon: TruckIcon },
+                            { title: 'Implementos', path: 'implementos', icon: ContainerIcon },
                             { title: 'Rastreadores', path: 'rastreadores', icon: RadioTowerIcon },
                         ],
                     },

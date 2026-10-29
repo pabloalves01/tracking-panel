@@ -34,9 +34,9 @@ Requisitos:
 ## Decisão
 
 ```
-vehicle_types (catálogo) ─┐   body_types (catálogo)
-                          │        │
-vehicles ─────────────────┴────────┘
+vehicle_types (catálogo) ─┐   body_types (catálogo)   vehicle_brands ─ vehicle_models
+                          │        │                     (LogIV + empresa)
+vehicles ─────────────────┴────────┴─────────────────────────┘
  │  owner_id ─────────► vehicle_owners ──┐
  │  responsible_id ───► vehicle_responsibles ──┼─► entities (pessoa, PIX)
  │  carrier_id ───────► carriers (RNTRC, TAC/ETC/CTC) ──┘
@@ -47,7 +47,9 @@ devices ─────────► device_models (catálogo)
 
 ### Veículos
 
-**Uma tabela `vehicles` para automotor e implemento.** O implemento tem os mesmos documentos do automotor, recebe rastreador e é tratado igual no MDF-e.
+**Uma tabela `vehicles` para automotor e implemento, em telas separadas.** O implemento tem os mesmos documentos do automotor, recebe rastreador e é tratado igual no MDF-e. Senior e Lincros fazem igual: um cadastro com a classificação cavalo/reboque. A Samsara também usa uma entidade só, com o tipo.
+
+Para o usuário são dois menus, Frota › **Veículos** e Frota › **Implementos**: mesma API (`/fleet/vehicles?kind=…`), listas já filtradas e formulário que só oferece os tipos do grupo.
 
 **O grupo sai do tipo, sem coluna `kind` no veículo.** `vehicle_types` traz `kind` e `category`, e `vehicles.vehicle_type_id` aponta para ele. Na tela se escolhe só o tipo, e o grupo e a categoria aparecem abaixo. Não há dois campos que possam se contradizer.
 
@@ -57,23 +59,28 @@ devices ─────────► device_models (catálogo)
 - inclui carro e moto, que não tracionam nada;
 - no engate, quem puxa é sempre um automotor, e quem é puxado é sempre um implemento. A validação é por grupo.
 
-**Tipos de veículo**, catálogo global da LogIV. `tpRod` é o código do MDF-e, preenchido só onde a equivalência é direta:
+**Tipos de veículo**, catálogo global da LogIV. `tpRod` é o código do MDF-e, preenchido só onde a equivalência é direta. Implemento não tem `tpRod` no MDF-e.
 
-| Tipo | Grupo | `tpRod` |
-|---|---|---|
-| Cavalo mecânico | automotor | 03 |
-| Caminhão truck | automotor | 01 |
-| Caminhão toco | automotor | 02 |
-| Caminhão bitruck | automotor | — |
-| Van | automotor | 04 |
-| Utilitário | automotor | 05 |
-| Automóvel | automotor | — |
-| Motocicleta | automotor | — |
-| Semirreboque | implemento | — |
-| Reboque | implemento | — |
-| Dolly | implemento | — |
+Duas marcações dizem o que o formulário pede:
 
-Implemento não tem `tpRod` no MDF-e.
+- **`has_body`** ("tem carroceria"): leva carga. Pede carroceria, lotação e volume.
+- **`can_tow`** ("puxa"): pede CMT e implementos engatados.
+
+| Tipo | Grupo | `tpRod` | Tem carroceria | Puxa |
+|---|---|---|---|---|
+| Cavalo mecânico | automotor | 03 | — | ✓ |
+| Caminhão truck / toco / bitruck | automotor | 01 / 02 / — | ✓ | ✓ |
+| Van, Utilitário | automotor | 04, 05 | ✓ | — |
+| Automóvel, Motocicleta | automotor | — | — | — |
+| Semirreboque, Reboque | implemento | — | ✓ | — |
+| Dolly | implemento | — | — | — |
+
+A API aplica as mesmas regras. O que o tipo não tem chega excluído pela request e é gravado nulo:
+
+- **sem carroceria:** carroceria, lotação e volume;
+- **sem tração:** CMT e implementos.
+
+Para quem tem carroceria, ela é obrigatória.
 
 **Carrocerias** (`body_types`), catálogo global, com `mdfe_code` = `tpCar` onde é direto:
 
@@ -87,11 +94,21 @@ Implemento não tem `tpRod` no MDF-e.
 
 `body_type_id` é nulo quando não se aplica, como no cavalo mecânico (`tpCar` 00). Carroceria não vira veículo.
 
-**Frota** (`fleet_type`): própria, agregado ou terceiro.
+**Frota** (`fleet_type`): própria, agregado ou terceiro. Fica na aba de vínculos, junto do proprietário.
 
 **Documento:** placa (normalizada, única por empresa entre as não excluídas), UF, RENAVAM (com dígito verificador; o de 9 dígitos ganha zeros), chassi (17, sem I, O e Q) e validade do CRLV.
 
-**Fabricação:** marca, modelo, ano de fabricação, ano do modelo e cor. A cor segue a tabela do Denatran e aparece com amostra.
+**Fabricação:** marca, modelo, ano de fabricação, ano do modelo e cor. Vale para o implemento também: o CRLV da carreta traz marca/modelo (o fabricante, como Randon ou Librelato), anos e cor. A cor segue a tabela do Denatran e aparece com amostra.
+
+**Marca e modelo vêm de catálogo, não de texto livre.**
+
+- `vehicle_brands` (por grupo: marca de automotor e marca de implemento são listas diferentes) e `vehicle_models` (da marca).
+- Os registros com `company_id` nulo são da LogIV e já vêm com as marcas e os modelos de cavalo e caminhão mais comuns.
+- A empresa acrescenta o que faltar ali mesmo no formulário ("Adicionar …"). O que ela acrescenta fica só para ela.
+- Acrescentar não duplica: "scania" acha a "Scania" que já existe.
+- O motivo é o mesmo da Senior, que tem cadastro próprio de modelos: com texto livre, "SCANIA R450", "Scania R 450" e "scania r-450" viram três modelos, e relatório por modelo (consumo, manutenção, custo) deixa de funcionar.
+- Implemento não tem lista pronta de modelos. O "modelo" dele varia por fabricante e configuração.
+- A FIPE não entra agora: cobre caminhão, mas não implemento. Quando entrar, o código FIPE é uma coluna em `vehicle_models`.
 
 ### Pesos
 
@@ -112,7 +129,7 @@ Os valores são os nominais do CRLV. O peso de cada carga é da viagem.
 |---|---|---|
 | `owner_id` (obrigatório) | proprietário | quem consta no CRLV |
 | `responsible_id` (obrigatório) | responsável | a quem vão receitas e despesas |
-| `carrier_id` (opcional) | transportador | em cujo RNTRC o veículo roda, quando não é o da própria empresa |
+| `carrier_id` (só agregado e terceiro) | transportador | em cujo RNTRC o veículo está — vai no CIOT e no pagamento do frete |
 
 - **PIX não é copiado para o veículo.** Ele é da pessoa (`entities.pix_key`), e a API do veículo devolve o do responsável. A tela avisa quando o responsável não tem chave.
 - **RNTRC, categoria (TAC/ETC/CTC) e validade ficam em `carriers`.** Isso vale para o transportador, seja empresa, cooperativa ou autônomo.
@@ -128,12 +145,12 @@ Os valores são os nominais do CRLV. O peso de cada carga é da viagem.
   - um engate ativo por implemento;
   - um implemento por posição de cada automotor.
 - Na aplicação:
-  - quem puxa é automotor e quem é puxado é implemento;
+  - quem puxa é um tipo que puxa (`can_tow`) e quem é puxado é implemento;
   - nenhum veículo engata em si mesmo;
   - implemento engatado em outro veículo é recusado (409);
   - as linhas ficam travadas (`lockForUpdate`) durante a gravação.
 - As datas são do servidor no momento da operação. Com o índice ativo único, os períodos de um implemento não se sobrepõem.
-- Trocar o tipo para o outro grupo desfaz os engates.
+- Trocar o tipo para o outro grupo desfaz os engates. Trocar para um tipo que não puxa solta os implementos.
 - `GET /fleet/vehicles/{uuid}/couplings` devolve o histórico.
 
 ### Rastreadores (`devices`, `device_installations`, `device_models`)
@@ -167,7 +184,9 @@ Os valores são os nominais do CRLV. O peso de cada carga é da viagem.
 
 | Decisão | Escolhida | Alternativa | Por quê |
 |---|---|---|---|
-| Implementos | mesma tabela | tabela própria (logiv-server) | mesmos documentos, rastreáveis, uma fonte para o MDF-e |
+| Implementos | mesma tabela, menus separados | tabela própria (logiv-server) | mesmos documentos, rastreáveis, uma fonte para o MDF-e; para o usuário, telas próprias |
+| Campos do formulário | conforme o tipo (`has_body`, `can_tow`) | todos para todos | nada de carroceria em cavalo ou CMT em carreta |
+| Marca e modelo | catálogo LogIV + da empresa | texto livre / só catálogo fixo | relatório por modelo sem variações de grafia, sem travar quem tem um modelo fora da lista |
 | Grupo do veículo | do tipo (`vehicle_types.kind`) | coluna `kind` | sem contradição possível entre dois campos |
 | Tipos e carrocerias | tabela-catálogo | enum PHP | carregam código fiscal e crescem sem deploy |
 | Rastreador | cadastro + instalação | colunas no veículo / filho do veículo | estoque, histórico, transferência, um veículo por vez |
@@ -196,7 +215,7 @@ Os valores são os nominais do CRLV. O peso de cada carga é da viagem.
   - o dono passa a ser a organização LogIV;
   - o uso por outra empresa vira `device_subscriptions` (empresa, veículo, vigência, plano);
   - a busca é pela placa.
-- **Tela de catálogos** para o admin do sistema (tipos, carrocerias, modelos).
+- **Tela de catálogos** para o admin do sistema: tipos, carrocerias, modelos de rastreador, e promover a marca ou o modelo acrescentado por uma empresa a global.
 - **Documentos do veículo:** foto do CRLV, extração por IA (há o `VeiculoCrlvExtractionResolver` no logiv-server) e alerta de vencimento.
 - **Tag de pedágio, centro de resultado e odômetro.** O odômetro deve vir do rastreador.
 - **Rótulo "Transportadora".** Agora também cobre o autônomo (TAC). Talvez mude para "Transportador".

@@ -46,11 +46,13 @@ class VehicleTest extends TestCase
     #[DataProvider('types')]
     public function test_o_grupo_sai_do_tipo(string $type, string $kind, ?string $body): void
     {
-        $this->postJson('/api/fleet/vehicles', $this->traction([
+        $overrides = [
             'vehicle_type_id' => $this->typeId($type),
             'body_type_id' => $body ? $this->bodyId($body) : null,
             'kind' => $kind === 'trailer' ? 'motor_vehicle' : 'trailer',
-        ]))
+        ];
+
+        $this->postJson('/api/fleet/vehicles', $kind === 'trailer' ? $this->trailer('CAR1A11', $overrides) : $this->traction($overrides))
             ->assertCreated()
             ->assertJsonPath('data.kind', $kind)
             ->assertJsonPath('data.type.slug', $type)
@@ -67,6 +69,7 @@ class VehicleTest extends TestCase
             'owner' => $owner,
             'carrier' => $carrier,
             'responsible' => $responsible,
+            'fleet_type' => 'aggregated',
             'plate' => 'abc-1d23',
             'chassis' => '9bsr6x40003901234',
             'gross_weight_kg' => 16500,
@@ -123,10 +126,13 @@ class VehicleTest extends TestCase
         $uuid = $this->createVehicle($this->traction(['owner' => $owner]));
         $this->deleteJson("/api/fleet/vehicles/{$uuid}")->assertOk();
 
-        $this->postJson('/api/fleet/vehicles', $this->traction(['owner' => $owner, 'brand' => 'Volvo']))
+        $volvo = ['vehicle_brand_id' => $this->brandId('Volvo'), 'vehicle_model_id' => $this->modelId('Volvo', 'FH 540')];
+
+        $this->postJson('/api/fleet/vehicles', $this->traction(['owner' => $owner, ...$volvo]))
             ->assertCreated()
             ->assertJsonPath('data.uuid', $uuid)
-            ->assertJsonPath('data.brand', 'Volvo')
+            ->assertJsonPath('data.brand.name', 'Volvo')
+            ->assertJsonPath('data.model.name', 'FH 540')
             ->assertJsonPath('data.status', 'active');
     }
 
@@ -180,7 +186,7 @@ class VehicleTest extends TestCase
 
         $this->actingAsMemberOf($this->otherCompany());
 
-        $this->postJson('/api/fleet/vehicles', $this->traction(['owner' => $owner, 'carrier' => $carrier]))
+        $this->postJson('/api/fleet/vehicles', $this->traction(['owner' => $owner, 'carrier' => $carrier, 'fleet_type' => 'third_party']))
             ->assertUnprocessable()
             ->assertJsonValidationErrors([
                 'owner' => 'Selecione um proprietário cadastrado',
@@ -230,6 +236,65 @@ class VehicleTest extends TestCase
             ->assertJsonPath('data.0.kind', 'motor_vehicle');
 
         $this->getJson('/api/fleet/body-types')->assertOk()->assertJsonFragment(['slug' => 'tank']);
+    }
+
+    public function test_os_campos_seguem_o_tipo(): void
+    {
+        // Cavalo: sem carroceria, lotação nem volume, mesmo se vierem.
+        $this->postJson('/api/fleet/vehicles', $this->traction([
+            'body_type_id' => $this->bodyId('closed'),
+            'load_capacity_kg' => 10000,
+            'volume_capacity_m3' => 50,
+        ]))
+            ->assertCreated()
+            ->assertJsonPath('data.body_type', null)
+            ->assertJsonPath('data.load_capacity_kg', null)
+            ->assertJsonPath('data.volume_capacity_m3', null);
+
+        // Caminhão: a carroceria é obrigatória.
+        $this->postJson('/api/fleet/vehicles', $this->traction([
+            'plate' => 'XYZ9876',
+            'renavam' => $this->renavam(2),
+            'vehicle_type_id' => $this->typeId('truck'),
+        ]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['body_type_id' => 'Selecione a carroceria']);
+    }
+
+    public function test_van_nao_puxa_implemento(): void
+    {
+        $owner = $this->owner();
+        $trailer = $this->createVehicle($this->trailer('CAR1A11', ['owner' => $owner]));
+
+        $this->postJson('/api/fleet/vehicles', $this->traction([
+            'owner' => $owner,
+            'vehicle_type_id' => $this->typeId('van'),
+            'body_type_id' => $this->bodyId('closed'),
+            'trailers' => [$trailer],
+        ]))
+            ->assertCreated()
+            ->assertJsonPath('data.trailers', [])
+            ->assertJsonPath('data.max_traction_weight_kg', null);
+    }
+
+    public function test_frota_propria_nao_tem_transportador(): void
+    {
+        $this->postJson('/api/fleet/vehicles', $this->traction(['carrier' => $this->carrier(), 'fleet_type' => 'own']))
+            ->assertCreated()
+            ->assertJsonPath('data.carrier', null);
+    }
+
+    public function test_marca_do_outro_grupo_e_modelo_de_outra_marca_sao_recusados(): void
+    {
+        $this->postJson('/api/fleet/vehicles', $this->traction([
+            'vehicle_brand_id' => $this->brandId('Randon'),
+            'vehicle_model_id' => $this->modelId('Volvo', 'FH 540'),
+        ]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                'vehicle_brand_id' => 'Selecione uma marca de automotor',
+                'vehicle_model_id' => 'Selecione um modelo da marca escolhida',
+            ]);
     }
 
     // =============================== ENGATES ===============================
@@ -409,9 +474,9 @@ class VehicleTest extends TestCase
         $trailer = $this->createVehicle($this->trailer('CAR1A11', ['owner' => $owner]));
         $traction = $this->createVehicle($this->traction(['owner' => $owner, 'trailers' => [$trailer]]));
 
-        $this->putJson("/api/fleet/vehicles/{$traction}", $this->traction([
+        $this->putJson("/api/fleet/vehicles/{$traction}", $this->trailer('ABC1D23', [
             'owner' => $owner,
-            'vehicle_type_id' => $this->typeId('semi_trailer'),
+            'renavam' => $this->renavam(1),
             'trailers' => [$trailer],
         ]))->assertOk()->assertJsonPath('data.kind', 'trailer')->assertJsonPath('data.trailers', []);
 
@@ -427,6 +492,7 @@ class VehicleTest extends TestCase
         $this->putJson("/api/fleet/vehicles/{$traction}", $this->traction([
             'owner' => $owner,
             'vehicle_type_id' => $this->typeId('truck'),
+            'body_type_id' => $this->bodyId('closed'),
         ]))->assertOk()->assertJsonPath('data.trailers.0.plate', 'CAR1A11');
 
         $this->assertSame(1, VehicleCoupling::query()->count());

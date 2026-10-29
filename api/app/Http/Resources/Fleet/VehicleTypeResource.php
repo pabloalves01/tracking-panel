@@ -19,6 +19,8 @@ class VehicleTypeResource extends JsonResource
             'name' => $this->name,
             'kind' => $this->kind->value,
             'category' => $this->category->value,
+            'has_body' => $this->has_body,
+            'can_tow' => $this->can_tow,
         ];
     }
 }

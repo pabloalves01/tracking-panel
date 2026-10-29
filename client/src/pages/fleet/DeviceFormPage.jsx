@@ -28,7 +28,7 @@ import {
 import { Separator } from '@/components/ui/separator'
 import { getDeviceModels } from '@/lib/fleet/catalog'
 import { createDevice, getDevice, getDeviceInstallations, updateDevice } from '@/lib/fleet/devices'
-import { INSTALLATION_ROLE_LABELS } from '@/lib/fleet/options'
+import { INSTALLATION_ROLE_LABELS, vehiclePath } from '@/lib/fleet/options'
 import { notifyError, notifySuccess } from '@/lib/notify'
 
 const listPath = '/app/cadastros/frota/rastreadores'
@@ -146,7 +146,7 @@ export default function DeviceFormPage() {
                             Instalado em
                             <Link
                                 className="text-foreground font-mono font-medium tracking-wider underline-offset-4 hover:underline"
-                                to={`/app/cadastros/frota/veiculos/${vehicle.uuid}/editar?aba=equipamentos`}
+                                to={vehiclePath(vehicle.kind, vehicle.uuid, 'equipamentos')}
                             >
                                 {vehicle.plate}
                             </Link>

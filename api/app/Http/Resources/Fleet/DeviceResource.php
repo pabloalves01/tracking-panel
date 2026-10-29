@@ -24,6 +24,7 @@ class DeviceResource extends JsonResource
             'vehicle' => $this->whenLoaded('installation', fn () => $this->installation ? [
                 'uuid' => $this->installation->vehicle->uuid,
                 'plate' => $this->installation->vehicle->plate,
+                'kind' => $this->installation->vehicle->kind()->value,
                 'role' => $this->installation->role->value,
                 'installed_at' => $this->installation->installed_at->toIso8601String(),
             ] : null),

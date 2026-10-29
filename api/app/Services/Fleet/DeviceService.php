@@ -181,6 +181,6 @@ class DeviceService
 
     private function query(): Builder
     {
-        return Device::query()->with(['deviceModel', 'installation.vehicle']);
+        return Device::query()->with(['deviceModel', 'installation.vehicle.vehicleType']);
     }
 }

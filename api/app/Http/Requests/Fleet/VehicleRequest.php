@@ -6,6 +6,7 @@ use App\Enums\Fleet\FleetType;
 use App\Enums\Fleet\InstallationRole;
 use App\Enums\Fleet\VehicleKind;
 use App\Models\Fleet\Vehicle;
+use App\Models\Fleet\VehicleBrand;
 use App\Models\Fleet\VehicleType;
 use App\Rules\Renavam;
 use App\Support\Brazil;
@@ -58,11 +59,13 @@ class VehicleRequest extends FormRequest
     public function rules(): array
     {
         $year = (int) date('Y');
-        $isTrailer = fn () => $this->kind() !== VehicleKind::MotorVehicle;
+        $withoutBody = fn () => ! $this->vehicleType()?->has_body;
+        $cannotTow = fn () => ! $this->vehicleType()?->can_tow;
+        $ownFleet = fn () => $this->input('fleet_type') === FleetType::Own->value;
 
         return [
             'vehicle_type_id' => ['required', 'integer', 'exists:vehicle_types,id'],
-            'body_type_id' => ['nullable', 'integer', 'exists:body_types,id'],
+            'body_type_id' => [Rule::excludeIf($withoutBody), 'required', 'integer', 'exists:body_types,id'],
             'fleet_type' => ['required', Rule::enum(FleetType::class)],
 
             'plate' => ['required', 'regex:/^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/'],
@@ -71,24 +74,28 @@ class VehicleRequest extends FormRequest
             'chassis' => ['required', 'regex:/^[A-HJ-NPR-Z0-9]{17}$/'],
             'registration_expires_on' => ['required', 'date'],
 
-            'brand' => ['required', 'string', 'max:60'],
-            'model' => ['required', 'string', 'max:80'],
+            'vehicle_brand_id' => ['required', 'integer', $this->visibleIn('vehicle_brands')],
+            'vehicle_model_id' => [
+                'required',
+                'integer',
+                $this->visibleIn('vehicle_models')->where('vehicle_brand_id', $this->integer('vehicle_brand_id')),
+            ],
             'color' => ['nullable', 'string', 'max:40'],
             'manufacture_year' => ['required', 'integer', 'min:1950', 'max:'.($year + 1)],
             'model_year' => ['required', 'integer', 'gte:manufacture_year', 'max:'.($year + 2)],
 
             'axle_count' => ['required', 'integer', 'min:1', 'max:12'],
             'tare_weight_kg' => ['required', 'integer', 'min:1', 'max:100000'],
-            'load_capacity_kg' => ['nullable', 'integer', 'min:0', 'max:200000'],
+            'load_capacity_kg' => [Rule::excludeIf($withoutBody), 'nullable', 'integer', 'min:0', 'max:200000'],
             'gross_weight_kg' => ['nullable', 'integer', 'gte:tare_weight_kg', 'max:300000'],
-            'max_traction_weight_kg' => [Rule::excludeIf($isTrailer), 'nullable', 'integer', 'min:0', 'max:300000'],
-            'volume_capacity_m3' => ['nullable', 'numeric', 'min:0', 'max:999999'],
+            'max_traction_weight_kg' => [Rule::excludeIf($cannotTow), 'nullable', 'integer', 'min:0', 'max:300000'],
+            'volume_capacity_m3' => [Rule::excludeIf($withoutBody), 'nullable', 'numeric', 'min:0', 'max:999999'],
 
             'owner' => ['required', 'uuid', $this->existsInCompany('vehicle_owners')],
-            'carrier' => ['nullable', 'uuid', $this->existsInCompany('carriers')],
+            'carrier' => [Rule::excludeIf($ownFleet), 'nullable', 'uuid', $this->existsInCompany('carriers')],
             'responsible' => ['required', 'uuid', $this->existsInCompany('vehicle_responsibles')],
 
-            'trailers' => [Rule::excludeIf($isTrailer), 'sometimes', 'array', 'max:3'],
+            'trailers' => [Rule::excludeIf($cannotTow), 'sometimes', 'array', 'max:3'],
             'trailers.*' => ['uuid', 'distinct', $this->existsInCompany('vehicles')],
 
             'devices' => ['sometimes', 'array', 'max:5'],
@@ -98,22 +105,32 @@ class VehicleRequest extends FormRequest
     }
 
     /**
-     * O que depende de outra linha: o implemento escolhido ser mesmo
-     * implemento, e não o próprio veículo; um rastreador principal só.
+     * O que depende de outra linha: a marca ser do mesmo grupo do tipo; o
+     * implemento escolhido ser mesmo implemento, e não o próprio veículo;
+     * um rastreador principal só.
      */
     public function after(): array
     {
         return [
             function (Validator $validator) {
+                $kind = $this->vehicleType()?->kind;
+                $brand = VehicleBrand::query()->find($this->integer('vehicle_brand_id') ?: null);
+
+                if ($kind !== null && $brand !== null && $brand->kind !== $kind) {
+                    $validator->errors()->add('vehicle_brand_id', $kind === VehicleKind::Trailer
+                        ? 'Selecione uma marca de implemento'
+                        : 'Selecione uma marca de automotor');
+                }
+
                 $trailers = $this->input('trailers');
 
-                if ($this->kind() === VehicleKind::MotorVehicle && is_array($trailers) && $trailers !== []) {
+                if ($this->vehicleType()?->can_tow && is_array($trailers) && $trailers !== []) {
                     $chosen = Vehicle::query()->with('vehicleType')->whereIn('uuid', $trailers)->get()->keyBy('uuid');
 
                     foreach (array_values($trailers) as $index => $uuid) {
                         if ($uuid === $this->route('uuid')) {
                             $validator->errors()->add("trailers.{$index}", 'Um veículo não engata nele mesmo');
-                        } elseif (($chosen[$uuid] ?? null)?->kind() === VehicleKind::MotorVehicle) {
+                        } elseif (isset($chosen[$uuid]) && $chosen[$uuid]->kind() !== VehicleKind::Trailer) {
                             $validator->errors()->add("trailers.{$index}", "{$chosen[$uuid]->plate} não é implemento");
                         }
                     }
@@ -135,6 +152,7 @@ class VehicleRequest extends FormRequest
         return [
             'vehicle_type_id.required' => 'Selecione o tipo do veículo',
             'vehicle_type_id.exists' => 'Selecione um tipo da lista',
+            'body_type_id.required' => 'Selecione a carroceria',
             'body_type_id.exists' => 'Selecione uma carroceria da lista',
             'fleet_type.required' => 'Informe a frota',
             'fleet_type.enum' => 'A frota é inválida',
@@ -147,8 +165,10 @@ class VehicleRequest extends FormRequest
             'chassis.regex' => 'O chassi tem 17 letras e números, sem I, O e Q',
             'registration_expires_on.required' => 'Informe a validade do CRLV',
             'registration_expires_on.date' => 'A validade do CRLV é inválida',
-            'brand.required' => 'A marca é obrigatória',
-            'model.required' => 'O modelo é obrigatório',
+            'vehicle_brand_id.required' => 'Selecione a marca',
+            'vehicle_brand_id.exists' => 'Selecione uma marca da lista',
+            'vehicle_model_id.required' => 'Selecione o modelo',
+            'vehicle_model_id.exists' => 'Selecione um modelo da marca escolhida',
             'manufacture_year.required' => 'Informe o ano de fabricação',
             'manufacture_year.min' => 'O ano de fabricação é inválido',
             'manufacture_year.max' => 'O ano de fabricação é inválido',
@@ -177,13 +197,21 @@ class VehicleRequest extends FormRequest
         ];
     }
 
-    private function kind(): ?VehicleKind
+    private function vehicleType(): ?VehicleType
     {
         if ($this->type === false) {
             $this->type = VehicleType::query()->find($this->integer('vehicle_type_id') ?: null);
         }
 
-        return $this->type?->kind;
+        return $this->type;
+    }
+
+    /** Marca ou modelo da lista da LogIV ou acrescentado pela empresa. */
+    private function visibleIn(string $table): Exists
+    {
+        return Rule::exists($table, 'id')->where(fn ($query) => $query
+            ->whereNull('company_id')
+            ->orWhere('company_id', app(CurrentOrganization::class)->id()));
     }
 
     private function existsInCompany(string $table): Exists

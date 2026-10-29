@@ -41,7 +41,7 @@ import {
     removeDevice,
     uninstallDevice,
 } from '@/lib/fleet/devices'
-import { INSTALLATION_ROLE_LABELS } from '@/lib/fleet/options'
+import { INSTALLATION_ROLE_LABELS, vehiclePath } from '@/lib/fleet/options'
 import { useRemoteList } from '@/hooks/use-remote-list'
 import { notifyError, notifySuccess } from '@/lib/notify'
 
@@ -190,7 +190,7 @@ export default function DevicesPage() {
                                                 <span className="flex items-center gap-2">
                                                     <Link
                                                         className="font-mono font-medium tracking-wider underline-offset-4 hover:underline"
-                                                        to={`/app/cadastros/frota/veiculos/${device.vehicle.uuid}/editar?aba=equipamentos`}
+                                                        to={vehiclePath(device.vehicle.kind, device.vehicle.uuid, 'equipamentos')}
                                                     >
                                                         {device.vehicle.plate}
                                                     </Link>

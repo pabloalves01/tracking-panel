@@ -4,6 +4,8 @@ namespace Tests\Feature\Fleet;
 
 use App\Models\Fleet\BodyType;
 use App\Models\Fleet\DeviceModel;
+use App\Models\Fleet\VehicleBrand;
+use App\Models\Fleet\VehicleModel;
 use App\Models\Fleet\VehicleType;
 
 /**
@@ -54,8 +56,8 @@ trait BuildsFleet
             'renavam' => $this->renavam(1),
             'chassis' => '9BSR6X40003901234',
             'registration_expires_on' => '2027-03-31',
-            'brand' => 'Scania',
-            'model' => 'R 450',
+            'vehicle_brand_id' => $this->brandId('Scania'),
+            'vehicle_model_id' => $this->modelId('Scania', 'R 450'),
             'color' => 'Branco',
             'manufacture_year' => 2022,
             'model_year' => 2023,
@@ -77,12 +79,26 @@ trait BuildsFleet
             'plate' => $plate,
             'renavam' => $this->renavam(crc32($plate) % 1000000),
             'chassis' => '9EP07123450001234',
-            'brand' => 'Randon',
-            'model' => 'Graneleiro',
+            'vehicle_brand_id' => $this->brandId('Randon'),
+            'vehicle_model_id' => $this->modelId('Randon', 'Graneleiro'),
             'tare_weight_kg' => 7400,
             'load_capacity_kg' => 32000,
             ...$overrides,
         ]);
+    }
+
+    protected function brandId(string $name): int
+    {
+        return VehicleBrand::query()->whereNull('company_id')->where('name', $name)->value('id');
+    }
+
+    /** O modelo da lista da LogIV, ou acrescentado pela API se não houver. */
+    protected function modelId(string $brand, string $name): int
+    {
+        $brandId = $this->brandId($brand);
+
+        return VehicleModel::query()->where('vehicle_brand_id', $brandId)->where('name', $name)->value('id')
+            ?? $this->postJson("/api/fleet/vehicle-brands/{$brandId}/models", ['name' => $name])->json('data.id');
     }
 
     protected function typeId(string $slug): int

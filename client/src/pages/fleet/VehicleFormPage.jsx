@@ -9,6 +9,8 @@ import { LayoutToolbar } from '@/components/common/LayoutToolbar'
 import { LoadingWrapper } from '@/components/common/LoadingWrapper'
 import { TabButton } from '@/components/common/TabButton'
 import { DatePicker } from '@/components/datepicker/DatePicker'
+import { InputVehicleBrand } from '@/components/fleet/InputVehicleBrand'
+import { InputVehicleModel } from '@/components/fleet/InputVehicleModel'
 import { SelectVehicleColor } from '@/components/fleet/SelectVehicleColor'
 import { VehicleDevicesField } from '@/components/fleet/VehicleDevicesField'
 import { VehicleTrailersField } from '@/components/fleet/VehicleTrailersField'
@@ -30,31 +32,23 @@ import {
     SelectContent,
     SelectGroup,
     SelectItem,
-    SelectLabel,
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { formatCpfCnpj, formatPhone } from '@/helpers/formatters'
 import { getBodyTypes, getVehicleTypes } from '@/lib/fleet/catalog'
-import { CATEGORY_LABELS, FLEET_TYPES, KIND_LABELS } from '@/lib/fleet/options'
+import { FLEET_KINDS, FLEET_TYPES, vehiclePath } from '@/lib/fleet/options'
 import { createVehicle, getVehicle, getVehicleCouplings, updateVehicle } from '@/lib/fleet/vehicles'
 import { notifyError, notifySuccess } from '@/lib/notify'
 import { createEntity, getEntityByDocument } from '@/lib/registry/entities'
 import { roleOption } from '@/lib/registry/roleOption'
 
-const listPath = '/app/cadastros/frota/veiculos'
-
-const tabs = [
-    { key: 'geral', label: 'Dados gerais' },
-    { key: 'vinculos', label: 'Proprietário e responsável' },
-    { key: 'capacidades', label: 'Pesos e capacidades' },
-    { key: 'equipamentos', label: 'Implementos e rastreadores' },
-]
+const tabKeys = ['geral', 'vinculos', 'capacidades', 'equipamentos']
 
 /** Em que aba mora cada campo — é para lá que a tela vai quando ele dá erro. */
 function tabOf(field) {
-    if (['owner', 'responsible', 'carrier'].includes(field)) return 'vinculos'
+    if (['fleet_type', 'owner', 'responsible', 'carrier'].includes(field)) return 'vinculos'
     if (/^(axle_count|tare_weight_kg|load_capacity_kg|gross_weight_kg|max_traction_weight_kg|volume_capacity_m3)$/.test(field)) {
         return 'capacidades'
     }
@@ -83,8 +77,8 @@ const emptyForm = {
     renavam: '',
     chassis: '',
     registration_expires_on: null,
-    brand: '',
-    model: '',
+    vehicle_brand_id: null,
+    vehicle_model_id: null,
     color: '',
     manufacture_year: '',
     model_year: '',
@@ -114,6 +108,8 @@ function formFrom(vehicle) {
         ...form,
         vehicle_type_id: vehicle.type.id,
         body_type_id: vehicle.body_type?.id ?? null,
+        vehicle_brand_id: vehicle.brand?.id ?? null,
+        vehicle_model_id: vehicle.model?.id ?? null,
         owner: roleOption(vehicle.owner),
         responsible: roleOption(vehicle.responsible),
         carrier: roleOption(vehicle.carrier),
@@ -131,11 +127,22 @@ function formFrom(vehicle) {
     }
 }
 
-function payloadFrom(form, isMotor) {
+/**
+ * O que o tipo não tem não vai: carroceria, lotação e volume sem
+ * carroceria; CMT e implementos sem tração; transportador na frota
+ * própria. A API ignora do mesmo jeito.
+ */
+function payloadFrom(form, type) {
     const payload = { ...form }
 
     for (const key of numberFields) {
         payload[key] = form[key] === '' ? null : Number(form[key])
+    }
+
+    if (!type?.has_body) {
+        delete payload.body_type_id
+        delete payload.load_capacity_kg
+        delete payload.volume_capacity_m3
     }
 
     return {
@@ -143,17 +150,22 @@ function payloadFrom(form, isMotor) {
         color: form.color || null,
         owner: form.owner?.value ?? null,
         responsible: form.responsible?.value ?? null,
-        carrier: form.carrier?.value ?? null,
-        trailers: isMotor ? form.trailers.map((item) => item.value) : [],
+        carrier: form.fleet_type === 'own' ? null : (form.carrier?.value ?? null),
+        max_traction_weight_kg: type?.can_tow ? payload.max_traction_weight_kg : null,
+        trailers: type?.can_tow ? form.trailers.map((item) => item.value) : [],
         devices: form.devices.map((item) => ({ device: item.value, role: item.role })),
     }
 }
 
 /**
- * O formulário do veículo — automotor ou implemento. O grupo sai do tipo
- * escolhido: não há um segundo campo que possa contradizê-lo.
+ * O formulário de veículo ou de implemento — o mesmo cadastro, em telas
+ * separadas. O grupo é o da tela; dentro dele, os campos seguem o tipo
+ * escolhido: carroceria, lotação e volume só para quem leva carga; CMT e
+ * implementos só para quem puxa.
  */
-export default function VehicleFormPage() {
+export default function VehicleFormPage({ kind }) {
+    const config = FLEET_KINDS[kind]
+    const listPath = config.path
     const { uuid } = useParams()
     const navigate = useNavigate()
     const [searchParams, setSearchParams] = useSearchParams()
@@ -170,10 +182,19 @@ export default function VehicleFormPage() {
     const [errors, setErrors] = useState({})
 
     const requested = searchParams.get('aba')
-    const tab = tabs.some((item) => item.key === requested) ? requested : 'geral'
+    const tab = tabKeys.includes(requested) ? requested : 'geral'
 
-    const type = vehicleTypes.find((item) => item.id === form.vehicle_type_id) ?? null
-    const isMotor = type?.kind !== 'trailer'
+    const types = vehicleTypes.filter((item) => item.kind === kind)
+    const type = types.find((item) => item.id === form.vehicle_type_id) ?? null
+    const hasBody = Boolean(type?.has_body)
+    const canTow = Boolean(type?.can_tow)
+
+    const tabs = [
+        { key: 'geral', label: 'Dados gerais' },
+        { key: 'vinculos', label: 'Vínculos' },
+        { key: 'capacidades', label: 'Pesos e capacidades' },
+        { key: 'equipamentos', label: canTow ? 'Implementos e rastreadores' : 'Rastreadores' },
+    ]
 
     function selectTab(next) {
         const params = new URLSearchParams(searchParams)
@@ -244,7 +265,7 @@ export default function VehicleFormPage() {
         setErrors({})
 
         try {
-            const payload = payloadFrom(form, isMotor)
+            const payload = payloadFrom(form, type)
             const response = isEditing ? await updateVehicle(uuid, payload) : await createVehicle(payload)
 
             notifySuccess(response)
@@ -270,7 +291,7 @@ export default function VehicleFormPage() {
     const listError = (prefix) =>
         Object.entries(errors).find(([field]) => field === prefix || field.startsWith(`${prefix}.`))?.[1] ?? ''
     const invalid = (field) => (errors[field] ? true : undefined)
-    const title = isEditing ? `Editar ${form.plate || 'veículo'}` : 'Novo veículo'
+    const title = isEditing ? `Editar ${form.plate || config.singular}` : config.create
     const sameAsOwner = form.owner && form.responsible && form.owner.document === form.responsible.document
 
     return (
@@ -280,7 +301,7 @@ export default function VehicleFormPage() {
                     { text: 'Início', to: '/app' },
                     { text: 'Cadastros', to: '/app/cadastros' },
                     { text: 'Frota', to: '/app/cadastros/frota' },
-                    { text: 'Veículos', to: listPath },
+                    { text: config.plural, to: listPath },
                     { text: title },
                 ]}
                 buttons={[
@@ -309,13 +330,15 @@ export default function VehicleFormPage() {
                             <FieldSet>
                                 <FieldLegend variant="label">Classificação</FieldLegend>
                                 <FieldDescription>
-                                    O tipo diz se é automotor ou implemento. Carroceria é à parte: um truck pode ser baú ou graneleiro.
+                                    {kind === 'trailer'
+                                        ? 'O tipo do implemento e a carroceria, onde vai a carga.'
+                                        : 'O tipo diz o que o veículo leva e se ele puxa implemento. A carroceria é onde vai a carga — o cavalo mecânico não tem.'}
                                 </FieldDescription>
                                 <FieldGroup className="md:grid md:grid-cols-12 md:gap-4">
                                     <Field className="col-span-12 md:col-span-4" data-invalid={invalid('vehicle_type_id')}>
                                         <FieldLabel htmlFor="vehicle-type">Tipo</FieldLabel>
                                         <Select
-                                            items={vehicleTypes.map((item) => ({ value: item.id, label: item.name }))}
+                                            items={types.map((item) => ({ value: item.id, label: item.name }))}
                                             value={form.vehicle_type_id}
                                             onValueChange={(value) => set('vehicle_type_id', value)}
                                         >
@@ -323,45 +346,8 @@ export default function VehicleFormPage() {
                                                 <SelectValue placeholder="Selecione" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {['motor_vehicle', 'trailer'].map((kind) => (
-                                                    <SelectGroup key={kind}>
-                                                        <SelectLabel>{kind === 'trailer' ? 'Implementos' : 'Automotores'}</SelectLabel>
-                                                        {vehicleTypes
-                                                            .filter((item) => item.kind === kind)
-                                                            .map((item) => (
-                                                                <SelectItem key={item.id} value={item.id}>
-                                                                    {item.name}
-                                                                </SelectItem>
-                                                            ))}
-                                                    </SelectGroup>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        {type ? (
-                                            <FieldDescription>
-                                                {KIND_LABELS[type.kind]} · {CATEGORY_LABELS[type.category]}
-                                            </FieldDescription>
-                                        ) : null}
-                                        <FieldError>{error('vehicle_type_id')}</FieldError>
-                                    </Field>
-
-                                    <Field className="col-span-12 md:col-span-4" data-invalid={invalid('body_type_id')}>
-                                        <FieldLabel htmlFor="body-type">Carroceria</FieldLabel>
-                                        <Select
-                                            items={[
-                                                { value: 'none', label: 'Sem carroceria' },
-                                                ...bodyTypes.map((item) => ({ value: item.id, label: item.name })),
-                                            ]}
-                                            value={form.body_type_id ?? 'none'}
-                                            onValueChange={(value) => set('body_type_id', value === 'none' ? null : value)}
-                                        >
-                                            <SelectTrigger id="body-type" className="w-full">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
                                                 <SelectGroup>
-                                                    <SelectItem value="none">Sem carroceria</SelectItem>
-                                                    {bodyTypes.map((item) => (
+                                                    {types.map((item) => (
                                                         <SelectItem key={item.id} value={item.id}>
                                                             {item.name}
                                                         </SelectItem>
@@ -369,31 +355,33 @@ export default function VehicleFormPage() {
                                                 </SelectGroup>
                                             </SelectContent>
                                         </Select>
-                                        <FieldDescription>Cavalo mecânico fica sem carroceria.</FieldDescription>
+                                        <FieldError>{error('vehicle_type_id')}</FieldError>
                                     </Field>
 
-                                    <Field className="col-span-12 md:col-span-4" data-invalid={invalid('fleet_type')}>
-                                        <FieldLabel htmlFor="fleet-type">Frota</FieldLabel>
-                                        <Select
-                                            items={FLEET_TYPES}
-                                            value={form.fleet_type}
-                                            onValueChange={(value) => set('fleet_type', value)}
-                                        >
-                                            <SelectTrigger id="fleet-type" className="w-full">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectGroup>
-                                                    {FLEET_TYPES.map((item) => (
-                                                        <SelectItem key={item.value} value={item.value}>
-                                                            {item.label}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectGroup>
-                                            </SelectContent>
-                                        </Select>
-                                        <FieldError>{error('fleet_type')}</FieldError>
-                                    </Field>
+                                    {hasBody ? (
+                                        <Field className="col-span-12 md:col-span-4" data-invalid={invalid('body_type_id')}>
+                                            <FieldLabel htmlFor="body-type">Carroceria</FieldLabel>
+                                            <Select
+                                                items={bodyTypes.map((item) => ({ value: item.id, label: item.name }))}
+                                                value={form.body_type_id}
+                                                onValueChange={(value) => set('body_type_id', value)}
+                                            >
+                                                <SelectTrigger id="body-type" className="w-full" aria-invalid={invalid('body_type_id')}>
+                                                    <SelectValue placeholder="Selecione" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectGroup>
+                                                        {bodyTypes.map((item) => (
+                                                            <SelectItem key={item.id} value={item.id}>
+                                                                {item.name}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectGroup>
+                                                </SelectContent>
+                                            </Select>
+                                            <FieldError>{error('body_type_id')}</FieldError>
+                                        </Field>
+                                    ) : null}
                                 </FieldGroup>
                             </FieldSet>
 
@@ -473,30 +461,33 @@ export default function VehicleFormPage() {
 
                             <FieldSet>
                                 <FieldLegend variant="label">Fabricação</FieldLegend>
-                                <FieldDescription>Marca, modelo, anos e cor, também do CRLV.</FieldDescription>
+                                <FieldDescription>Também do CRLV. A marca ou o modelo que não estiver na lista pode ser adicionado ali mesmo.</FieldDescription>
                                 <FieldGroup className="md:grid md:grid-cols-12 md:gap-4">
-                                    <Field className="col-span-12 md:col-span-3" data-invalid={invalid('brand')}>
+                                    <Field className="col-span-12 md:col-span-3" data-invalid={invalid('vehicle_brand_id')}>
                                         <FieldLabel htmlFor="brand">Marca</FieldLabel>
-                                        <Input
+                                        <InputVehicleBrand
                                             id="brand"
-                                            placeholder="Scania, Volvo, Randon…"
-                                            value={form.brand}
-                                            onChange={(event) => set('brand', event.target.value)}
-                                            aria-invalid={invalid('brand')}
+                                            kind={kind}
+                                            value={form.vehicle_brand_id}
+                                            onChange={(value) => {
+                                                if (value !== form.vehicle_brand_id) set('vehicle_model_id', null)
+                                                set('vehicle_brand_id', value)
+                                            }}
+                                            aria-invalid={invalid('vehicle_brand_id')}
                                         />
-                                        <FieldError>{error('brand')}</FieldError>
+                                        <FieldError>{error('vehicle_brand_id')}</FieldError>
                                     </Field>
 
-                                    <Field className="col-span-12 md:col-span-3" data-invalid={invalid('model')}>
+                                    <Field className="col-span-12 md:col-span-3" data-invalid={invalid('vehicle_model_id')}>
                                         <FieldLabel htmlFor="model">Modelo</FieldLabel>
-                                        <Input
+                                        <InputVehicleModel
                                             id="model"
-                                            placeholder="R 450, FH 540…"
-                                            value={form.model}
-                                            onChange={(event) => set('model', event.target.value)}
-                                            aria-invalid={invalid('model')}
+                                            brandId={form.vehicle_brand_id}
+                                            value={form.vehicle_model_id}
+                                            onChange={(value) => set('vehicle_model_id', value)}
+                                            aria-invalid={invalid('vehicle_model_id')}
                                         />
-                                        <FieldError>{error('model')}</FieldError>
+                                        <FieldError>{error('vehicle_model_id')}</FieldError>
                                     </Field>
 
                                     <Field className="col-span-6 md:col-span-2" data-invalid={invalid('manufacture_year')}>
@@ -532,87 +523,122 @@ export default function VehicleFormPage() {
 
                     {tab === 'vinculos' ? (
                         <>
-                            <FieldSet>
-                                <FieldLegend variant="label">Proprietário e responsável</FieldLegend>
-                                <FieldDescription>
-                                    As receitas e as despesas do veículo — fretes, adiantamentos, descontos — vão para o responsável.
-                                    A chave PIX é a do cadastro dele.
-                                </FieldDescription>
-                                <FieldGroup className="md:grid md:grid-cols-12 md:gap-4">
-                                    <Field className="col-span-12 md:col-span-6" data-invalid={invalid('owner')}>
-                                        <FieldLabel htmlFor="owner">Proprietário</FieldLabel>
-                                        <InputEntityRole
-                                            id="owner"
-                                            role="vehicle_owner"
-                                            value={form.owner}
-                                            onChange={(value) => set('owner', value)}
-                                            aria-invalid={invalid('owner')}
-                                        />
-                                        <FieldDescription>
-                                            Quem consta no CRLV. Não está na lista?{' '}
-                                            <Link className="underline" to="/app/cadastros/entidades/proprietarios/novo" target="_blank">
-                                                Cadastre o proprietário
-                                            </Link>
-                                            .
-                                        </FieldDescription>
-                                        <FieldError>{error('owner')}</FieldError>
-                                    </Field>
+                        <FieldSet>
+                            <FieldLegend variant="label">Proprietário e responsável</FieldLegend>
+                            <FieldDescription>
+                                As receitas e as despesas do {config.singular} — fretes, adiantamentos, descontos — vão para o
+                                responsável. A chave PIX é a do cadastro dele.
+                            </FieldDescription>
+                            <FieldGroup className="md:grid md:grid-cols-12 md:gap-4">
+                                <Field className="col-span-12 md:col-span-4" data-invalid={invalid('fleet_type')}>
+                                    <FieldLabel htmlFor="fleet-type">Frota</FieldLabel>
+                                    <Select items={FLEET_TYPES} value={form.fleet_type} onValueChange={(value) => set('fleet_type', value)}>
+                                        <SelectTrigger id="fleet-type" className="w-full">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectGroup>
+                                                {FLEET_TYPES.map((item) => (
+                                                    <SelectItem key={item.value} value={item.value}>
+                                                        {item.label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectGroup>
+                                        </SelectContent>
+                                    </Select>
+                                    <FieldDescription>
+                                        Própria: da empresa. Agregado: de um motorista que trabalha só para ela. Terceiro: contratado
+                                        por frete.
+                                    </FieldDescription>
+                                    <FieldError>{error('fleet_type')}</FieldError>
+                                </Field>
+                                <div className="hidden md:col-span-8 md:block" />
 
-                                    <Field className="col-span-12 md:col-span-6" data-invalid={invalid('responsible')}>
-                                        <FieldLabel htmlFor="responsible">Responsável</FieldLabel>
-                                        <InputEntityRole
-                                            id="responsible"
-                                            role="vehicle_responsible"
-                                            value={form.responsible}
-                                            onChange={(value) => set('responsible', value)}
-                                            aria-invalid={invalid('responsible')}
-                                        />
-                                        {form.owner && !sameAsOwner ? (
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                size="sm"
-                                                className="w-fit"
-                                                disabled={linking}
-                                                onClick={assignOwnerAsResponsible}
-                                            >
-                                                <UserCheckIcon data-icon="inline-start" />
-                                                {linking ? 'Vinculando…' : 'O responsável é o proprietário'}
-                                            </Button>
-                                        ) : null}
-                                        <FieldError>{error('responsible')}</FieldError>
-                                    </Field>
+                                <Field className="col-span-12 md:col-span-6" data-invalid={invalid('owner')}>
+                                    <FieldLabel htmlFor="owner">Proprietário</FieldLabel>
+                                    <InputEntityRole
+                                        id="owner"
+                                        role="vehicle_owner"
+                                        value={form.owner}
+                                        onChange={(value) => set('owner', value)}
+                                        aria-invalid={invalid('owner')}
+                                    />
+                                    <FieldDescription>
+                                        Quem consta no CRLV. Não está na lista?{' '}
+                                        <Link className="underline" to="/app/cadastros/entidades/proprietarios/novo" target="_blank">
+                                            Cadastre o proprietário
+                                        </Link>
+                                        .
+                                    </FieldDescription>
+                                    <FieldError>{error('owner')}</FieldError>
+                                </Field>
 
-                                    {form.responsible ? (
-                                        <div className="col-span-12">
-                                            <PixSummary person={form.responsible} />
-                                        </div>
+                                <Field className="col-span-12 md:col-span-6" data-invalid={invalid('responsible')}>
+                                    <FieldLabel htmlFor="responsible">Responsável</FieldLabel>
+                                    <InputEntityRole
+                                        id="responsible"
+                                        role="vehicle_responsible"
+                                        value={form.responsible}
+                                        onChange={(value) => set('responsible', value)}
+                                        aria-invalid={invalid('responsible')}
+                                    />
+                                    {form.owner && !sameAsOwner ? (
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            className="w-fit"
+                                            disabled={linking}
+                                            onClick={assignOwnerAsResponsible}
+                                        >
+                                            <UserCheckIcon data-icon="inline-start" />
+                                            {linking ? 'Vinculando…' : 'O responsável é o proprietário'}
+                                        </Button>
                                     ) : null}
-                                </FieldGroup>
-                            </FieldSet>
+                                    <FieldError>{error('responsible')}</FieldError>
+                                </Field>
 
-                            <Separator className="my-6" />
+                                {form.responsible ? (
+                                    <div className="col-span-12">
+                                        <PixSummary person={form.responsible} />
+                                    </div>
+                                ) : null}
+                            </FieldGroup>
+                        </FieldSet>
 
-                            <FieldSet>
-                                <FieldLegend variant="label">ANTT</FieldLegend>
-                                <FieldDescription>
-                                    O transportador em cujo RNTRC o veículo está — o proprietário autônomo (TAC) ou quem arrendou o
-                                    veículo. Deixe em branco quando o veículo roda no RNTRC da própria empresa.
-                                </FieldDescription>
-                                <FieldGroup className="md:grid md:grid-cols-12 md:gap-4">
-                                    <Field className="col-span-12 md:col-span-6" data-invalid={invalid('carrier')}>
-                                        <FieldLabel htmlFor="carrier">Transportador</FieldLabel>
-                                        <InputEntityRole
-                                            id="carrier"
-                                            role="carrier"
-                                            value={form.carrier}
-                                            onChange={(value) => set('carrier', value)}
-                                            aria-invalid={invalid('carrier')}
-                                        />
-                                        <FieldError>{error('carrier')}</FieldError>
-                                    </Field>
-                                </FieldGroup>
-                            </FieldSet>
+                        {form.fleet_type !== 'own' ? (
+                            <>
+                                <Separator className="my-6" />
+
+                                <FieldSet>
+                                    <FieldLegend variant="label">Transportador na ANTT</FieldLegend>
+                                    <FieldDescription>
+                                        Quem tem o RNTRC em que este {config.singular} está registrado — em geral o próprio dono,
+                                        quando é autônomo (TAC), ou quem arrendou o {config.singular}. É o RNTRC que vai no CIOT e no
+                                        pagamento do frete.
+                                    </FieldDescription>
+                                    <FieldGroup className="md:grid md:grid-cols-12 md:gap-4">
+                                        <Field className="col-span-12 md:col-span-6" data-invalid={invalid('carrier')}>
+                                            <FieldLabel htmlFor="carrier">Transportador</FieldLabel>
+                                            <InputEntityRole
+                                                id="carrier"
+                                                role="carrier"
+                                                value={form.carrier}
+                                                onChange={(value) => set('carrier', value)}
+                                                aria-invalid={invalid('carrier')}
+                                            />
+                                            <FieldDescription>
+                                                O RNTRC fica no cadastro do transportador, na aba ANTT.{' '}
+                                                <Link className="underline" to="/app/cadastros/entidades/transportadoras/novo" target="_blank">
+                                                    Cadastrar transportador
+                                                </Link>
+                                            </FieldDescription>
+                                            <FieldError>{error('carrier')}</FieldError>
+                                        </Field>
+                                    </FieldGroup>
+                                </FieldSet>
+                            </>
+                        ) : null}
                         </>
                     ) : null}
 
@@ -620,7 +646,8 @@ export default function VehicleFormPage() {
                         <FieldSet>
                             <FieldLegend variant="label">Pesos e capacidades</FieldLegend>
                             <FieldDescription>
-                                Os valores nominais do CRLV. O peso de cada carga fica na viagem, não aqui.
+                                Os valores do CRLV deste {config.singular}. O conjunto é a soma: a tara do cavalo, mais a das
+                                carretas, mais a carga, não pode passar do CMT do cavalo. O peso de cada carga fica na viagem.
                             </FieldDescription>
                             <FieldGroup className="md:grid md:grid-cols-12 md:gap-4">
                                 <NumberField
@@ -642,16 +669,18 @@ export default function VehicleFormPage() {
                                     error={error}
                                     description="Peso do veículo vazio."
                                 />
-                                <NumberField
-                                    id="load-capacity"
-                                    label="Lotação"
-                                    unit="kg"
-                                    field="load_capacity_kg"
-                                    form={form}
-                                    set={set}
-                                    error={error}
-                                    description="Carga máxima que ele leva."
-                                />
+                                {hasBody ? (
+                                    <NumberField
+                                        id="load-capacity"
+                                        label="Lotação"
+                                        unit="kg"
+                                        field="load_capacity_kg"
+                                        form={form}
+                                        set={set}
+                                        error={error}
+                                        description="Carga máxima que ele leva."
+                                    />
+                                ) : null}
                                 <NumberField
                                     id="gross-weight"
                                     label="PBT"
@@ -662,7 +691,7 @@ export default function VehicleFormPage() {
                                     error={error}
                                     description="Peso bruto total homologado."
                                 />
-                                {isMotor ? (
+                                {canTow ? (
                                     <NumberField
                                         id="max-traction"
                                         label="CMT"
@@ -674,30 +703,30 @@ export default function VehicleFormPage() {
                                         description="O máximo que ele puxa, com os implementos carregados."
                                     />
                                 ) : null}
-                                <NumberField
-                                    id="volume"
-                                    label="Volume"
-                                    unit="m³"
-                                    field="volume_capacity_m3"
-                                    form={form}
-                                    set={set}
-                                    error={error}
-                                    decimal
-                                    description="Capacidade da carroceria."
-                                />
+                                {hasBody ? (
+                                    <NumberField
+                                        id="volume"
+                                        label="Volume"
+                                        unit="m³"
+                                        field="volume_capacity_m3"
+                                        form={form}
+                                        set={set}
+                                        error={error}
+                                        decimal
+                                        description="Capacidade da carroceria."
+                                    />
+                                ) : null}
                             </FieldGroup>
                         </FieldSet>
                     ) : null}
 
                     {tab === 'equipamentos' ? (
                         <>
-                            <FieldSet>
-                                <FieldLegend variant="label">Implementos</FieldLegend>
-                                {isMotor ? (
-                                    <>
-                                        <FieldDescription>
-                                            Na ordem em que estão engatados. Desengatar guarda o histórico.
-                                        </FieldDescription>
+                            {canTow ? (
+                                <>
+                                    <FieldSet>
+                                        <FieldLegend variant="label">Implementos</FieldLegend>
+                                        <FieldDescription>Na ordem em que estão engatados. Desengatar guarda o histórico.</FieldDescription>
                                         <Field data-invalid={listError('trailers') ? true : undefined}>
                                             <VehicleTrailersField
                                                 id="trailers"
@@ -707,28 +736,32 @@ export default function VehicleFormPage() {
                                             />
                                             <FieldError>{listError('trailers')}</FieldError>
                                         </Field>
-                                    </>
-                                ) : traction ? (
+                                    </FieldSet>
+                                    <Separator className="my-6" />
+                                </>
+                            ) : null}
+
+                            {kind === 'trailer' ? (
+                                <>
                                     <Alert>
                                         <InfoIcon />
                                         <AlertTitle>
-                                            Engatado em {traction.plate}, na {traction.position}ª posição
+                                            {traction
+                                                ? `Engatado em ${traction.plate}, na ${traction.position}ª posição`
+                                                : 'Desengatado'}
                                         </AlertTitle>
                                         <AlertDescription>
-                                            O engate é feito no cadastro do automotor.{' '}
-                                            <Link className="underline" to={`${listPath}/${traction.uuid}/editar?aba=equipamentos`}>
-                                                Abrir {traction.plate}
-                                            </Link>
+                                            O engate é feito no cadastro do veículo que puxa.{' '}
+                                            {traction ? (
+                                                <Link className="underline" to={vehiclePath('motor_vehicle', traction.uuid, 'equipamentos')}>
+                                                    Abrir {traction.plate}
+                                                </Link>
+                                            ) : null}
                                         </AlertDescription>
                                     </Alert>
-                                ) : (
-                                    <FieldDescription>
-                                        Implemento não puxa outro. O engate é feito no cadastro do automotor.
-                                    </FieldDescription>
-                                )}
-                            </FieldSet>
-
-                            <Separator className="my-6" />
+                                    <Separator className="my-6" />
+                                </>
+                            ) : null}
 
                             <FieldSet>
                                 <FieldLegend variant="label">Rastreadores</FieldLegend>

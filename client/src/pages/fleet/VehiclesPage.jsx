@@ -4,7 +4,6 @@ import { BanIcon, CircleCheckIcon, PencilIcon, PlusIcon, SearchIcon, Trash2Icon,
 
 import { ActionButton } from '@/components/common/button/ActionButton'
 import { LayoutToolbar } from '@/components/common/LayoutToolbar'
-import { TabButton } from '@/components/common/TabButton'
 import { ExpiryBadge } from '@/components/fleet/ExpiryBadge'
 import { ColorDot } from '@/components/fleet/SelectVehicleColor'
 import {
@@ -23,24 +22,19 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { FLEET_KINDS, vehiclePath } from '@/lib/fleet/options'
 import { activateVehicle, deactivateVehicle, getVehicles, removeVehicle } from '@/lib/fleet/vehicles'
 import { useRemoteList } from '@/hooks/use-remote-list'
 import { notifyError, notifySuccess } from '@/lib/notify'
 
-const listPath = '/app/cadastros/frota/veiculos'
-
-const kinds = [
-    { key: '', label: 'Todos' },
-    { key: 'motor_vehicle', label: 'Automotores' },
-    { key: 'trailer', label: 'Implementos' },
-]
-
 /**
- * A frota: automotores e implementos numa lista só, com o filtro por grupo.
- * Cada linha mostra a composição e o rastreador principal, e a validade do
- * CRLV em destaque quando vence em breve.
+ * A lista de veículos ou de implementos — o mesmo cadastro, em telas
+ * separadas. Cada linha mostra a composição, o rastreador principal e a
+ * validade do CRLV em destaque quando vence em breve.
  */
-export default function VehiclesPage() {
+export default function VehiclesPage({ kind }) {
+    const config = FLEET_KINDS[kind]
+    const listPath = config.path
     const navigate = useNavigate()
     const [searchParams, setSearchParams] = useSearchParams()
 
@@ -48,9 +42,8 @@ export default function VehiclesPage() {
     const [toRemove, setToRemove] = useState(null)
 
     const search = searchParams.get('busca') ?? ''
-    const kind = searchParams.get('grupo') ?? ''
     const page = Number(searchParams.get('pagina') ?? 1)
-    const { records, meta, loading, reload } = useRemoteList(getVehicles, { search: search || undefined, kind: kind || undefined, page })
+    const { records, meta, loading, reload } = useRemoteList(getVehicles, { search: search || undefined, kind, page })
 
     function setParam(key, value) {
         const next = new URLSearchParams(searchParams)
@@ -103,7 +96,7 @@ export default function VehiclesPage() {
                     { text: 'Início', to: '/app' },
                     { text: 'Cadastros', to: '/app/cadastros' },
                     { text: 'Frota', to: '/app/cadastros/frota' },
-                    { text: 'Veículos' },
+                    { text: config.plural },
                 ]}
                 slot={
                     <form onSubmit={submitSearch} className="relative">
@@ -113,21 +106,13 @@ export default function VehiclesPage() {
                             name="busca"
                             defaultValue={search}
                             placeholder="Placa, chassi ou proprietário"
-                            aria-label="Procurar veículos"
+                            aria-label={`Procurar ${config.plural.toLowerCase()}`}
                             className="w-64 pl-8"
                         />
                     </form>
                 }
-                buttons={[{ title: 'Novo veículo', icon: PlusIcon, to: `${listPath}/novo` }]}
+                buttons={[{ title: config.create, icon: PlusIcon, to: `${listPath}/novo` }]}
             />
-
-            <div role="tablist" className="mb-4 flex gap-1 border-b">
-                {kinds.map((item) => (
-                    <TabButton key={item.key} active={kind === item.key} onClick={() => setParam('grupo', item.key)}>
-                        {item.label}
-                    </TabButton>
-                ))}
-            </div>
 
             {loading ? (
                 <TableSkeleton />
@@ -137,11 +122,15 @@ export default function VehiclesPage() {
                         <EmptyMedia variant="icon">
                             <TruckIcon />
                         </EmptyMedia>
-                        <EmptyTitle>{search ? `Nenhum resultado para "${search}"` : 'Nenhum veículo'}</EmptyTitle>
+                        <EmptyTitle>
+                            {search ? `Nenhum resultado para "${search}"` : `Nenhum ${config.singular}`}
+                        </EmptyTitle>
                         <EmptyDescription>
                             {search
                                 ? 'Procure por outra placa, chassi ou proprietário.'
-                                : 'Cadastre o primeiro veículo da frota — cavalo, caminhão ou implemento.'}
+                                : kind === 'trailer'
+                                  ? 'Cadastre o primeiro implemento — semirreboque, reboque ou dolly.'
+                                  : 'Cadastre o primeiro veículo da frota — cavalo, caminhão ou utilitário.'}
                         </EmptyDescription>
                     </EmptyHeader>
                 </Empty>
@@ -151,9 +140,9 @@ export default function VehiclesPage() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Placa</TableHead>
-                                <TableHead>Veículo</TableHead>
+                                <TableHead>{kind === 'trailer' ? 'Implemento' : 'Veículo'}</TableHead>
                                 <TableHead>Proprietário · responsável</TableHead>
-                                <TableHead>Composição</TableHead>
+                                <TableHead>{kind === 'trailer' ? 'Engatado em' : 'Implementos'}</TableHead>
                                 <TableHead>Rastreador</TableHead>
                                 <TableHead>CRLV</TableHead>
                                 <TableHead>Situação</TableHead>
@@ -174,7 +163,7 @@ export default function VehiclesPage() {
                                         <TableCell>
                                             <span className="flex items-center gap-1.5">
                                                 <ColorDot value={vehicle.color} />
-                                                {vehicle.brand} {vehicle.model}
+                                                {vehicle.brand?.name} {vehicle.model?.name}
                                             </span>
                                             <span className="text-muted-foreground block text-xs">
                                                 {[vehicle.type.name, vehicle.body_type?.name, `${vehicle.manufacture_year}/${vehicle.model_year}`]
@@ -215,7 +204,7 @@ export default function VehiclesPage() {
                                                 <ActionButton
                                                     icon={PencilIcon}
                                                     tooltip="Editar"
-                                                    onClick={() => navigate(`${listPath}/${vehicle.uuid}/editar`)}
+                                                    onClick={() => navigate(vehiclePath(kind, vehicle.uuid))}
                                                 />
                                                 <ActionButton
                                                     icon={isActive ? BanIcon : CircleCheckIcon}
@@ -300,16 +289,16 @@ export default function VehiclesPage() {
     )
 }
 
-/** Automotor: as placas dos implementos. Implemento: em quem está engatado. */
+/** Veículo: as placas dos implementos. Implemento: em quem está engatado. */
 function Composition({ vehicle }) {
     if (vehicle.kind === 'trailer') {
         return vehicle.traction ? (
-            <span className="text-xs">
-                Engatado em{' '}
-                <Link className="font-mono tracking-wider underline" to={`${listPath}/${vehicle.traction.uuid}/editar`}>
-                    {vehicle.traction.plate}
-                </Link>
-            </span>
+            <Link
+                className="font-mono text-sm tracking-wider underline-offset-4 hover:underline"
+                to={vehiclePath('motor_vehicle', vehicle.traction.uuid)}
+            >
+                {vehicle.traction.plate}
+            </Link>
         ) : (
             <span className="text-muted-foreground text-xs">Desengatado</span>
         )
@@ -326,7 +315,7 @@ function Composition({ vehicle }) {
                     key={trailer.uuid}
                     variant="secondary"
                     className="font-mono tracking-wider"
-                    render={<Link to={`${listPath}/${trailer.uuid}/editar`} />}
+                    render={<Link to={vehiclePath('trailer', trailer.uuid)} />}
                 >
                     {trailer.plate}
                 </Badge>

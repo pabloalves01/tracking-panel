@@ -2,7 +2,6 @@
 
 namespace App\Services\Fleet;
 
-use App\Enums\Fleet\VehicleKind;
 use App\Models\Fleet\Vehicle;
 use App\Models\Fleet\VehicleCoupling;
 use App\Models\Fleet\VehicleType;
@@ -162,7 +161,11 @@ class VehicleService
             ? Carrier::query()->where('uuid', $data['carrier'])->value('id')
             : null;
         $attributes['responsible_id'] = VehicleResponsible::query()->where('uuid', $data['responsible'])->value('id');
-        $attributes['max_traction_weight_kg'] = $data['max_traction_weight_kg'] ?? null;
+        // O que o tipo não tem — carroceria, CMT — e o transportador da
+        // frota própria chegam excluídos pela request: aqui viram nulo.
+        foreach (['body_type_id', 'load_capacity_kg', 'volume_capacity_m3', 'max_traction_weight_kg', 'carrier_id'] as $field) {
+            $attributes[$field] ??= null;
+        }
 
         return $attributes;
     }
@@ -177,14 +180,19 @@ class VehicleService
     {
         $vehicle->load('vehicleType');
 
-        // Tipo trocado para o outro grupo: o automotor que virou implemento
-        // não puxa mais nada, e vice-versa.
-        if ($vehicle->wasChanged('vehicle_type_id')
-            && VehicleType::query()->find($vehicle->getPrevious()['vehicle_type_id'])?->kind !== $vehicle->kind()) {
-            $this->couplings->releaseAll($vehicle);
+        // Tipo trocado: para o outro grupo, desfaz tudo; para um que não
+        // puxa, solta os implementos que ele puxava.
+        if ($vehicle->wasChanged('vehicle_type_id')) {
+            $previous = VehicleType::query()->find($vehicle->getPrevious()['vehicle_type_id']);
+
+            if ($previous?->kind !== $vehicle->kind()) {
+                $this->couplings->releaseAll($vehicle);
+            } elseif (! $vehicle->canTow()) {
+                $this->couplings->sync($vehicle, []);
+            }
         }
 
-        if ($vehicle->kind() === VehicleKind::MotorVehicle && array_key_exists('trailers', $data)) {
+        if ($vehicle->canTow() && array_key_exists('trailers', $data)) {
             $this->couplings->sync($vehicle, $data['trailers']);
         }
 
@@ -200,6 +208,8 @@ class VehicleService
         return Vehicle::query()->with([
             'vehicleType',
             'bodyType',
+            'vehicleBrand',
+            'vehicleModel',
             'owner.entity' => $person,
             'carrier.entity' => $person,
             'responsible.entity' => $person,

@@ -3,9 +3,29 @@
  * `App\Enums\Fleet\…` no backend.
  */
 
-export const KIND_LABELS = {
-    motor_vehicle: 'Automotor',
-    trailer: 'Implemento',
+/**
+ * Veículos e implementos são o mesmo cadastro na API, em telas separadas.
+ * `path` é a lista; `vehiclePath` monta a edição pelo grupo.
+ */
+export const FLEET_KINDS = {
+    motor_vehicle: {
+        kind: 'motor_vehicle',
+        path: '/app/cadastros/frota/veiculos',
+        plural: 'Veículos',
+        singular: 'veículo',
+        create: 'Novo veículo',
+    },
+    trailer: {
+        kind: 'trailer',
+        path: '/app/cadastros/frota/implementos',
+        plural: 'Implementos',
+        singular: 'implemento',
+        create: 'Novo implemento',
+    },
+}
+
+export function vehiclePath(kind, uuid, tab = null) {
+    return `${FLEET_KINDS[kind].path}/${uuid}/editar${tab ? `?aba=${tab}` : ''}`
 }
 
 export const FLEET_TYPES = [
@@ -13,12 +33,6 @@ export const FLEET_TYPES = [
     { value: 'aggregated', label: 'Agregado' },
     { value: 'third_party', label: 'Terceiro' },
 ]
-
-export const CATEGORY_LABELS = {
-    passenger: 'Passeio',
-    light_commercial: 'Comercial leve',
-    heavy_commercial: 'Comercial pesado',
-}
 
 export const INSTALLATION_ROLES = [
     { value: 'primary', label: 'Principal' },
