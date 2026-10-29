@@ -462,6 +462,7 @@ export default function VehicleFormPage() {
                                             id="registration-expires"
                                             value={form.registration_expires_on}
                                             onChange={(value) => set('registration_expires_on', value || null)}
+                                            aria-invalid={invalid('registration_expires_on')}
                                         />
                                         <FieldError>{error('registration_expires_on')}</FieldError>
                                     </Field>
