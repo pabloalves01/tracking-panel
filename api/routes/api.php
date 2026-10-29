@@ -115,34 +115,88 @@ Route::middleware(['auth:sanctum', 'organization'])->prefix('organization')->gro
 Route::middleware(['auth:sanctum', 'organization:company'])->group(function () {
     Route::prefix('registry')->group(function () {
         // A pessoa, acima dos papéis.
-        Route::prefix('entities')->controller(EntityController::class)->group(function () {
-            Route::get('/', 'index');
-            Route::get('by-document/{document}', 'byDocument');
-            Route::delete('{uuid}', 'destroy');
+        Route::prefix('entities')->group(function () {
+            Route::get('/', [EntityController::class, 'index']);
+            Route::get('by-document/{document}', [EntityController::class, 'byDocument']);
+            Route::delete('/{uuid}', [EntityController::class, 'destroy']);
         });
 
-        // Um recurso por papel, cada um com o próprio controller.
-        $roles = [
-            'drivers' => DriverController::class,
-            'vehicle-owners' => VehicleOwnerController::class,
-            'vehicle-responsibles' => VehicleResponsibleController::class,
-            'employees' => EmployeeController::class,
-            'suppliers' => SupplierController::class,
-            'customers' => CustomerController::class,
-            'carriers' => CarrierController::class,
-        ];
+        // Motoristas.
+        Route::prefix('drivers')->group(function () {
+            Route::get('/', [DriverController::class, 'index']);
+            Route::post('/', [DriverController::class, 'store']);
+            Route::get('/{uuid}', [DriverController::class, 'show']);
+            Route::put('/{uuid}', [DriverController::class, 'update']);
+            Route::delete('/{uuid}', [DriverController::class, 'destroy']);
+            Route::post('/{uuid}/activate', [DriverController::class, 'activate']);
+            Route::post('/{uuid}/deactivate', [DriverController::class, 'deactivate']);
+        });
 
-        foreach ($roles as $path => $controller) {
-            Route::prefix($path)->controller($controller)->group(function () {
-                Route::get('/', 'index');
-                Route::post('/', 'store');
-                Route::get('{uuid}', 'show');
-                Route::put('{uuid}', 'update');
-                Route::delete('{uuid}', 'destroy');
-                Route::post('{uuid}/activate', 'activate');
-                Route::post('{uuid}/deactivate', 'deactivate');
-            });
-        }
+        // Proprietários de veículo.
+        Route::prefix('vehicle-owners')->group(function () {
+            Route::get('/', [VehicleOwnerController::class, 'index']);
+            Route::post('/', [VehicleOwnerController::class, 'store']);
+            Route::get('/{uuid}', [VehicleOwnerController::class, 'show']);
+            Route::put('/{uuid}', [VehicleOwnerController::class, 'update']);
+            Route::delete('/{uuid}', [VehicleOwnerController::class, 'destroy']);
+            Route::post('/{uuid}/activate', [VehicleOwnerController::class, 'activate']);
+            Route::post('/{uuid}/deactivate', [VehicleOwnerController::class, 'deactivate']);
+        });
+
+        // Responsáveis por veículo.
+        Route::prefix('vehicle-responsibles')->group(function () {
+            Route::get('/', [VehicleResponsibleController::class, 'index']);
+            Route::post('/', [VehicleResponsibleController::class, 'store']);
+            Route::get('/{uuid}', [VehicleResponsibleController::class, 'show']);
+            Route::put('/{uuid}', [VehicleResponsibleController::class, 'update']);
+            Route::delete('/{uuid}', [VehicleResponsibleController::class, 'destroy']);
+            Route::post('/{uuid}/activate', [VehicleResponsibleController::class, 'activate']);
+            Route::post('/{uuid}/deactivate', [VehicleResponsibleController::class, 'deactivate']);
+        });
+
+        // Funcionários.
+        Route::prefix('employees')->group(function () {
+            Route::get('/', [EmployeeController::class, 'index']);
+            Route::post('/', [EmployeeController::class, 'store']);
+            Route::get('/{uuid}', [EmployeeController::class, 'show']);
+            Route::put('/{uuid}', [EmployeeController::class, 'update']);
+            Route::delete('/{uuid}', [EmployeeController::class, 'destroy']);
+            Route::post('/{uuid}/activate', [EmployeeController::class, 'activate']);
+            Route::post('/{uuid}/deactivate', [EmployeeController::class, 'deactivate']);
+        });
+
+        // Fornecedores.
+        Route::prefix('suppliers')->group(function () {
+            Route::get('/', [SupplierController::class, 'index']);
+            Route::post('/', [SupplierController::class, 'store']);
+            Route::get('/{uuid}', [SupplierController::class, 'show']);
+            Route::put('/{uuid}', [SupplierController::class, 'update']);
+            Route::delete('/{uuid}', [SupplierController::class, 'destroy']);
+            Route::post('/{uuid}/activate', [SupplierController::class, 'activate']);
+            Route::post('/{uuid}/deactivate', [SupplierController::class, 'deactivate']);
+        });
+
+        // Clientes.
+        Route::prefix('customers')->group(function () {
+            Route::get('/', [CustomerController::class, 'index']);
+            Route::post('/', [CustomerController::class, 'store']);
+            Route::get('/{uuid}', [CustomerController::class, 'show']);
+            Route::put('/{uuid}', [CustomerController::class, 'update']);
+            Route::delete('/{uuid}', [CustomerController::class, 'destroy']);
+            Route::post('/{uuid}/activate', [CustomerController::class, 'activate']);
+            Route::post('/{uuid}/deactivate', [CustomerController::class, 'deactivate']);
+        });
+
+        // Transportadoras.
+        Route::prefix('carriers')->group(function () {
+            Route::get('/', [CarrierController::class, 'index']);
+            Route::post('/', [CarrierController::class, 'store']);
+            Route::get('/{uuid}', [CarrierController::class, 'show']);
+            Route::put('/{uuid}', [CarrierController::class, 'update']);
+            Route::delete('/{uuid}', [CarrierController::class, 'destroy']);
+            Route::post('/{uuid}/activate', [CarrierController::class, 'activate']);
+            Route::post('/{uuid}/deactivate', [CarrierController::class, 'deactivate']);
+        });
 
         // Postos conveniados.
         Route::prefix('fuel-stations')->group(function () {
