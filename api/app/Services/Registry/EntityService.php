@@ -10,8 +10,8 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * A pessoa por trás dos papéis: procurar pelo documento, criar ou restaurar,
- * atualizar e excluir. Não sabe nada de papel em particular — isso é de
- * `EntityRoleService` e dos models de cada papel.
+ * atualizar e excluir. Não sabe nada de papel em particular — isso é do
+ * service de cada papel (`DriverService`, `CustomerService`…).
  */
 class EntityService
 {

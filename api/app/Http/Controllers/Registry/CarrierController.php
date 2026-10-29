@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\Registry;
 
-use App\Enums\EntityRole;
 use App\Http\Requests\Registry\CarrierRequest;
+use App\Services\Registry\CarrierService;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -11,18 +11,20 @@ use Illuminate\Http\JsonResponse;
  */
 class CarrierController extends EntityRoleController
 {
-    protected function role(): EntityRole
+    public function __construct(private readonly CarrierService $carriers) {}
+
+    protected function service(): CarrierService
     {
-        return EntityRole::Carrier;
+        return $this->carriers;
     }
 
     public function store(CarrierRequest $request): JsonResponse
     {
-        return $this->storeWith($request);
+        return $this->created($this->carriers->store($request->entityData(), $request->roleData()));
     }
 
     public function update(CarrierRequest $request, string $uuid): JsonResponse
     {
-        return $this->updateWith($request, $uuid);
+        return $this->updated($this->carriers->update($uuid, $request->entityData(), $request->roleData()));
     }
 }

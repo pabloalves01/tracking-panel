@@ -20,7 +20,7 @@ use Illuminate\Support\Str;
  * tela geral filtra por papel.
  *
  * Papel novo: um caso aqui, a migration, o model (`use IsEntityRole`), a
- * request, o resource, o controller e a linha em `routes/api.php`.
+ * request, o resource, o service, o controller e as rotas em `routes/api.php`.
  */
 enum EntityRole: string
 {

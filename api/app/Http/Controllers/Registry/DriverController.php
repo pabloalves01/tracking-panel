@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers\Registry;
 
-use App\Enums\EntityRole;
 use App\Http\Requests\Registry\DriverRequest;
 use App\Http\Resources\Registry\DriverResource;
+use App\Services\Registry\DriverService;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -12,9 +12,11 @@ use Illuminate\Http\JsonResponse;
  */
 class DriverController extends EntityRoleController
 {
-    protected function role(): EntityRole
+    public function __construct(private readonly DriverService $drivers) {}
+
+    protected function service(): DriverService
     {
-        return EntityRole::Driver;
+        return $this->drivers;
     }
 
     protected function resource(): string
@@ -24,11 +26,11 @@ class DriverController extends EntityRoleController
 
     public function store(DriverRequest $request): JsonResponse
     {
-        return $this->storeWith($request);
+        return $this->created($this->drivers->store($request->entityData(), $request->roleData()));
     }
 
     public function update(DriverRequest $request, string $uuid): JsonResponse
     {
-        return $this->updateWith($request, $uuid);
+        return $this->updated($this->drivers->update($uuid, $request->entityData(), $request->roleData()));
     }
 }

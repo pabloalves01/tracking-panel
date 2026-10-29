@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\Registry;
 
-use App\Enums\EntityRole;
 use App\Http\Requests\Registry\CustomerRequest;
+use App\Services\Registry\CustomerService;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -11,18 +11,20 @@ use Illuminate\Http\JsonResponse;
  */
 class CustomerController extends EntityRoleController
 {
-    protected function role(): EntityRole
+    public function __construct(private readonly CustomerService $customers) {}
+
+    protected function service(): CustomerService
     {
-        return EntityRole::Customer;
+        return $this->customers;
     }
 
     public function store(CustomerRequest $request): JsonResponse
     {
-        return $this->storeWith($request);
+        return $this->created($this->customers->store($request->entityData(), $request->roleData()));
     }
 
     public function update(CustomerRequest $request, string $uuid): JsonResponse
     {
-        return $this->updateWith($request, $uuid);
+        return $this->updated($this->customers->update($uuid, $request->entityData(), $request->roleData()));
     }
 }

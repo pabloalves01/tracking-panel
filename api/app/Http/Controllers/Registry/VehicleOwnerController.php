@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\Registry;
 
-use App\Enums\EntityRole;
 use App\Http\Requests\Registry\VehicleOwnerRequest;
+use App\Services\Registry\VehicleOwnerService;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -11,18 +11,20 @@ use Illuminate\Http\JsonResponse;
  */
 class VehicleOwnerController extends EntityRoleController
 {
-    protected function role(): EntityRole
+    public function __construct(private readonly VehicleOwnerService $owners) {}
+
+    protected function service(): VehicleOwnerService
     {
-        return EntityRole::VehicleOwner;
+        return $this->owners;
     }
 
     public function store(VehicleOwnerRequest $request): JsonResponse
     {
-        return $this->storeWith($request);
+        return $this->created($this->owners->store($request->entityData(), $request->roleData()));
     }
 
     public function update(VehicleOwnerRequest $request, string $uuid): JsonResponse
     {
-        return $this->updateWith($request, $uuid);
+        return $this->updated($this->owners->update($uuid, $request->entityData(), $request->roleData()));
     }
 }

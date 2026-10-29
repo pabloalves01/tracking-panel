@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\Registry;
 
-use App\Enums\EntityRole;
 use App\Http\Requests\Registry\EmployeeRequest;
+use App\Services\Registry\EmployeeService;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -11,18 +11,20 @@ use Illuminate\Http\JsonResponse;
  */
 class EmployeeController extends EntityRoleController
 {
-    protected function role(): EntityRole
+    public function __construct(private readonly EmployeeService $employees) {}
+
+    protected function service(): EmployeeService
     {
-        return EntityRole::Employee;
+        return $this->employees;
     }
 
     public function store(EmployeeRequest $request): JsonResponse
     {
-        return $this->storeWith($request);
+        return $this->created($this->employees->store($request->entityData(), $request->roleData()));
     }
 
     public function update(EmployeeRequest $request, string $uuid): JsonResponse
     {
-        return $this->updateWith($request, $uuid);
+        return $this->updated($this->employees->update($uuid, $request->entityData(), $request->roleData()));
     }
 }
