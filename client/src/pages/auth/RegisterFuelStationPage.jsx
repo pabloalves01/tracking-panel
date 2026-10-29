@@ -1,85 +1,120 @@
-import { useState } from "react"
-import { Link, useNavigate } from "react-router"
+import { useEffect, useState } from "react"
+import { Link, useSearchParams } from "react-router"
 
+import { AccountGate } from "@/components/auth/AccountGate"
 import { InputCpfCnpj } from "@/components/common/inputs/InputCpfCnpj"
-import { InputPassword } from "@/components/common/inputs/InputPassword"
 import { LoadingWrapper } from "@/components/common/LoadingWrapper"
 import { ThemeToggle } from "@/components/layout/ThemeToggle"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
-import { Input } from "@/components/ui/input"
-import { checkStationSignupEmail, lookupStationCnpj, storeStationSignup } from "@/lib/auth/stationSignup"
+import { formatCpfCnpj } from "@/helpers/formatters"
+import { logout, me } from "@/lib/auth/auth"
+import { lookupFuelStationCnpj, storeFuelStationForUser } from "@/lib/auth/fuelStationSignup"
 import { notifyError, notifySuccess } from "@/lib/notify"
 
-export default function RegisterFuelStationPage() {
-  const navigate = useNavigate()
-  const [step, setStep] = useState(1)
-  const [loading, setLoading] = useState(false)
-  const [cnpj, setCnpj] = useState("")
-  const [station, setStation] = useState(null)
-  const [email, setEmail] = useState("")
-  const [emailExists, setEmailExists] = useState(null)
-  const [name, setName] = useState("")
-  const [password, setPassword] = useState("")
-  const [passwordConfirmation, setPasswordConfirmation] = useState("")
+function onlyDigits(value) {
+  return String(value ?? "").replace(/\D/g, "").slice(0, 14)
+}
 
-  const cnpjReady = station?.cnpj === cnpj
+/**
+ * Cadastrar um posto.
+ *
+ *   CNPJ → logado?  sim → confirmar na conta atual
+ *                   não → quem é você (AccountGate) → criar
+ *
+ * O posto só nasce para uma conta já autenticada. Antes esta tela pedia
+ * nome, e-mail e senha juntos, antes de o sistema saber se a pessoa já tinha
+ * conta — e quem administrava uma empresa digitava uma senha nova para nada,
+ * e depois esperava um código que não vinha.
+ */
+export default function RegisterFuelStationPage() {
+  const [params] = useSearchParams()
+  const [step, setStep] = useState("cnpj")
+  const [loading, setLoading] = useState(() => Boolean(localStorage.getItem("token")))
+  const [user, setUser] = useState(null)
+  const [cnpj, setCnpj] = useState(() => onlyDigits(params.get("cnpj")))
+  const [fuelStation, setFuelStation] = useState(null)
+
+  const cnpjReady = fuelStation?.document === cnpj
+  const backHere = `/auth/register/posto?cnpj=${cnpj}`
+
+  useEffect(() => {
+    if (!localStorage.getItem("token")) return undefined
+
+    let active = true
+    me()
+      .then((session) => {
+        if (active) setUser(session.user)
+      })
+      .catch(() => {
+        localStorage.removeItem("token")
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   async function handleCnpjSubmit(event) {
     event.preventDefault()
 
     if (cnpjReady) {
-      setStep(2)
+      setStep(user ? "confirm" : "account")
       return
     }
 
     setLoading(true)
 
     try {
-      setStation(await lookupStationCnpj(cnpj))
+      setFuelStation(await lookupFuelStationCnpj(cnpj))
     } catch (error) {
-      setStation(null)
+      setFuelStation(null)
       notifyError(error)
     } finally {
       setLoading(false)
     }
   }
 
-  async function handleAccountSubmit(event) {
-    event.preventDefault()
+  /**
+   * Daqui em diante a pessoa já está logada. Se o posto falhar — o CNPJ foi
+   * cadastrado por outro enquanto isso, a Receita caiu —, a tela fica na
+   * confirmação, e tentar de novo não pede identidade outra vez.
+   */
+  async function createFuelStation() {
     setLoading(true)
 
     try {
-      if (emailExists === null) {
-        const result = await checkStationSignupEmail({ email })
-        setEmailExists(Boolean(result.exists))
-        return
-      }
-
-      const result = await storeStationSignup(
-        emailExists
-          ? {
-              cnpj: station.cnpj,
-              email,
-              password,
-            }
-          : {
-              cnpj: station.cnpj,
-              name,
-              email,
-              password,
-              password_confirmation: passwordConfirmation,
-            },
-      )
-
+      const result = await storeFuelStationForUser(fuelStation.document)
       notifySuccess(result)
-      navigate("/auth/login", { replace: true })
+      window.location.assign(result.redirect_to ?? "/posto")
     } catch (error) {
       notifyError(error)
-    } finally {
+      setStep("confirm")
       setLoading(false)
     }
+  }
+
+  async function handleAuthenticated(session) {
+    setUser(session.user)
+    await createFuelStation()
+  }
+
+  async function switchAccount() {
+    setLoading(true)
+
+    try {
+      await logout()
+    } catch {
+      localStorage.removeItem("token")
+    }
+
+    setUser(null)
+    setStep("account")
+    setLoading(false)
   }
 
   return (
@@ -95,151 +130,80 @@ export default function RegisterFuelStationPage() {
           </div>
           <div className="flex flex-1 items-center justify-center">
             <div className="w-full max-w-md">
-              {step === 1 ? (
+              {step === "cnpj" ? (
                 <form className="flex flex-col gap-6" onSubmit={handleCnpjSubmit}>
                   <FieldGroup>
                     <div className="flex flex-col items-center gap-1 text-center">
                       <h1 className="text-2xl font-bold">Cadastrar posto</h1>
                       <p className="text-sm text-balance text-muted-foreground">
-                        Informe o CNPJ. Os dados da Receita Federal aparecem travados.
+                        Informe o CNPJ. Os dados vêm da Receita Federal.
                       </p>
                     </div>
                     <Field>
-                      <FieldLabel htmlFor="station-cnpj">CNPJ</FieldLabel>
+                      <FieldLabel htmlFor="fuel-station-cnpj">CNPJ</FieldLabel>
                       <InputCpfCnpj
-                        id="station-cnpj"
+                        id="fuel-station-cnpj"
                         type="cnpj"
                         value={cnpj}
                         onChange={(value) => {
                           setCnpj(value)
-                          setStation(null)
+                          setFuelStation(null)
                         }}
                         autoFocus
                       />
                     </Field>
-                    {cnpjReady ? (
-                      <div className="space-y-1 text-sm text-muted-foreground">
-                        <p className="font-medium text-foreground">{station.corporate_name}</p>
-                        {station.trade_name ? <p>{station.trade_name}</p> : null}
-                        <p>
-                          {[station.street, station.number, station.complement, station.district, station.zip_code]
-                            .filter(Boolean)
-                            .join(", ")}
-                        </p>
-                        <p>{[station.city_name, station.uf].filter(Boolean).join("/")}</p>
-                      </div>
-                    ) : null}
-                    <Field>
-                      <Button type="submit" disabled={loading || cnpj.length !== 14}>
-                        {cnpjReady ? "Continuar" : "Consultar CNPJ"}
-                      </Button>
-                    </Field>
+                    {cnpjReady ? <FuelStationSummary fuelStation={fuelStation} /> : null}
+                    <Button type="submit" disabled={loading || cnpj.length !== 14}>
+                      {cnpjReady ? "Continuar" : "Consultar CNPJ"}
+                    </Button>
                     <p className="text-center text-sm text-muted-foreground">
-                      <Link to="/auth/login" className="underline underline-offset-4 hover:text-foreground">
-                        Voltar para o login
+                      <Link
+                        to={user ? "/auth/organizacoes" : "/auth/login"}
+                        className="underline underline-offset-4 hover:text-foreground"
+                      >
+                        {user ? "Voltar para as organizações" : "Voltar para o login"}
                       </Link>
                     </p>
                   </FieldGroup>
                 </form>
               ) : null}
 
-              {step === 2 ? (
-                <form className="flex flex-col gap-6" onSubmit={handleAccountSubmit}>
-                  <FieldGroup>
-                    <div className="flex flex-col items-center gap-1 text-center">
-                      <h1 className="text-2xl font-bold">Acesso do responsável</h1>
-                      {emailExists ? null : (
-                        <p className="text-sm text-balance text-muted-foreground">
-                          Informe o e-mail de quem vai administrar o posto.
-                        </p>
-                      )}
-                    </div>
-                    <Field>
-                      <FieldLabel htmlFor="station-email">E-mail</FieldLabel>
-                      <Input
-                        id="station-email"
-                        type="email"
-                        placeholder="responsavel@posto.com.br"
-                        value={email}
-                        autoComplete="email"
-                        onChange={(event) => {
-                          setEmail(event.target.value)
-                          setEmailExists(null)
-                        }}
-                      />
-                    </Field>
-                    {emailExists === false ? (
-                      <>
-                        <Field>
-                          <FieldLabel htmlFor="station-name">Nome</FieldLabel>
-                          <Input
-                            id="station-name"
-                            value={name}
-                            autoComplete="name"
-                            onChange={(event) => setName(event.target.value)}
-                          />
-                        </Field>
-                        <Field>
-                          <FieldLabel htmlFor="station-password">Senha</FieldLabel>
-                          <InputPassword
-                            id="station-password"
-                            value={password}
-                            autoComplete="new-password"
-                            onChange={setPassword}
-                            placeholder="Mínimo de 8 caracteres"
-                          />
-                        </Field>
-                        <Field>
-                          <FieldLabel htmlFor="station-password-confirmation">Confirmação da senha</FieldLabel>
-                          <InputPassword
-                            id="station-password-confirmation"
-                            value={passwordConfirmation}
-                            autoComplete="new-password"
-                            onChange={setPasswordConfirmation}
-                            placeholder="Repita a senha"
-                          />
-                        </Field>
-                      </>
-                    ) : null}
-                    {emailExists === true ? (
-                      <>
-                        <Alert>
-                          <AlertTitle>Conta já existente</AlertTitle>
-                          <AlertDescription>
-                            Este e-mail já tem uma conta na Logiv. Digite a senha dessa conta para vincular o posto a ela.
-                          </AlertDescription>
-                        </Alert>
-                        <Field>
-                          <FieldLabel htmlFor="station-current-password">Senha atual</FieldLabel>
-                          <InputPassword
-                            id="station-current-password"
-                            value={password}
-                            autoComplete="current-password"
-                            onChange={setPassword}
-                            placeholder="Senha da conta"
-                          />
-                        </Field>
-                      </>
-                    ) : null}
-                    <Field>
-                      <Button type="submit" disabled={loading}>
-                        {emailExists === null
-                          ? "Continuar"
-                          : emailExists
-                            ? "Vincular posto à minha conta"
-                            : "Cadastrar posto"}
-                      </Button>
-                    </Field>
-                    <Button type="button" variant="outline" onClick={() => setStep(1)}>
-                      Voltar
-                    </Button>
-                    <p className="text-center text-sm text-muted-foreground">
-                      <Link to="/auth/login" className="underline underline-offset-4 hover:text-foreground">
-                        Voltar para o login
-                      </Link>
+              {step === "account" ? (
+                <div className="flex flex-col gap-6">
+                  <FuelStationSummary fuelStation={fuelStation} compact />
+                  <AccountGate
+                    title="Quem vai administrar o posto?"
+                    forgotBack={backHere}
+                    onAuthenticated={handleAuthenticated}
+                  />
+                  <Button type="button" variant="ghost" onClick={() => setStep("cnpj")}>
+                    Voltar
+                  </Button>
+                </div>
+              ) : null}
+
+              {step === "confirm" ? (
+                <div className="flex flex-col gap-6">
+                  <div className="flex flex-col items-center gap-1 text-center">
+                    <h1 className="text-2xl font-bold">Cadastrar na sua conta</h1>
+                    <p className="text-sm text-balance text-muted-foreground">
+                      O posto entra na conta de <span className="text-foreground">{user?.name}</span> ({user?.email}).
+                      Você será o primeiro membro.
                     </p>
-                  </FieldGroup>
-                </form>
+                  </div>
+                  <FuelStationSummary fuelStation={fuelStation} />
+                  <Button type="button" onClick={createFuelStation} disabled={loading}>
+                    Cadastrar posto
+                  </Button>
+                  <div className="flex flex-col items-center gap-2 text-sm text-muted-foreground">
+                    <button type="button" className="underline-offset-4 hover:underline" onClick={() => setStep("cnpj")}>
+                      Trocar o CNPJ
+                    </button>
+                    <button type="button" className="underline-offset-4 hover:underline" onClick={switchAccount}>
+                      Não é você? Usar outra conta
+                    </button>
+                  </div>
+                </div>
               ) : null}
             </div>
           </div>
@@ -253,5 +217,36 @@ export default function RegisterFuelStationPage() {
         </div>
       </div>
     </LoadingWrapper>
+  )
+}
+
+function FuelStationSummary({ fuelStation, compact = false }) {
+  if (!fuelStation) return null
+
+  const address = [
+    fuelStation.street,
+    fuelStation.street_number,
+    fuelStation.complement,
+    fuelStation.neighborhood,
+    fuelStation.postal_code,
+  ]
+    .filter(Boolean)
+    .join(", ")
+  const place = [fuelStation.city, fuelStation.state].filter(Boolean).join("/")
+
+  return (
+    <Card size="sm">
+      <CardContent className="flex flex-col gap-0.5 text-sm">
+        <p className="font-medium">{fuelStation.trade_name || fuelStation.legal_name}</p>
+        <p className="text-muted-foreground tabular-nums">{formatCpfCnpj(fuelStation.document)}</p>
+        {compact ? null : (
+          <>
+            {fuelStation.trade_name ? <p className="text-muted-foreground">{fuelStation.legal_name}</p> : null}
+            {address ? <p className="text-muted-foreground">{address}</p> : null}
+            {place ? <p className="text-muted-foreground">{place}</p> : null}
+          </>
+        )}
+      </CardContent>
+    </Card>
   )
 }

@@ -1,38 +1,75 @@
 import { useEffect, useState } from "react"
-import { Link, useNavigate } from "react-router"
+import { Link, useNavigate, useSearchParams } from "react-router"
 
-import { ThemeToggle } from "@/components/layout/ThemeToggle"
+import { InputPassword } from "@/components/common/inputs/InputPassword"
 import { LoadingWrapper } from "@/components/common/LoadingWrapper"
+import { ThemeToggle } from "@/components/layout/ThemeToggle"
 import { Button } from "@/components/ui/button"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { login, me } from "@/lib/auth/auth"
-import { notifyError } from "@/lib/notify"
+import { login, logout, me } from "@/lib/auth/auth"
+import { safeInternalPath } from "@/lib/auth/redirect"
+import { apiMessage } from "@/lib/notify"
 
-// Empresa, depois posto, depois admin sem contexto. Admin com posto entra no posto.
-function destinationFor(user) {
-  if (user.has_company) return "/app"
-  if (user.has_fuel_station) return "/posto"
-  if (user.is_system_admin) return "/app"
-  return "/auth/contextos"
+const REMEMBERED_EMAIL = "logiv.email"
+
+/**
+ * Para onde ir depois de entrar.
+ *
+ * Com uma organização só e nenhum convite pendente, a API já selecionou a
+ * organização no token — então dá para ir direto. Nos demais casos, a
+ * pessoa escolhe.
+ */
+function routeAfterLogin({ user, organizations = [], invitations = [] }, redirect) {
+  if (redirect) return redirect
+  if (invitations.length > 0) return "/auth/organizacoes"
+
+  if (organizations.length === 1) return organizations[0].home_path
+
+  // Admin do sistema sem organização entra direto nas telas de Sistema.
+  if (organizations.length === 0 && user?.is_system_admin) return "/app/sistema/organizacoes"
+
+  return "/auth/organizacoes"
 }
 
 export default function LoginPage() {
   const navigate = useNavigate()
-  const [email, setEmail] = useState("")
+  const [params] = useSearchParams()
+  const redirect = safeInternalPath(params.get("redirect"))
+  const emailLocked = params.get("email_locked") === "1"
+  const [email, setEmail] = useState(() => params.get("email") || localStorage.getItem(REMEMBERED_EMAIL) || "")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
+  const [secondsLeft, setSecondsLeft] = useState(0)
   const [checkingSession, setCheckingSession] = useState(() => !!localStorage.getItem("token"))
 
   useEffect(() => {
-    if (!localStorage.getItem("token")) return
+    if (secondsLeft <= 0) return undefined
+
+    const timer = setTimeout(() => setSecondsLeft((current) => current - 1), 1000)
+
+    return () => clearTimeout(timer)
+  }, [secondsLeft])
+
+  useEffect(() => {
+    if (!localStorage.getItem("token")) return undefined
 
     let active = true
+    const lockedEmail = (params.get("email") || "").trim().toLowerCase()
 
     me()
-      .then((user) => {
+      .then(async (session) => {
         if (!active) return
-        navigate(destinationFor(user), { replace: true })
+
+        const user = session.user
+
+        if (emailLocked && lockedEmail && user?.email?.toLowerCase() !== lockedEmail) {
+          await logout()
+          return
+        }
+
+        navigate(routeAfterLogin(session, redirect), { replace: true })
       })
       .catch(() => {
         localStorage.removeItem("token")
@@ -44,44 +81,42 @@ export default function LoginPage() {
     return () => {
       active = false
     }
-  }, [navigate])
+  }, [emailLocked, navigate, params, redirect])
+
+  function clearError() {
+    if (secondsLeft > 0) return
+    setError("")
+  }
 
   async function handleSubmit(event) {
     event.preventDefault()
+
+    if (secondsLeft > 0) return
+
     setLoading(true)
+    setError("")
 
     try {
-      const { user, companies, fuel_stations: stations = [] } = await login({ email, password })
-      const total = companies.length + stations.length
+      const session = await login({ email, password })
+      localStorage.setItem(REMEMBERED_EMAIL, email.trim())
+      navigate(routeAfterLogin(session, redirect), { replace: true })
+    } catch (requestError) {
+      const retryAfter = Number(requestError?.response?.data?.retry_after || 0)
 
-      if (total === 1) {
-        navigate(stations.length === 1 ? "/posto" : "/app", { replace: true })
-        return
+      if (requestError?.response?.status === 429 && retryAfter > 0) {
+        setSecondsLeft(retryAfter)
+        setError(`Muitas tentativas. Tente novamente em ${retryAfter} segundos.`)
+      } else {
+        setError(apiMessage(requestError, "Não foi possível entrar."))
       }
-
-      if (total === 0) {
-        // Admin do sistema não precisa de empresa; segue direto para o painel.
-        if (user.is_system_admin) {
-          navigate("/app", { replace: true })
-          return
-        }
-
-        notifyError({
-          response: {
-            status: 422,
-            data: { message: "Nenhuma empresa vinculada a este usuário." },
-          },
-        })
-        return
-      }
-
-      navigate("/auth/contextos", { replace: true })
-    } catch (error) {
-      notifyError(error)
     } finally {
       setLoading(false)
     }
   }
+
+  const visibleError = secondsLeft > 0
+    ? `Muitas tentativas. Tente novamente em ${secondsLeft} segundos.`
+    : error
 
   return (
     <LoadingWrapper loading={checkingSession || loading}>
@@ -93,7 +128,6 @@ export default function LoginPage() {
             className="flex items-center gap-2 font-medium"
             onClick={(event) => event.preventDefault()}
           >
-            {/* Azul com laranja no light, só laranja no dark. */}
             <img src="/brand/logo-dark.svg" alt="Logiv" className="h-8 w-auto dark:hidden" />
             <img src="/brand/logo-mono.svg" alt="" className="hidden h-8 w-auto dark:block" />
           </a>
@@ -109,7 +143,9 @@ export default function LoginPage() {
                 <div className="flex flex-col items-center gap-1 text-center">
                   <h1 className="text-2xl font-bold">Entrar na sua conta</h1>
                   <p className="text-sm text-balance text-muted-foreground">
-                    Informe seu e-mail para acessar o sistema
+                    {emailLocked
+                      ? "Entre com este e-mail para continuar."
+                      : "Informe seu e-mail para acessar o sistema"}
                   </p>
                 </div>
                 <Field>
@@ -119,7 +155,11 @@ export default function LoginPage() {
                     type="email"
                     placeholder="usuario@empresa.com.br"
                     value={email}
-                    onChange={(event) => setEmail(event.target.value)}
+                    readOnly={emailLocked}
+                    onChange={(event) => {
+                      setEmail(event.target.value)
+                      clearError()
+                    }}
                     autoComplete="email"
                     required
                   />
@@ -127,26 +167,29 @@ export default function LoginPage() {
                 <Field>
                   <div className="flex items-center">
                     <FieldLabel htmlFor="password">Senha</FieldLabel>
-                    <a
-                      href="#"
+                    <Link
+                      to="/auth/forgot-password"
                       className="ml-auto text-sm underline-offset-4 hover:underline"
-                      onClick={(event) => event.preventDefault()}
                     >
                       Esqueceu a senha?
-                    </a>
+                    </Link>
                   </div>
-                  <Input
+                  <InputPassword
                     id="password"
-                    type="password"
                     placeholder="**********"
                     value={password}
-                    onChange={(event) => setPassword(event.target.value)}
+                    onChange={(value) => {
+                      setPassword(value)
+                      clearError()
+                    }}
                     autoComplete="current-password"
-                    required
                   />
                 </Field>
+                {visibleError ? (
+                  <p className="text-sm text-destructive" role="alert">{visibleError}</p>
+                ) : null}
                 <Field>
-                  <Button type="submit" disabled={loading}>
+                  <Button type="submit" disabled={loading || secondsLeft > 0}>
                     {loading ? "Entrando..." : "Entrar"}
                   </Button>
                 </Field>

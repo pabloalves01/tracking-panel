@@ -21,12 +21,20 @@ import {
 import { useSession } from '@/lib/auth/session'
 import { app, joinPath, navigation } from '@/navigation/sidebarNavigation'
 
-function visibleGroupsFor({ currentCompany, user }) {
-    return navigation.filter((group) => {
-        if (group.access === 'company') return Boolean(currentCompany)
-        if (group.access === 'system') return Boolean(user?.is_system_admin)
-        return true
-    })
+/**
+ * Os grupos que aparecem no menu.
+ *
+ * O filtro por papel saiu: todo membro tem o mesmo acesso. Sobra a
+ * distinção que é real — o que é da empresa e o que é do admin do sistema.
+ */
+function visibleGroupsFor({ organization, user }) {
+    return navigation
+        .filter((group) => {
+            if (group.access === 'company') return organization?.type === 'company'
+            if (group.access === 'system') return Boolean(user?.is_system_admin)
+            return true
+        })
+        .filter((group) => group.items.length > 0)
 }
 
 function sidebarHref(path) {
@@ -75,8 +83,8 @@ function openItemsForPath(pathname) {
 export function AppSidebar() {
     const { pathname } = useLocation()
     const { state, setOpen } = useSidebar()
-    const { user, currentCompany } = useSession()
-    const groups = visibleGroupsFor({ currentCompany, user })
+    const { user, current_organization: organization } = useSession()
+    const groups = visibleGroupsFor({ organization, user })
     const [openItems, setOpenItems] = useState(() => openItemsForPath(pathname))
 
     function toggleItem(itemPath, depth) {

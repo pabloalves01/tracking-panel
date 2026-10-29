@@ -30,12 +30,12 @@ class PixKeyForType implements DataAwareRule, ValidationRule
         $type = data_get($this->data, 'pix_key_type');
         $digits = preg_replace('/\D/', '', (string) $value) ?? '';
 
-        if ($type === 'cpf' && strlen($digits) !== 11) {
-            $fail('O CPF da chave PIX deve ter 11 dígitos');
+        if ($type === 'cpf' && ! Cpf::isValid($digits)) {
+            $fail('Informe um CPF válido para a chave PIX');
         }
 
-        if ($type === 'cnpj' && strlen($digits) !== 14) {
-            $fail('O CNPJ da chave PIX deve ter 14 dígitos');
+        if ($type === 'cnpj' && ! Cnpj::isValid($digits)) {
+            $fail('Informe um CNPJ válido para a chave PIX');
         }
 
         if ($type === 'email' && ! filter_var($value, FILTER_VALIDATE_EMAIL)) {

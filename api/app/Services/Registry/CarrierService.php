@@ -2,98 +2,51 @@
 
 namespace App\Services\Registry;
 
+use App\Enums\EntityRole;
 use App\Models\Registry\Carrier;
-use Illuminate\Support\Facades\DB;
-use DomainException;
 
-class CarrierService
+/**
+ * Transportadoras: a pessoa em `entities`, a transportadora em `carriers`.
+ */
+class CarrierService extends EntityRoleService
 {
-    public function __construct(private CommonEntityService $commonEntityService) {}
-
-    /**
-     * List all carriers
-     *
-     * @return \Illuminate\Database\Eloquent\Collection
-     */
-    public function list()
+    public function role(): EntityRole
     {
-        return Carrier::with('entity')->orderBy('created_at', 'desc')->get();
+        return EntityRole::Carrier;
     }
 
     /**
-     * Create a new carrier
-     *
-     * @param array $data
-     * @return \App\Models\Registry\Carrier
+     * @param  array<string, mixed>  $entityData
+     * @param  array<string, mixed>  $data
      */
-    public function store(array $data): Carrier
+    public function store(array $entityData, array $data): Carrier
     {
-        return DB::transaction(function () use ($data) {
-            $entity = $this->commonEntityService->findOrCreate($data['entity']);
+        $carrier = $this->transaction(function () use ($entityData, $data) {
+            $carrier = $this->enroll($entityData);
+            $carrier->fill($data)->save();
 
-            $existCarrier = Carrier::where('entity_id', $entity->id)->first();
+            return $carrier;
+        }, self::DOCUMENT_JUST_TAKEN);
 
-            if ($existCarrier) {
-                throw new DomainException('Já existe uma transportadora com este documento');
-            }
-
-            $carrier = Carrier::create([
-                'entity_id' => $entity->id,
-            ]);
-
-            return $carrier->load('entity');
-        });
+        return $this->get($carrier->uuid);
     }
 
     /**
-     * Get a carrier by UUID
+     * Os dados da pessoa valem para todos os papéis dela; os demais, só
+     * para este.
      *
-     * @param string $uuid
-     * @return \App\Models\Registry\Carrier
+     * @param  array<string, mixed>  $entityData
+     * @param  array<string, mixed>  $data
      */
-    public function get(string $uuid): Carrier
+    public function update(string $uuid, array $entityData, array $data): Carrier
     {
-        return Carrier::where('uuid', $uuid)->with('entity')->firstOrFail();
-    }
+        $this->transaction(function () use ($uuid, $entityData, $data) {
+            $carrier = $this->get($uuid);
 
-    /**
-     * A transportadora não tem coluna própria. A edição não grava nada
-     * e não altera a entidade.
-     *
-     * @param string $uuid
-     * @param array $data
-     * @return \App\Models\Registry\Carrier
-     */
-    public function update(string $uuid, array $data): Carrier
-    {
+            $this->entities->update($carrier->entity, $entityData);
+            $carrier->update($data);
+        }, self::DOCUMENT_TAKEN);
+
         return $this->get($uuid);
-    }
-
-    /**
-     * Deactivate a carrier
-     *
-     * @param string $uuid
-     * @return void
-     */
-    public function deactivate(string $uuid): void
-    {
-        DB::transaction(function () use ($uuid) {
-            $carrier = Carrier::where('uuid', $uuid)->firstOrFail();
-            $carrier->update(['status' => 'inactive']);
-        });
-    }
-
-    /**
-     * Activate a carrier
-     *
-     * @param string $uuid
-     * @return void
-     */
-    public function activate(string $uuid): void
-    {
-        DB::transaction(function () use ($uuid) {
-            $carrier = Carrier::where('uuid', $uuid)->firstOrFail();
-            $carrier->update(['status' => 'active']);
-        });
     }
 }

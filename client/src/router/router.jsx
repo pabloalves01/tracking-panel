@@ -1,39 +1,36 @@
 import { createBrowserRouter, Navigate } from 'react-router'
 
-import Home from '@/pages/Home'
+import AppHome from '@/pages/AppHome'
 import NotFound from '@/pages/NotFound'
-import Perimeter from '@/pages/Perimeter'
 import ProfilePage from '@/pages/ProfilePage'
 
+import accessRoutes from './access/accessRoutes'
 import authRoutes from './auth/authRoutes'
 import registryRoutes from './registry/registryRoutes'
-import { RequireCompany } from './RequireCompany'
-import { RequireFuelStation } from './RequireFuelStation'
-import stationRoutes from './station/stationRoutes'
+import { RequireOrganization } from './RequireOrganization'
+import fuelStationPanelRoutes from './fuelStation/fuelStationPanelRoutes'
 import systemRoutes from './system/systemRoutes'
 
 export const router = createBrowserRouter([
-  { path: '/', element: <Navigate to="/app" replace /> },
+    { path: '/', element: <Navigate to="/app" replace /> },
 
+    ...authRoutes,
 
-  ...authRoutes,
-
-  {
-    path: '/app',
-    element: <RequireCompany />,
-    children: [
-      { index: true, element: <Home /> },
-      { path: 'perfil', element: <ProfilePage /> },
-      { path: 'operacoes/rastreamento', element: <Perimeter /> },
-      ...registryRoutes,
-      ...systemRoutes,
-    ],
-  },
-  {
-    path: '/posto',
-    element: <RequireFuelStation />,
-    children: stationRoutes,
-  },
-  { path: '*', element: <NotFound /> },
-  // Sem layout. Exemplo: { path: '/login', element: <Login /> },
+    {
+        path: '/app',
+        element: <RequireOrganization type="company" />,
+        children: [
+            { index: true, element: <AppHome /> },
+            { path: 'perfil', element: <ProfilePage /> },
+            ...accessRoutes,
+            ...registryRoutes,
+            ...systemRoutes,
+        ],
+    },
+    {
+        path: '/posto',
+        element: <RequireOrganization type="fuel_station" />,
+        children: fuelStationPanelRoutes,
+    },
+    { path: '*', element: <NotFound /> },
 ])

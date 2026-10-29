@@ -2,52 +2,20 @@
 
 namespace App\Models\Registry;
 
-use App\Models\Company;
+use App\Enums\EntityRole;
+use App\Models\Registry\Concerns\IsEntityRole;
 use Illuminate\Database\Eloquent\Model;
-use App\Models\Concerns\BelongsToCompany;
-use Illuminate\Database\Eloquent\Concerns\HasUuids;
-use Illuminate\Database\Eloquent\SoftDeletes;
-use Override;
 
+/**
+ * Proprietário de veículo. Os dados da pessoa ficam em `Entity`; as colunas próprias do
+ * papel entram aqui conforme ele as ganhar.
+ */
 class VehicleOwner extends Model
 {
-    use HasUuids;
-    use BelongsToCompany;
-    use SoftDeletes;
+    use IsEntityRole;
 
-    protected $table = 'vehicle_owners';
-
-    protected $fillable = [
-        'company_id',
-        'entity_id',
-        'pix_key_type',
-        'pix_key',
-        'status',
-    ];
-
-    // ================================ BELONGS TO RELATIONS ================================
-
-    /**
-     * The company that the vehicle owner belongs to.
-     */
-    public function company()
+    public function role(): EntityRole
     {
-        return $this->belongsTo(Company::class);
-    }
-
-    /**
-     * The entity that the vehicle owner belongs to.
-     */
-    public function entity()
-    {
-        return $this->belongsTo(CommonEntity::class);
-    }
-
-    // ================================ OVERRIDE METHODS ================================
-
-    #[Override]
-    public function uniqueIds()
-    {
-        return ['uuid'];
+        return EntityRole::VehicleOwner;
     }
 }

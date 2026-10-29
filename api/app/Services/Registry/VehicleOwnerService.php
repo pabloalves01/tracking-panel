@@ -2,109 +2,51 @@
 
 namespace App\Services\Registry;
 
+use App\Enums\EntityRole;
 use App\Models\Registry\VehicleOwner;
-use Illuminate\Support\Facades\DB;
-use DomainException;
 
-class VehicleOwnerService
+/**
+ * Proprietários de veículo: a pessoa em `entities`, o proprietário em `vehicle_owners`.
+ */
+class VehicleOwnerService extends EntityRoleService
 {
-    public function __construct(private CommonEntityService $commonEntityService) {}
-
-    /**
-     * List all vehicleOwners
-     *
-     * @return \Illuminate\Database\Eloquent\Collection
-     */
-    public function list()
+    public function role(): EntityRole
     {
-        return VehicleOwner::with('entity')->orderBy('created_at', 'desc')->get();
+        return EntityRole::VehicleOwner;
     }
 
     /**
-     * Create a new vehicleOwner
-     *
-     * @param array $data
-     * @return \App\Models\Registry\VehicleOwner
+     * @param  array<string, mixed>  $entityData
+     * @param  array<string, mixed>  $data
      */
-    public function store(array $data): VehicleOwner
+    public function store(array $entityData, array $data): VehicleOwner
     {
-        return DB::transaction(function () use ($data) {
-            $entity = $this->commonEntityService->findOrCreate($data['entity']);
-
-            $existVehicleOwner = VehicleOwner::where('entity_id', $entity->id)->first();
-
-            if ($existVehicleOwner) {
-                throw new DomainException('Já existe um proprietário com este documento');
-            }
-
-            $vehicleOwner = VehicleOwner::create([
-                'entity_id' => $entity->id,
-                'pix_key_type' => $data['pix_key_type'],
-                'pix_key' => $data['pix_key'],
-            ]);
-
-            return $vehicleOwner->load('entity');
-        });
-    }
-
-    /**
-     * Get a vehicleOwner by UUID
-     *
-     * @param string $uuid
-     * @return \App\Models\Registry\VehicleOwner
-     */
-    public function get(string $uuid): VehicleOwner
-    {
-        return VehicleOwner::where('uuid', $uuid)->with('entity')->firstOrFail();
-    }
-
-    /**
-     * Update a vehicleOwner
-     *
-     * @param string $uuid
-     * @param array $data
-     * @return \App\Models\Registry\VehicleOwner
-     */
-    public function update(string $uuid, array $data): VehicleOwner
-    {
-        return DB::transaction(function () use ($uuid, $data) {
-            $vehicleOwner = $this->get($uuid);
-
-            $vehicleOwner->update([
-                'pix_key_type' => $data['pix_key_type'],
-                'pix_key' => $data['pix_key'],
-            ]);
+        $vehicleOwner = $this->transaction(function () use ($entityData, $data) {
+            $vehicleOwner = $this->enroll($entityData);
+            $vehicleOwner->fill($data)->save();
 
             return $vehicleOwner;
-        });
+        }, self::DOCUMENT_JUST_TAKEN);
+
+        return $this->get($vehicleOwner->uuid);
     }
 
     /**
-     * Deactivate a vehicleOwner
+     * Os dados da pessoa valem para todos os papéis dela; os demais, só
+     * para este.
      *
-     * @param string $uuid
-     * @return void
+     * @param  array<string, mixed>  $entityData
+     * @param  array<string, mixed>  $data
      */
-    public function deactivate(string $uuid): void
+    public function update(string $uuid, array $entityData, array $data): VehicleOwner
     {
-        DB::transaction(function () use ($uuid) {
-            $vehicleOwner = VehicleOwner::where('uuid', $uuid)->firstOrFail();
-            $vehicleOwner->update(['status' => 'inactive']);
-        });
-    }
+        $this->transaction(function () use ($uuid, $entityData, $data) {
+            $vehicleOwner = $this->get($uuid);
 
-    /**
-     * Activate a vehicleOwner
-     *
-     * @param string $uuid
-     * @return void
-     */
-    public function activate(string $uuid): void
-    {
-        DB::transaction(function () use ($uuid) {
-            $vehicleOwner = VehicleOwner::where('uuid', $uuid)->firstOrFail();
-            $vehicleOwner->update(['status' => 'active']);
-        });
-    }
+            $this->entities->update($vehicleOwner->entity, $entityData);
+            $vehicleOwner->update($data);
+        }, self::DOCUMENT_TAKEN);
 
+        return $this->get($uuid);
+    }
 }

@@ -19,8 +19,39 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
     (response) => response,
     (error) => {
+        // Perdeu o vínculo, não selecionou organização, ou entrou numa área
+        // que não é do tipo da organização ativa: o seletor resolve os três.
+        const organizationCodes = [
+            'organization_access_lost',
+            'organization_not_selected',
+            'organization_wrong_type',
+        ]
+
+        if (organizationCodes.includes(error.response?.data?.code)) {
+            if (window.location.pathname !== '/auth/organizacoes') {
+                window.location.assign('/auth/organizacoes')
+            }
+            return Promise.reject(error)
+        }
+
         const isLogin = error.config?.url?.includes('/auth/login')
-        if (error.response?.status === 401 && !isLogin) {
+        const onAuthScreen = window.location.pathname.startsWith('/auth/')
+        if (error.response?.status === 403) {
+            const data = error.response.data
+            const message = data && typeof data === 'object' ? data.message : ''
+            const english = !message
+                || message === 'This action is unauthorized.'
+                || message === 'This action is unauthorized'
+                || message === 'Forbidden'
+            if (english) {
+                error.response.data = {
+                    ...(data && typeof data === 'object' ? data : {}),
+                    message: 'Você não tem permissão para esta ação.',
+                }
+            }
+        }
+
+        if (error.response?.status === 401 && !isLogin && !onAuthScreen) {
             localStorage.removeItem('token')
             if (window.location.pathname !== '/auth/login') {
                 window.location.assign('/auth/login')

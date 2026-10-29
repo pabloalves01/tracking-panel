@@ -10,7 +10,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
  * `disabled`: desabilita o clique. Desabilitado, o tooltip não aparece.
  * `variant`: mesmo do `Button`. Padrão `outline`.
  */
-export function ActionButton({ icon: Icon, tooltip, disabled = false, variant = 'outline', onClick, ...props }) {
+export function ActionButton({ icon: Icon, tooltip, disabled = false, variant = 'outline', onClick, permission: _permission = 'write', ...props }) {
     return (
         <Tooltip>
             <TooltipTrigger

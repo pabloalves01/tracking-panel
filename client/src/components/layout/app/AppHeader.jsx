@@ -1,7 +1,7 @@
 import { LogOut, User } from 'lucide-react'
 import { useNavigate } from 'react-router'
 
-import { CompanySwitcher } from '@/components/layout/app/CompanySwitcher'
+import { OrganizationSwitcher } from '@/components/layout/OrganizationSwitcher'
 import { ThemeToggle } from '@/components/layout/ThemeToggle'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
@@ -9,6 +9,7 @@ import {
     DropdownMenuContent,
     DropdownMenuGroup,
     DropdownMenuItem,
+    DropdownMenuLabel,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
@@ -46,20 +47,21 @@ export function AppHeader() {
                 <Separator orientation="vertical" className="data-vertical:h-4" />
             </div>
 
-            <div className="ml-auto flex items-center gap-3">
-                <CompanySwitcher />
+            <div className="ml-auto flex min-w-0 items-center gap-2 sm:gap-3">
+                <OrganizationSwitcher />
                 <ThemeToggle />
                 <DropdownMenu>
                     <DropdownMenuTrigger
                         render={
                             <button
                                 type="button"
-                                className="flex items-center gap-2 rounded-lg px-1 py-1 transition-colors hover:bg-muted"
+                                aria-label={`Conta de ${user.name}`}
+                                className="flex shrink-0 items-center gap-2 rounded-lg px-1 py-1 transition-colors hover:bg-muted"
                             >
                                 <Avatar>
                                     <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
                                 </Avatar>
-                                <span className="grid text-left text-sm leading-tight">
+                                <span className="hidden text-left text-sm leading-tight md:grid">
                                     <span className="truncate font-medium">{user.name}</span>
                                     <span className="truncate text-xs text-muted-foreground">
                                         {user.email}
@@ -70,6 +72,13 @@ export function AppHeader() {
                     />
                     <DropdownMenuContent align="end" className="w-56">
                         <DropdownMenuGroup>
+                            {/* No celular o nome e o e-mail saem do cabeçalho
+                                e aparecem aqui, para a pessoa saber em que
+                                conta está. */}
+                            <DropdownMenuLabel className="md:hidden">
+                                <span className="block truncate text-sm text-foreground">{user.name}</span>
+                                <span className="block truncate font-normal">{user.email}</span>
+                            </DropdownMenuLabel>
                             <DropdownMenuItem onClick={() => navigate('/app/perfil')}>
                                 <User />
                                 Meu perfil

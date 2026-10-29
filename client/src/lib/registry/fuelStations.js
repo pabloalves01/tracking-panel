@@ -1,45 +1,32 @@
 import { api } from '../api'
 
 /**
- * Get all requests to link a company to a fuel station.
- * @returns (array) requests data
+ * Os postos conveniados, do lado da empresa.
+ *
+ * O endereço agora usa o uuid do vínculo, não o do posto: o vínculo é o que
+ * tem estado, e é dele que as ações falam.
  */
-export function getCompanyFuelStations() {
+
+export function getFuelStationAgreements() {
     return api.get('/registry/fuel-stations').then((response) => response.data.data)
 }
 
-/**
- * Lookup a fuel station by CNPJ.
- * @param {*} cnpj 
- * @returns (object) fuel station data
- */
-export function lookupCompanyFuelStation(cnpj) {
-    return api.get('/registry/fuel-stations/by-cnpj', { params: { cnpj } }).then((response) => response.data.data)
+/** Procura um posto pelo CNPJ antes de pedir o convênio. */
+export function lookupFuelStation(document) {
+    return api
+        .get('/registry/fuel-stations/by-document', { params: { document } })
+        .then((response) => response.data.data)
 }
 
-/**
- * Store a request to link a company to a fuel station.
- * @param {*} cnpj 
- * @returns (string) success message
- */
-export function storeCompanyFuelStation(cnpj) {
-    return api.post('/registry/fuel-stations', { cnpj }).then((response) => response.data)
+export function requestFuelStationAgreement(document) {
+    return api.post('/registry/fuel-stations', { document }).then((response) => response.data)
 }
 
-/**
- * Delete a request to link a company to a fuel station.
- * @param {*} cnpj 
- * @returns (string) success message
- */
-export function deleteCompanyFuelStation(cnpj) {
-    return api.delete(`/registry/fuel-stations/${cnpj}`).then((response) => response.data)
+/** Cancela um pedido que o posto ainda não respondeu. */
+export function cancelFuelStationAgreement(uuid) {
+    return api.delete(`/registry/fuel-stations/${uuid}`).then((response) => response.data)
 }
 
-/**
- * Resend a request to link a company to a fuel station.
- * @param {*} cnpj 
- * @returns (string) success message
- */
-export function resendCompanyFuelStationRequest(cnpj) {
-    return api.post(`/registry/fuel-stations/${cnpj}/resend-request`).then((response) => response.data)
+export function disconnectFuelStationAgreement(uuid) {
+    return api.post(`/registry/fuel-stations/${uuid}/disconnect`).then((response) => response.data)
 }

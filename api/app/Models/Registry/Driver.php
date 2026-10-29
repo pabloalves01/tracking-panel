@@ -2,64 +2,51 @@
 
 namespace App\Models\Registry;
 
-use App\Models\Company;
-use App\Models\Concerns\BelongsToCompany;
-use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use App\Enums\EntityRole;
+use App\Models\Registry\Concerns\IsEntityRole;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
-use Override;
-use Illuminate\Database\Eloquent\SoftDeletes;
+
+/**
+ * Motorista. Os dados da pessoa ficam em `Entity`; aqui, a CNH.
+ */
 class Driver extends Model
 {
-    use HasUuids;
-    use BelongsToCompany;
-    use SoftDeletes;
-
-    protected $table = 'drivers';
+    use IsEntityRole;
 
     protected $fillable = [
-        'company_id',
-        'entity_id',
         'license_number',
         'license_category',
         'license_expires_on',
         'license_issued_state',
         'residence_proof_path',
-        'status',
     ];
 
-    /**
-     * @return array<string, string>
-     */
     protected function casts(): array
     {
         return [
-            'license_expires_on' => 'date:Y-m-d',
+            'license_expires_on' => 'date',
         ];
     }
 
-    // ================================ BELONGS TO RELATIONS ================================
-
-    /**
-     * The company that the driver belongs to.
-     */
-    public function company()
+    public function role(): EntityRole
     {
-        return $this->belongsTo(Company::class);
+        return EntityRole::Driver;
     }
 
     /**
-     * The entity that the driver belongs to.
+     * UF e categoria em maiúsculas, venham de onde vierem.
+     *
+     * Sem isto, "sp" e "SP" viram dois valores para o mesmo estado e um
+     * filtro por UF perde as linhas de quem digitou minúsculo.
      */
-    public function entity()
+    protected function licenseIssuedState(): Attribute
     {
-        return $this->belongsTo(CommonEntity::class);
+        return Attribute::set(fn (?string $value) => $value === null ? null : mb_strtoupper(trim($value)));
     }
 
-    // ================================ OVERRIDE METHODS ================================
-
-    #[Override]
-    public function uniqueIds()
+    protected function licenseCategory(): Attribute
     {
-        return ['uuid'];
+        return Attribute::set(fn (?string $value) => $value === null ? null : mb_strtoupper(trim($value)));
     }
 }

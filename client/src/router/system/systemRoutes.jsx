@@ -1,26 +1,18 @@
-import SystemPage from "@/pages/system/SystemPage"
-import CompaniesPage from "@/pages/system/CompaniesPage"
-import CompanyFormPage from "@/pages/system/CompanyFormPage"
+import OrganizationFormPage from '@/pages/system/OrganizationFormPage'
+import OrganizationsPage from '@/pages/system/OrganizationsPage'
+import SystemPage from '@/pages/system/SystemPage'
+
 export default [
     {
         path: 'sistema',
         children: [
-            {
-                path: '',
-                element: <SystemPage />,
-            },
-            {
-                path: 'empresas',
-                element: <CompaniesPage />,
-            },
-            {
-                path: 'empresas/novo',
-                element: <CompanyFormPage />,
-            },
-            {
-                path: 'empresas/:uuid/editar',
-                element: <CompanyFormPage />,
-            }
+            { index: true, element: <SystemPage /> },
+            { path: 'organizacoes', element: <OrganizationsPage /> },
+            { path: 'organizacoes/nova', element: <OrganizationFormPage /> },
+            { path: 'organizacoes/:uuid/editar', element: <OrganizationFormPage /> },
+
+            // Endereço antigo.
+            { path: 'empresas', element: <OrganizationsPage /> },
         ],
     },
 ]

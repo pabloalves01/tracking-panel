@@ -1,0 +1,206 @@
+import { useEffect, useState } from "react"
+import { Building2 } from "lucide-react"
+
+import { LayoutToolbar } from "@/components/common/LayoutToolbar"
+import { LoadingWrapper } from "@/components/common/LoadingWrapper"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { formatCpfCnpj } from "@/helpers/formatters"
+import { linkStatusLabel, statusBadgeClass } from "@/helpers/labels/linkStatusLabel"
+import { acceptFuelStationCompany, disconnectFuelStationCompany, getFuelStationCompanies, rejectFuelStationCompany } from "@/lib/fuelStation/companies"
+import { notifyError, notifySuccess } from "@/lib/notify"
+
+function companyLabel(link) {
+    return link?.company?.display_name || "esta empresa"
+}
+
+export default function FuelStationCompaniesPage() {
+    const [links, setLinks] = useState([])
+    const [loading, setLoading] = useState(true)
+    const [linkToUndo, setLinkToUndo] = useState(null)
+    const [linkToReject, setLinkToReject] = useState(null)
+
+    useEffect(() => {
+        getFuelStationCompanies()
+            .then(setLinks)
+            .catch(notifyError)
+            .finally(() => setLoading(false))
+    }, [])
+
+    function loadLinks() {
+        setLoading(true)
+        getFuelStationCompanies()
+            .then(setLinks)
+            .catch(notifyError)
+            .finally(() => setLoading(false))
+    }
+
+    async function handleAccept(link) {
+        setLoading(true)
+
+        try {
+            notifySuccess(await acceptFuelStationCompany(link.uuid))
+            loadLinks()
+        } catch (error) {
+            notifyError(error)
+            setLoading(false)
+        }
+    }
+
+    async function handleReject() {
+        if (!linkToReject) return
+        setLoading(true)
+
+        try {
+            notifySuccess(await rejectFuelStationCompany(linkToReject.uuid))
+            loadLinks()
+        } catch (error) {
+            notifyError(error)
+        } finally {
+            setLinkToReject(null)
+            setLoading(false)
+        }
+    }
+
+    async function handleDisconnect() {
+        if (!linkToUndo) {
+            return
+        }
+
+        setLoading(true)
+
+        try {
+            const response = await disconnectFuelStationCompany(linkToUndo.uuid)
+            notifySuccess(response)
+            loadLinks()
+        } catch (error) {
+            notifyError(error)
+        } finally {
+            setLinkToUndo(null)
+            setLoading(false)
+        }
+    }
+
+    return (
+        <>
+            <LayoutToolbar breadcrumbs={[{ text: "Início", to: "/posto" }, { text: "Empresas" }]} />
+
+            <LoadingWrapper loading={loading}>
+                {!loading && links.length === 0 ? (
+                    <Empty>
+                        <EmptyHeader>
+                            <EmptyMedia variant="icon">
+                                <Building2 />
+                            </EmptyMedia>
+                            <EmptyTitle>Nenhuma empresa</EmptyTitle>
+                            <EmptyDescription>
+                                Os pedidos de vínculo aparecem aqui quando uma empresa informa o CNPJ deste posto.
+                            </EmptyDescription>
+                        </EmptyHeader>
+                    </Empty>
+                ) : (
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Empresa</TableHead>
+                                <TableHead>CNPJ</TableHead>
+                                <TableHead>Situação</TableHead>
+                                <TableHead>Ações</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {links.map((link) => (
+                                <TableRow key={link.uuid}>
+                                    <TableCell>
+                                        {link.company.display_name}
+                                    </TableCell>
+                                    <TableCell>{formatCpfCnpj(link.company.document)}</TableCell>
+                                    <TableCell>
+                                        <Badge variant="outline" className={statusBadgeClass(link.status)}>
+                                            {linkStatusLabel[link.status] ?? link.status}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="flex gap-2">
+                                            {link.status === "request_sent" ? (
+                                                <Button type="button" size="sm" onClick={() => handleAccept(link)}>
+                                                    Aceitar
+                                                </Button>
+                                            ) : null}
+                                            {link.status === "request_sent" ? (
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => setLinkToReject(link)}
+                                                >
+                                                    Recusar
+                                                </Button>
+                                            ) : null}
+                                            {link.status === "active" ? (
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => setLinkToUndo(link)}
+                                                >
+                                                    Desfazer
+                                                </Button>
+                                            ) : null}
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                )}
+            </LoadingWrapper>
+
+            <AlertDialog open={!!linkToUndo} onOpenChange={(open) => !open && setLinkToUndo(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Desfazer vínculo</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {`Tem certeza que deseja desfazer o vínculo com ${companyLabel(linkToUndo)}?`}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction variant="destructive" onClick={handleDisconnect}>
+                            Desfazer
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog open={!!linkToReject} onOpenChange={(open) => !open && setLinkToReject(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Recusar pedido</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {`Tem certeza que deseja recusar o pedido de ${companyLabel(linkToReject)}?`}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction variant="destructive" onClick={handleReject}>
+                            Recusar
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        </>
+    )
+}

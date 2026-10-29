@@ -2,49 +2,20 @@
 
 namespace App\Models\Registry;
 
-use App\Models\Company;
-use App\Models\Concerns\BelongsToCompany;
+use App\Enums\EntityRole;
+use App\Models\Registry\Concerns\IsEntityRole;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Concerns\HasUuids;
-use Override;
-use Illuminate\Database\Eloquent\SoftDeletes;
+
+/**
+ * Funcionário. Os dados da pessoa ficam em `Entity`; as colunas próprias do
+ * papel entram aqui conforme ele as ganhar.
+ */
 class Employee extends Model
 {
-    use HasUuids;
-    use BelongsToCompany;
-    use SoftDeletes;
+    use IsEntityRole;
 
-    protected $table = 'employees';
-
-    protected $fillable = [
-        'company_id',
-        'entity_id',
-        'status',
-    ];
-
-    // ================================ BELONGS TO RELATIONS ================================
-
-    /**
-     * The company that the employee belongs to.
-     */
-    public function company()
+    public function role(): EntityRole
     {
-        return $this->belongsTo(Company::class);
-    }
-
-    /**
-     * The entity that the employee belongs to.
-     */
-    public function entity()
-    {
-        return $this->belongsTo(CommonEntity::class);
-    }
-
-    // ================================ OVERRIDE METHODS ================================
-
-    #[Override]
-    public function uniqueIds()
-    {
-        return ['uuid'];
+        return EntityRole::Employee;
     }
 }

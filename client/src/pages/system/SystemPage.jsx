@@ -5,7 +5,7 @@ export default function SystemPage() {
         <>
             <LayoutToolbar
                 breadcrumbs={[
-                    { text: 'Início', to: '/' },
+                    { text: 'Início', to: '/app' },
                     { text: 'Sistema' },
                 ]}
             />

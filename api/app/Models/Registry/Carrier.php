@@ -2,51 +2,20 @@
 
 namespace App\Models\Registry;
 
-use App\Models\Company;
-use App\Models\Concerns\BelongsToCompany;
-use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use App\Enums\EntityRole;
+use App\Models\Registry\Concerns\IsEntityRole;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\SoftDeletes;
-use Override;
 
+/**
+ * Transportadora. Os dados da pessoa ficam em `Entity`; as colunas próprias do
+ * papel entram aqui conforme ele as ganhar.
+ */
 class Carrier extends Model
 {
-    use HasUuids;
-    use BelongsToCompany;
-    use SoftDeletes;
-    
-    protected $table = 'carriers';
-    protected $fillable = [
-        'company_id',
-        'entity_id',
-        'status',
-    ];
+    use IsEntityRole;
 
-    // ============================== BELONGS TO RELATIONS ==============================
-
-
-    /**
-     * The company that the carrier belongs to.
-     */
-    public function company(): BelongsTo
+    public function role(): EntityRole
     {
-        return $this->belongsTo(Company::class);
-    }   
-
-    /**
-     * The entity that the carrier belongs to.
-     */
-    public function entity(): BelongsTo
-    {
-        return $this->belongsTo(CommonEntity::class);
-    }
-
-    // ================================ OVERRIDE METHODS ================================
-
-    #[Override]
-    public function uniqueIds()
-    {
-        return ['uuid'];
+        return EntityRole::Carrier;
     }
 }

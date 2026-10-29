@@ -1,20 +1,25 @@
 import { Navigate } from 'react-router'
 
-import LoginPage from '@/pages/auth/LoginPage'
-import RegisterPage from '@/pages/auth/RegisterPage'
-import RegisterFuelStationPage from '@/pages/auth/RegisterFuelStationPage'
 import ForgotPasswordPage from '@/pages/auth/ForgotPasswordPage'
-import SelectContextPage from '@/pages/auth/SelectContextPage'
+import InvitationPage from '@/pages/auth/InvitationPage'
+import LoginPage from '@/pages/auth/LoginPage'
+import RegisterFuelStationPage from '@/pages/auth/RegisterFuelStationPage'
+import SelectOrganizationPage from '@/pages/auth/SelectOrganizationPage'
+
 export default [
     {
         path: '/auth',
         children: [
             { path: 'login', element: <LoginPage /> },
-            { path: 'register', element: <RegisterPage /> },
+            { path: 'register', element: <Navigate to="/auth/login" replace /> },
             { path: 'register/posto', element: <RegisterFuelStationPage /> },
-            { path: 'empresas', element: <Navigate to="/auth/contextos" replace /> },
-            { path: 'contextos', element: <SelectContextPage /> },
+            { path: 'convite/:token', element: <InvitationPage /> },
+            { path: 'organizacoes', element: <SelectOrganizationPage /> },
             { path: 'forgot-password', element: <ForgotPasswordPage /> },
+
+            // Endereços antigos: "contexto" virou "organização".
+            { path: 'contextos', element: <Navigate to="/auth/organizacoes" replace /> },
+            { path: 'empresas', element: <Navigate to="/auth/organizacoes" replace /> },
         ],
     },
 ]

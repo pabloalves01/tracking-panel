@@ -2,109 +2,51 @@
 
 namespace App\Services\Registry;
 
+use App\Enums\EntityRole;
 use App\Models\Registry\VehicleResponsible;
-use Illuminate\Support\Facades\DB;
-use DomainException;
 
-class VehicleResponsibleService
+/**
+ * Responsáveis por veículo: a pessoa em `entities`, o responsável em `vehicle_responsibles`.
+ */
+class VehicleResponsibleService extends EntityRoleService
 {
-    public function __construct(private CommonEntityService $commonEntityService) {}
-
-    /**
-     * List all vehicleResponsibles
-     *
-     * @return \Illuminate\Database\Eloquent\Collection
-     */
-    public function list()
+    public function role(): EntityRole
     {
-        return VehicleResponsible::with('entity')->orderBy('created_at', 'desc')->get();
+        return EntityRole::VehicleResponsible;
     }
 
     /**
-     * Create a new vehicleResponsible
-     *
-     * @param array $data
-     * @return \App\Models\Registry\VehicleResponsible
+     * @param  array<string, mixed>  $entityData
+     * @param  array<string, mixed>  $data
      */
-    public function store(array $data): VehicleResponsible
+    public function store(array $entityData, array $data): VehicleResponsible
     {
-        return DB::transaction(function () use ($data) {
-            $entity = $this->commonEntityService->findOrCreate($data['entity']);
+        $responsible = $this->transaction(function () use ($entityData, $data) {
+            $responsible = $this->enroll($entityData);
+            $responsible->fill($data)->save();
 
-            $existVehicleResponsible = VehicleResponsible::where('entity_id', $entity->id)->first();
+            return $responsible;
+        }, self::DOCUMENT_JUST_TAKEN);
 
-            if ($existVehicleResponsible) {
-                throw new DomainException('Já existe um responsável com este documento');
-            }
-
-            $vehicleResponsible = VehicleResponsible::create([
-                'entity_id' => $entity->id,
-                'pix_key_type' => $data['pix_key_type'],
-                'pix_key' => $data['pix_key'],
-            ]);
-
-            return $vehicleResponsible->load('entity');
-        });
+        return $this->get($responsible->uuid);
     }
 
     /**
-     * Get a vehicleResponsible by UUID
+     * Os dados da pessoa valem para todos os papéis dela; os demais, só
+     * para este.
      *
-     * @param string $uuid
-     * @return \App\Models\Registry\VehicleResponsible
+     * @param  array<string, mixed>  $entityData
+     * @param  array<string, mixed>  $data
      */
-    public function get(string $uuid): VehicleResponsible
+    public function update(string $uuid, array $entityData, array $data): VehicleResponsible
     {
-        return VehicleResponsible::where('uuid', $uuid)->with('entity')->firstOrFail();
+        $this->transaction(function () use ($uuid, $entityData, $data) {
+            $responsible = $this->get($uuid);
+
+            $this->entities->update($responsible->entity, $entityData);
+            $responsible->update($data);
+        }, self::DOCUMENT_TAKEN);
+
+        return $this->get($uuid);
     }
-
-    /**
-     * Update a vehicleResponsible
-     *
-     * @param string $uuid
-     * @param array $data
-     * @return \App\Models\Registry\VehicleResponsible
-     */
-    public function update(string $uuid, array $data): VehicleResponsible
-    {
-        return DB::transaction(function () use ($uuid, $data) {
-            $vehicleResponsible = $this->get($uuid);
-
-            $vehicleResponsible->update([
-                'pix_key_type' => $data['pix_key_type'],
-                'pix_key' => $data['pix_key'],
-            ]);
-
-            return $vehicleResponsible;
-        });
-    }
-
-    /**
-     * Deactivate a vehicleResponsible
-     *
-     * @param string $uuid
-     * @return void
-     */
-    public function deactivate(string $uuid): void
-    {
-        DB::transaction(function () use ($uuid) {
-            $vehicleResponsible = VehicleResponsible::where('uuid', $uuid)->firstOrFail();
-            $vehicleResponsible->update(['status' => 'inactive']);
-        });
-    }
-
-    /**
-     * Activate a vehicleResponsible
-     *
-     * @param string $uuid
-     * @return void
-     */
-    public function activate(string $uuid): void
-    {
-        DB::transaction(function () use ($uuid) {
-            $vehicleResponsible = VehicleResponsible::where('uuid', $uuid)->firstOrFail();
-            $vehicleResponsible->update(['status' => 'active']);
-        });
-    }
-
 }

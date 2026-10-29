@@ -1,3 +1,5 @@
+"use client"
+
 import { useTheme } from "next-themes"
 import { Toaster as Sonner } from "sonner";
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -6,7 +8,7 @@ import { CheckmarkCircle02Icon, InformationCircleIcon, Alert02Icon, Multiplicati
 const Toaster = ({
   ...props
 }) => {
-  const { theme = "light" } = useTheme()
+  const { theme = "system" } = useTheme()
 
   return (
     <Sonner

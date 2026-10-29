@@ -2,138 +2,29 @@
 
 namespace App\Http\Controllers\Registry;
 
-use App\Http\Controllers\Controller;
-use App\Http\Requests\Registry\Customer\StoreCustomerRequest;
-use App\Http\Requests\Registry\Customer\UpdateCustomerRequest;
-use App\Http\Resources\Registry\Customer\CustomerResource;
+use App\Http\Requests\Registry\CustomerRequest;
 use App\Services\Registry\CustomerService;
-use DomainException;
-use Exception;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Http\JsonResponse;
 
-class CustomerController extends Controller
+/**
+ * Clientes.
+ */
+class CustomerController extends EntityRoleController
 {
-    public function __construct(private CustomerService $customerService) {}
+    public function __construct(private readonly CustomerService $customers) {}
 
-    public function index()
+    protected function service(): CustomerService
     {
-        try {
-            $customers = $this->customerService->list();
-
-            return CustomerResource::collection($customers);
-        } catch (DomainException $e) {
-            Log::error($e->getMessage());
-            return response()->json([
-                'message' => $e->getMessage(),
-            ], 409);
-        } catch (Exception $e) {
-            Log::error($e->getMessage());
-            return response()->json([
-                'message' => $e->getMessage(),
-            ], 500);
-        }
+        return $this->customers;
     }
 
-    public function store(StoreCustomerRequest $request)
+    public function store(CustomerRequest $request): JsonResponse
     {
-        try {
-            $this->customerService->store($request->validated());
-
-            return response()->json([
-                'message' => 'Cliente criado com sucesso',
-            ], 201);
-        } catch (DomainException $e) {
-            Log::error($e->getMessage());
-            return response()->json([
-                'message' => $e->getMessage(),
-            ], 409);
-        } catch (Exception $e) {
-            Log::error($e->getMessage());
-            return response()->json([
-                'message' => $e->getMessage(),
-            ], 500);
-        }
+        return $this->created($this->customers->store($request->entityData(), $request->roleData()));
     }
 
-    public function show(string $uuid)
+    public function update(CustomerRequest $request, string $uuid): JsonResponse
     {
-        try {
-            $customer = $this->customerService->get($uuid);
-
-            return new CustomerResource($customer);
-        } catch (DomainException $e) {
-            Log::error($e->getMessage());
-            return response()->json([
-                'message' => $e->getMessage(),
-            ], 409);
-        } catch (Exception $e) {
-            Log::error($e->getMessage());
-            return response()->json([
-                'message' => $e->getMessage(),
-            ], 500);
-        }
-    }
-
-    public function update(UpdateCustomerRequest $request, string $uuid)
-    {
-        try {
-            $this->customerService->update($uuid, $request->validated());
-
-            return response()->json([
-                'message' => 'Cliente atualizado com sucesso',
-            ], 200);
-        } catch (DomainException $e) {
-            Log::error($e->getMessage());
-            return response()->json([
-                'message' => $e->getMessage(),
-            ], 409);
-        } catch (Exception $e) {
-            Log::error($e->getMessage());
-            return response()->json([
-                'message' => $e->getMessage(),
-            ], 500);
-        }
-    }
-
-    public function deactivate(string $uuid)
-    {
-        try {
-            $this->customerService->deactivate($uuid);
-
-            return response()->json([
-                'message' => 'Cliente desativado com sucesso',
-            ]);
-        } catch (DomainException $e) {
-            Log::error($e->getMessage());
-            return response()->json([
-                'message' => $e->getMessage(),
-            ], 409);
-        } catch (Exception $e) {
-            Log::error($e->getMessage());
-            return response()->json([
-                'message' => $e->getMessage(),
-            ], 500);
-        }
-    }
-
-    public function activate(string $uuid)
-    {
-        try {
-            $this->customerService->activate($uuid);
-
-            return response()->json([
-                'message' => 'Cliente ativado com sucesso',
-            ]);
-        } catch (DomainException $e) {
-            Log::error($e->getMessage());
-            return response()->json([
-                'message' => $e->getMessage(),
-            ], 409);
-        } catch (Exception $e) {
-            Log::error($e->getMessage());
-            return response()->json([
-                'message' => $e->getMessage(),
-            ], 500);
-        }
+        return $this->updated($this->customers->update($uuid, $request->entityData(), $request->roleData()));
     }
 }
