@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Registry;
 
 use App\Http\Requests\Registry\CarrierRequest;
+use App\Http\Resources\Registry\CarrierResource;
 use App\Services\Registry\CarrierService;
 use Illuminate\Http\JsonResponse;
 
@@ -16,6 +17,11 @@ class CarrierController extends EntityRoleController
     protected function service(): CarrierService
     {
         return $this->carriers;
+    }
+
+    protected function resource(): string
+    {
+        return CarrierResource::class;
     }
 
     public function store(CarrierRequest $request): JsonResponse
