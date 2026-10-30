@@ -1,6 +1,20 @@
 <laravel-boost-guidelines>
 # Laravel Application
 
+## Cloud Agent environment
+
+The React client lives in `client/` and talks to this API. Local development uses PostgreSQL 16 with PostGIS, not the SQLite default in `.env.example`: `ship_operations_perimeter.perimeter` is a `geography(Polygon, 4326)` column, so `php artisan migrate` fails on SQLite.
+
+- PHP must be 8.4.1 or newer. `composer.json` allows `^8.3`, but the lockfile pulls Symfony 8 packages that require 8.4.1.
+- API: `php artisan serve --host 0.0.0.0 --port 8000` from `api/`. Health check: `GET /api/health`.
+- Client: `npm run dev -- --host 0.0.0.0 --port 5173` from `client/`, with `VITE_API_URL=http://127.0.0.1:8000/api`.
+- Database `tracking` on `127.0.0.1:5432`, user `tracking`, password `tracking`. Enable the `postgis` extension before migrating.
+- `php artisan test` uses in-memory SQLite and does not run the geography migration.
+- The seeded system admin comes from `database/factories/UserFactory.php`.
+- `VITE_MAPBOX_ACCESS_TOKEN` is only needed for the tracking map. Login and registry screens work without it.
+
+
+
 This repository contains a Laravel application. Complete the following setup before working on the user's request.
 
 ## Prerequisites
